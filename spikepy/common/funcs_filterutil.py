@@ -46,7 +46,7 @@
 
 """filter related utility functions
 
-!! filtering implementations are outsourced to common.mcfilter.py !!
+!! filtering implementations are outsourced to spikepy.common.mcfilter.py !!
 """
 from spikepy.common import mcfilter
 
@@ -56,7 +56,7 @@ __all__ = ['xi_vs_f', 'kteo', 'mteo']
 ##--- IMPORTS
 
 import scipy as sp
-from spikepy.common.funcs_general import mcvec_from_conc
+from .funcs_general import mcvec_from_conc
 
 ##---FUNCTIONS
 
@@ -188,8 +188,8 @@ def kteo(X, k=1):
 ##--- MAIN
 
 def xvf_test():
-    from common import mcvec_to_conc
-    from plot import P
+    from spikepy.common import mcvec_to_conc
+    from spikeplot import plt
 
     xi1 = sp.array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 6, 4, 2, 0]] * 2,
                    dtype=float).T
@@ -197,8 +197,8 @@ def xvf_test():
                    dtype=float).T
     xc = mcfilter(xi2, xi1)
     print xi1.shape, xi2.shape, xc.shape
-    P.plot(xc)
-    P.show()
+    plt.plot(xc)
+    plt.show()
 
     xis = sp.asarray([mcvec_to_conc(xi1), mcvec_to_conc(xi2)])
     print xis.shape

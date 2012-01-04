@@ -345,7 +345,7 @@ class NormalisedMatchedFilterNode(FilterNode):
 
 if __name__ == '__main__':
     # imports
-    from common import mcfilter
+    from spikepy.common import mcfilter
 
     # setup
     TF = 10
@@ -381,11 +381,12 @@ if __name__ == '__main__':
     y_h = sp.concatenate([y_h_out[late:], pad])
 
     #  plot
-    from plot import P
+    from spikeplot import plt
 
-    P.plot(mcfilter(x, mf_h.f), label='mcfilter (scipy.correlate)', color='r')
-    P.plot(y_h + .02, label='mcfilter_hist (py/c)', color='g')
-    P.plot(signal + 5)
-    P.plot(x + 15)
-    P.legend()
-    P.show()
+    plt.plot(mcfilter(x, mf_h.f), label='mcfilter (scipy.correlate)',
+             color='r')
+    plt.plot(y_h + .02, label='mcfilter_hist (py/c)', color='g')
+    plt.plot(signal + 5)
+    plt.plot(x + 15)
+    plt.legend()
+    plt.show()

@@ -457,7 +457,7 @@ class FilterBankSortingNode(SortingNode):
         """plot the Xi vs F Tensor of the filter bank"""
 
         # imports
-        from plot import xvf_tensor
+        from spikeplot import xvf_tensor
 
         # build concatenated templates and filters
         temps = sp.zeros((len(self.bank), self._tf * self._nc))
@@ -475,7 +475,7 @@ class FilterBankSortingNode(SortingNode):
         """plot the template set in a waveform plot"""
 
         # imports
-        from plot import waveforms
+        from spikeplot import waveforms
 
         # plot waveforms
         data = dict(zip(xrange(len(self.bank)),
@@ -590,7 +590,7 @@ class FSSNode(FilterBankSortingNode):
         """
 
         # imports
-        from plot import mcdata, COLOURS
+        from spikeplot import mcdata, COLOURS
 
         # create events
         ev = {}
@@ -616,7 +616,7 @@ class FSSNode(FilterBankSortingNode):
         applied"""
 
         # imports
-        from plot import xvf_tensor
+        from spikeplot import xvf_tensor
 
         # apply deconfusion to xcorrs
         my_xcorrs = self._xcorrs.copy()
@@ -778,7 +778,7 @@ class BOTMNode(FilterBankSortingNode):
         n_ep = spk_ep.shape[0]
 
         if self.debug:
-            from plot import mcdata
+            from spikeplot import mcdata
 
             mcdata(self._data, other=self._disc, epochs=spk_ep, show=True)
 
@@ -838,7 +838,7 @@ class BOTMNode(FilterBankSortingNode):
     def sorting2gdf(self, fname):
         """yield the gdf representing the current sorting"""
 
-        from common import GdfFile
+        from spikepy.common import GdfFile
 
         GdfFile.write_gdf(fname, self.rval)
 
@@ -846,7 +846,7 @@ class BOTMNode(FilterBankSortingNode):
         """plot the sorting of the last data chunk"""
 
         # imports
-        from plot import mcdata, COLOURS
+        from spikeplot import mcdata, COLOURS
 
         # create events
         ev = {}
@@ -891,7 +891,7 @@ class BOTMNode(FilterBankSortingNode):
 ##---MAIN
 
 def main_single(do_plot=True):
-    from plot import mcdata, P
+    from spikeplot import plt, mcdata
     import time
 
     # test setup
@@ -945,11 +945,11 @@ def main_single(do_plot=True):
         print 'overlap method:', ovlp_meth
         mcdata(x, events=ev, other=fouts, title='overlap method: %s' % ovlp_meth)
         FB.plot_xvft()
-        P.show()
+        plt.show()
 
 
 def main_double(do_plot=True):
-    from plot import mcdata, P
+    from spikeplot import mcdata, plt
     import time
 
     # test setup
@@ -1022,7 +1022,7 @@ def main_double(do_plot=True):
     print ev
     mcdata(x, events=ev, other=fouts, title='overlap method: %s' % ovlp_meth)
     print 'overlap method:', ovlp_meth
-    P.show()
+    plt.show()
 
 if __name__ == '__main__':
     from sys import argv

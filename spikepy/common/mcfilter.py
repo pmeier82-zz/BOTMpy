@@ -252,7 +252,7 @@ def mcfilter_hist_py_test(inp=None, plot=False):
         fouts.append(r)
 
     if plot:
-        from plot import mcdata
+        from spikeplot import mcdata
 
         other = sp.atleast_2d(sp.concatenate(fouts)).T
         other = sp.vstack([other, sp.zeros((int(TF / 2 - 1), 1))])[
@@ -294,7 +294,7 @@ def mcfilter_hist_c_test(inp=None, plot=False):
         fouts.append(r)
 
     if plot:
-        from plot import mcdata
+        from spikeplot import mcdata
 
         mcdata(x, other=sp.atleast_2d(sp.concatenate(fouts)).T)
 

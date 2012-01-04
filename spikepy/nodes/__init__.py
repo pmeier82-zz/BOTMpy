@@ -50,17 +50,17 @@ __docformat__ = 'restructuredtext'
 ##---PACKAGE
 
 from mdp.nodes import PCANode
-from alignment_nodes import *
-from artifact_nodes import *
-from base_nodes import *
-from cluster_nodes import *
-from conversion_nodes import *
-from detector_nodes import *
-from filter_nodes import *
-from filter_sorting import *
-from prewhiten_nodes import *
-from smooth_nodes import *
-from sorting_nodes import *
+from .alignment_nodes import *
+from .artifact_nodes import *
+from .base_nodes import *
+from .cluster_nodes import *
+from .conversion_nodes import *
+from .detector_nodes import *
+from .filter_nodes import *
+from .filter_sorting import *
+from .prewhiten_nodes import *
+from .smooth_nodes import *
+from .sorting_nodes import *
 
 ##---MAIN
 

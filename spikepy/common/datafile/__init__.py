@@ -49,12 +49,12 @@ __docformat__ = 'restructuredtext'
 
 ##---PACKAGE
 
-from datafile import *
-from atf import *
-from gdf import *
-from nas import *
-from wri import *
-from xpd import *
+from .datafile import *
+from .atf import *
+from .gdf import *
+from .nas import *
+from .wri import *
+from .xpd import *
 
 ##---MAIN
 

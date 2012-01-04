@@ -616,14 +616,14 @@ if __name__ == '__main__':
     print whiC12tf67
     print whiC12tf67.shape
 
-    from plot import P
+    from spikeplot import plt
 
-    P.matshow(Calltf67)
-    P.colorbar(ticks=range(16))
-    P.matshow(C12tf67)
-    P.colorbar(ticks=range(16))
-    P.matshow(iC12tf67)
-    P.colorbar(ticks=range(16))
-    P.matshow(whiC12tf67)
-    P.colorbar(ticks=range(16))
-    P.show()
+    plt.matshow(Calltf67)
+    plt.colorbar(ticks=range(16))
+    plt.matshow(C12tf67)
+    plt.colorbar(ticks=range(16))
+    plt.matshow(iC12tf67)
+    plt.colorbar(ticks=range(16))
+    plt.matshow(whiC12tf67)
+    plt.colorbar(ticks=range(16))
+    plt.show()

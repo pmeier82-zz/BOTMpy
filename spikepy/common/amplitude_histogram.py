@@ -366,7 +366,7 @@ def main1():
 
 
 def main2():
-    from database import MunkSession
+    from spikedb import MunkSession
 
     EXP = 'L011'
     TNR = 7
