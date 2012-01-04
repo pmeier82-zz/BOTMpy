@@ -1,0 +1,21 @@
+THINGS TO NOTE:
+
+EXPERIMENT 19022008
+===================
+
+Trials 33 and 34
+----------------
+These trials have issues with the stimmulation of the first cell. The 
+intracellular trace does not cross into positive voltages, resulting in no
+extracellular mesurable spikes!
+
+Trials 36 and 37
+----------------
+missing
+
+
+EXPERIMENT 24022009
+===================
+
+EXPERIMENT HA25022009
+=====================
