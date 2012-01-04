@@ -45,43 +45,54 @@
 
 
 """setuptools script"""
+
 __docformat__ = 'restructuredtext'
 
+from setuptools import setup
 
-##--- IMPORTS
+def find_version():
+    """read version from __init__"""
+    rval = '0'
+    try:
+        f = open('./spikepy/__init__.py', 'r')
+        try:
+            for line in f:
+                if line.startswith('__version__'):
+                    rval = line.split()[-1][1:-1]
+                    break
+        finally:
+            f.close()
+    except:
+        rval = '0'
+    return rval
 
-from ez_setup import use_setuptools
+DESC_TITLE = 'SpikePy : online spike sorting with linear fitlers'
+DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
+VERSION = find_version()
 
-use_setuptools()
-from setuptools import setup, find_packages
+if __name__ == "__main__":
+    setup(name="SpikePy",
+          version=VERSION,
+          packages=['spikepy', 'spikepy.nodes', 'spikepy.ntrode',
+                    'spikepy.common', 'spikepy.common.datafile'],
+          include_package_data=True,
+          install_requires=['scipy', 'scikits.learn', 'mdp', 'tables'],
+          requires=[],
 
-##--- SETUP
-
-setup(
-    # basic info
-    name='SpikePy',
-    version='0.1dev',
-    description='A python package for spike sorting and '\
-                'electro-physiological data processing',
-    long_description="""yet to come :/""",
-    # PyPI info
-    author='Philipp Meier',
-    author_email='pmeier82@googlemail.com',
-    url='http://www.ni.tu-berlin.de/'\
-        'menue/research/projects/and/spike_sorting_and_spike_train_analysis',
-    license='MIT-ish',
-    # dependancies
-    packages=['spikepy', 'spikepy.nodes', 'spikepy.ntrode', 'spikepy.common',
-              'spikepy.common.datafile'],
-    package_data={
-        '':['*.txt'],
-        'doc':['*.*']
-    },
-
-    install_requires=[
-        'scipy',
-        'scikits.learn',
-        'mdp',
-        'tables'
-    ],
-    zip_safe=False)
+          # metadata
+          author="Philipp Meier",
+          author_email="pmeier82@googlemail.com",
+          maintainer="Philipp Meier",
+          maintainer_email="pmeier82@googlemail.com",
+          description=DESC_TITLE,
+          long_description=DESC_LONG,
+          license="MIT License",
+          url='http://ni.tu-berlin.de',
+          classifiers=[
+              'Development Status :: 4 - Beta',
+              'Intended Audience :: Science/Research',
+              'License :: OSI Approved :: MIT License',
+              'Natural Language :: English',
+              'Operating System :: OS Independent',
+              'Programming Language :: Python',
+              'Topic :: Scientific/Engineering :: Bio-Informatics'])
