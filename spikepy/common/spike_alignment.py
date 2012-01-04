@@ -141,18 +141,18 @@ def get_aligned_spikes(data, spiketrain, cut, align_at, mc=True,
 
 if __name__ == '__main__':
     # initial imports and constants
-    from plot import P, waveforms
+    from spikeplot import plt, waveforms
 
     TF = 65
     OFF = 20
     KIND = 'min'
 
     # get a spikes train
-    from database import MunkSession
+    from spikedb import MunkSession
 
     DB = MunkSession()
     data = DB.get_tetrode_data(1, 3)
-    from nodes import SDMteoNode
+    from spikepy.nodes import SDMteoNode
 
     SD = SDMteoNode(tf=TF, threshold_factor=3.5)
     SD(data)
@@ -179,5 +179,5 @@ if __name__ == '__main__':
     waveforms(spikes_aligned, tf=TF, title='ALIGNED SPIKES ["%s"]' % KIND,
               show=False)
     for c in xrange(4):
-        P.axvline(c * TF + 20)
-    P.show()
+        plt.axvline(c * TF + 20)
+    plt.show()

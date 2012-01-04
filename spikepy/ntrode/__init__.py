@@ -54,8 +54,8 @@ __docformat__ = 'restructuredtext'
 
 ##---PACKAGE
 
-from ntrode import *
-from handler import *
+from .ntrode import *
+from .handler import *
 
 ##---MAIN
 

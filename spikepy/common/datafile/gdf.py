@@ -51,8 +51,8 @@ __all__ = ['GdfFile']
 ##---IMPORTS
 
 import scipy as sp
+from spikepy.common import sortrows
 from spikepy.common.datafile.datafile import DataFile
-from common import sortrows
 
 ##---CLASSES
 

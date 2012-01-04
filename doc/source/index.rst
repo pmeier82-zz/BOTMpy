@@ -8,13 +8,8 @@ Welcome to SpikePy's documentation!
 
 Contents:
 
-.. automodule:: common
+.. automodule:: spikepy
     :members:
-
-.. automodule:: database
-.. automodule:: nodes
-.. automodule:: ntrode
-.. automodule:: plot
 
 .. toctree::
    :maxdepth: 2

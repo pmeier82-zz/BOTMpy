@@ -51,8 +51,8 @@ __all__ = ['WriFile', '_WRI_H']
 ##---IMPORTS
 
 import scipy as sp
+from spikepy.common import dict_list_to_ndarray
 from spikepy.common.datafile.datafile import DataFile, DataFileError
-from common import dict_list_to_ndarray
 
 ##---CONSTANTS
 

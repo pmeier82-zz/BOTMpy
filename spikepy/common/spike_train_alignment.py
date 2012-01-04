@@ -53,7 +53,7 @@ __all__ = ['align_spike_trains', 'similarity', 'simi', 'overlaps',
 ##--- IMPORTS
 
 import scipy as sp
-from common import dict_list_to_ndarray, dict_sort_ndarrays, matrix_argmax
+from spikepy.common import dict_list_to_ndarray, dict_sort_ndarrays, matrix_argmax
 
 ##--- FUNCTIONS
 
@@ -550,9 +550,9 @@ if __name__ == '__main__':
     E = {0:sp.array([1, 100, 200, 305, 307]), 1:sp.array([50, 150, 250, 590, 550, 648, 720])}
 
     ret = align_spike_trains(G, E, max_shift=2, max_jitter=12)
-    from plot import P, spike_trains
+    from spikeplot import plt, spike_trains
 
-    fig = P.figure(facecolor='white')
+    fig = plt.figure(facecolor='white')
     spike_trains(G, spiketrains2=E, alignment=ret['alignment'], label1=ret['GL'], label2=ret['EL'], plot_handle=fig,
                  samples_per_second=16000)
     print 'Done Plot 0.'
@@ -568,12 +568,11 @@ if __name__ == '__main__':
 #    E[0] = sp.array([42, 80, 170, 401])
 #    E[1] = sp.array([40, 90, 150, 180, 190, 250, 348, 420])
 #
-#    #ret = align_spike_trains(G, E, maxshift=2, maxjitter=2)
-#   # print ret
-#    import common.plot as plot
+#    # ret = align_spike_trains(G, E, maxshift=2, maxjitter=2)
+#    # print ret
 #
-#    #print 'lala 1'
-#    #plot.spike_trains(G, spiketrains2=E, alignment=ret['alignment'], show=0)
+#    # print 'lala 1'
+#    # spike_trains(G, spiketrains2=E, alignment=ret['alignment'], show=False)
 #
 #    print 'Done Plot 1.'
 #
@@ -591,8 +590,7 @@ if __name__ == '__main__':
 #    ret = align_spike_trains(G, E, maxshift=2, maxjitter=2, maxoverlapdistance=5)
 #    print ret
 #
-#    from plot import P, spiketrains
-#    fig = P.figure(facecolor='white')
+#    fig = plt.figure(facecolor='white')
 #    spike_trains(G, spiketrains2=E, alignment=ret['alignment'], label1=ret['GL'], label2=ret['EL'], plot_handle=fig, samples_per_second=16000)
 #    print 'Done Plot 2.'
 #===============================================================================

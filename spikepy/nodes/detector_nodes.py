@@ -60,8 +60,8 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 ##--- IMPORTS
 
 import scipy as sp
-from common import (threshold_detection, extract_spikes, merge_epochs, get_cut,
-                    kteo, mteo, INDEX_DTYPE)
+from spikepy.common import (threshold_detection, extract_spikes, merge_epochs,
+                            get_cut, kteo, mteo, INDEX_DTYPE)
 from .base_nodes import ResetNode
 
 ##--- CLASSES
@@ -343,15 +343,14 @@ class ThresholdDetectorNode(ResetNode):
     def plot(self, show=False):
         """plot detection in mcdata plot"""
 
-        from plot import P, mcdata
+        from spikeplot import plt, mcdata
 
         fig = mcdata(self.data, other=self.energy, events={0:self.events},
                      show=False)
         for i in xrange(self.nchan):
             fig.axes[-1].axhline(self.threshold[i])
         if show is True:
-            P.show()
-
+            plt.show()
 
 ## spike detector implementations
 
