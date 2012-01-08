@@ -48,15 +48,15 @@
 
 !! filtering implementations are outsourced to spikepy.common.mcfilter.py !!
 """
-from spikepy.common import mcfilter
 
 __docformat__ = 'restructuredtext'
 __all__ = ['xi_vs_f', 'kteo', 'mteo']
 
-##--- IMPORTS
+##---IMPORTS
 
 import scipy as sp
 from .funcs_general import mcvec_from_conc
+from .mcfilter import mcfilter
 
 ##---FUNCTIONS
 

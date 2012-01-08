@@ -110,8 +110,7 @@ def mcfilter(mc_data, mc_fir, correlate_mode='same'):
     This is the python implementation for batch mode filtering.
 
     We do not need to account for zero padding, as we are only interested in
-     the
-    'same' size vector of the xcorr.
+    the 'same' size vector of the xcorr.
 
     :Parameters:
         mc_data : ndarray

@@ -8,11 +8,10 @@ Welcome to SpikePy's documentation!
 
 Contents:
 
-.. automodule:: spikepy
-    :members:
-
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
+
+    spikepy/modules
 
 Indices and tables
 ==================
@@ -20,4 +19,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
