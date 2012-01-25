@@ -53,7 +53,7 @@ processing and output.
 """
 
 __docformat__ = 'restructuredtext'
-__all__ = ['NTrodeError', 'NTrode']
+__all__ = ['NTrodeError', 'NTrode', 'NTrodeMemory']
 
 ##---IMPORTS
 
@@ -67,6 +67,30 @@ _INP_HDL_ID = 0
 
 class NTrodeError(Exception):
     pass
+
+
+class NTrodeMemory(object):
+    def reset(self):
+        self.__dict__.clear()
+        self.__init__()
+
+    def __del__(self):
+        self.__dict__.clear()
+
+    def __str__(self, n=0):
+        attr = [k for k in self.__dict__ if not k.startswith('_')]
+        rval = ['{NTrodeMemory(%d)' % len(attr)]
+        for k in attr:
+            if isinstance(self.__dict__[k], NTrodeMemory):
+                rval.append('%s%s : %s' % ('\t' * n,
+                                           k,
+                                           self.__dict__[k].__str__(n + 1)))
+            else:
+                rval.append('%s%s : %s' % ('\t' * n,
+                                           k,
+                                           str(self.__dict__[k])))
+        rval.append('}')
+        return '\n'.join(rval)
 
 
 class NTrode(Process):
@@ -104,13 +128,13 @@ class NTrode(Process):
         }
 
         # NTrode memory namespace
-        self.mem = {}
+        self.mem = NTrodeMemory()
 
         # handler list
         if init_handlers is None:
             raise ValueError('init_handlers is None!')
         self._handlers = None
-        self.mem['init_handlers'] = init_handlers
+        self.mem.init_handlers = init_handlers
 
         # members
         self.debug = debug
@@ -122,7 +146,7 @@ class NTrode(Process):
 
         # build and attach handlers
         self._handlers = []
-        for item in self.mem['init_handlers']:
+        for item in self.mem.init_handlers:
             handler = item[0](**item[1])
             handler.attach(self)
             self._handlers.append(handler)
@@ -133,6 +157,12 @@ class NTrode(Process):
         # initialise handlers
         for item in self._handlers:
             item.initialise()
+
+        if self.debug is True:
+            print
+            print self.mem
+            print
+            # raw_input('press a key to continue!')
 
     def finalise(self):
         """public finalization handler"""
@@ -149,7 +179,7 @@ class NTrode(Process):
         """public reset interface"""
 
         self._reset()
-        self.mem = {}
+        self.mem.reset()
         self._cur_state = 'OFF'
 
     def invoke_handlers(self):
@@ -176,8 +206,7 @@ class NTrode(Process):
         """start the NTrode for automated operation
 
         this state-flow is started in a seperate process by calling self
-        .start()
-        or in the calling processss by calling self.run()."""
+        .start() or in the calling process by calling self.run()."""
 
         # go in statemachine mode
         while self._check_cycle_criterion() is True:

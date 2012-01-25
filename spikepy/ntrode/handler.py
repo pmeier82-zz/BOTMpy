@@ -57,13 +57,12 @@ common interface for 1) attaching to a NTrode instance, 2) initialisation of
 any members and NTrode-global variables within the namespace of the NTrode
 instance it is attached to, and 3) NTrode-state sensitive invocation.
 """
-
 __docformat__ = 'restructuredtext'
 __all__ = ['NTrodeHandler']
 
 ##---IMPORTS
 
-from .ntrode import NTrode, NTrodeError
+from .ntrode import NTrode, NTrodeError, NTrodeMemory
 
 ##---CLASSES
 
@@ -72,22 +71,23 @@ class NTrodeHandler(object):
 
     Subclass this abstract handler class and write your code into a method,
     then register your new method by inserting a mapping into the
-    self.invoke_for_state dictionary, using the desired NTrode-state as key
+    self._invoke_for_state dictionary, using the desired NTrode-state as key
     """
 
     ## constructor
 
-    def __init__(self, ntrode=None):
+    def __init__(self, ntrode=None, debug=False):
         """
         :Parameters:
             ntrode : NTrode
                 parent reference
         """
 
-        self.is_attached = False
-        self.is_initialised = False
+        self._is_attached = False
+        self._is_initialised = False
+        self._invoke_for_state = {}
+        self._debug = bool(debug)
         self.mem = None
-        self.invoke_for_state = {}
 
         if ntrode is not None:
             self.attach(ntrode)
@@ -101,34 +101,36 @@ class NTrodeHandler(object):
         if not issubclass(ntrode.__class__, NTrode):
             raise NTrodeError('No NTrode instance given, got %s instead'
             % ntrode.__class__.__name__)
-        if self.is_attached is True:
+        if self._is_attached is True:
             raise NTrodeError('handler is already attached')
             # grab a ref to the namespace
         self.mem = ntrode.mem
-        self.is_attached = True
+        if ntrode.debug is not True:
+            self._debug = ntrode.debug
+        self._is_attached = True
 
     def initialise(self):
         """public initialise hook"""
 
-        if self.is_initialised is True:
+        if self._is_initialised is True:
             return
         self._initialise()
-        self.is_initialised = True
+        self._is_initialised = True
 
     def finalise(self):
         """public finalise hook"""
 
         self._finalise()
-        self.is_attached = False
-        self.is_initialised = False
-        self.mem = None
+        self._is_attached = False
+        self._is_initialised = False
+        del self.mem
 
     def __call__(self, ntrode_state):
         """invoke this handlers context"""
 
-        if self.is_attached is True and self.is_initialised is True:
-            if ntrode_state in self.invoke_for_state:
-                self.invoke_for_state[ntrode_state]()
+        if self._is_attached is True and self._is_initialised is True:
+            if ntrode_state in self._invoke_for_state:
+                self._invoke_for_state[ntrode_state]()
 
     ## private methods
 
