@@ -43,9 +43,10 @@
 #_____________________________________________________________________________
 #
 
-
 """constants for the common package"""
 __docformat__ = 'restructuredtext'
+__all__ = ['INDEX_DTYPE', 'SI8MAX', 'SI16MAX', 'SI32MAX', 'SI64MAX', 'UI8MAX',
+           'UI16MAX', 'UI32MAX', 'UI64MAX']
 
 ##---IMPORTS
 

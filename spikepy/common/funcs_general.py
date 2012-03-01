@@ -44,7 +44,7 @@
 #
 
 
-"""utiliy functions"""
+"""general utility functions"""
 __docformat__ = 'restructuredtext'
 __all__ = ['dict_sort_ndarrays', 'dict_list_to_ndarray', 'filter_calculation',
            'find_sorting', 'matrix_argmax', 'matrix_argmin', 'matrixrank',
@@ -64,12 +64,9 @@ from spikepy.common.constants import *
 def sortrows(data):
     """sort matrix by rows
 
-    :Parameters:
-        data : ndarray
-            the ndarray that should be sorted by its rows
-    :Returns:
-        ndarray
-            data sorted by its rows.
+    :type data: ndarray
+    :param data: ndarray that should be sorted by its rows
+    :returns: ndarray - data sorted by its rows.
     """
 
     return sp.sort(

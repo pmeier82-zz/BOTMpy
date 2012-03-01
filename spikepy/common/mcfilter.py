@@ -62,6 +62,7 @@ import os
 import platform
 from ctypes import CDLL, c_uint, c_ushort
 import scipy as sp
+from funcs_general import mcvec_from_conc, mcvec_to_conc
 
 ##---LIBRARY
 
@@ -207,7 +208,7 @@ if _LIB_HANDLE is not None:
 
         # inits
         mc_fout = sp.zeros(mc_data.shape[0], dtype=sp.float32, order='C')
-        # XXX: for now we leave these convert here
+        # XXX: for now we leave these converts here
         mc_data = sp.ascontiguousarray(mc_data, dtype=sp.float32)
         mc_fir = sp.ascontiguousarray(mc_fir, dtype=sp.float32)
         mc_hist = sp.ascontiguousarray(mc_hist, dtype=sp.float32)

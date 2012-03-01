@@ -45,16 +45,18 @@
 
 """helper functions for debug output"""
 __docformat__ = 'restructuredtext'
-__all__ = ['STD_INFO', 'STD_ERROR', 'd_info', 'd_err', 'd_var']
+__all__ = ['STD_INFO', 'STD_ERROR', 'set_std_info', 'd_info', 'd_err',
+           'd_var']
 
 ##---IMPORTS
 
 import sys
-import scipy as sp
 
 ##---CONSTANTS
 
+global STD_INFO
 STD_INFO = sys.stdout
+global STD_ERROR
 STD_ERROR = sys.stderr
 
 ##---FUNCTIONS

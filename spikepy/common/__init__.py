@@ -61,8 +61,9 @@ from .matrix_loading import *
 from .mcfilter import *
 from .ringbuffer import *
 from .spike_alignment import *
-# don not put this in alphabetic order, thanks
 from .datafile import *
+
+# do not change the import order here!! thanks
 
 # LEGACY!!!
 # from .spike_train_alignment import *
