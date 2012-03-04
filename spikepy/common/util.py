@@ -43,58 +43,79 @@
 #_____________________________________________________________________________
 #
 
-"""helper functions for debug output"""
+"""constants for the common package"""
 __docformat__ = 'restructuredtext'
-__all__ = ['STD_INFO', 'STD_ERROR', 'set_std_info', 'd_info', 'd_err',
-           'd_var']
+__all__ = ['INDEX_DTYPE', 'SI8MAX', 'SI16MAX', 'SI32MAX', 'SI64MAX', 'UI8MAX',
+           'UI16MAX', 'UI32MAX', 'UI64MAX', 'deprecated']
 
 ##---IMPORTS
 
-import sys
+import warnings
+import scipy as sp
 
 ##---CONSTANTS
 
-global STD_INFO
-STD_INFO = sys.stdout
-global STD_ERROR
-STD_ERROR = sys.stderr
+## index type
+INDEX_DTYPE = sp.dtype(sp.int64)
 
-##---FUNCTIONS
+## integer max values
+SI8MAX = sp.iinfo(sp.int8).max
+SI16MAX = sp.iinfo(sp.int16).max
+SI32MAX = sp.iinfo(sp.int32).max
+SI64MAX = sp.iinfo(sp.int64).max
+UI8MAX = sp.iinfo(sp.uint8).max
+UI16MAX = sp.iinfo(sp.uint16).max
+UI32MAX = sp.iinfo(sp.uint32).max
+UI64MAX = sp.iinfo(sp.uint64).max
 
-def set_std_info(stream):
-    """relocate standard info stream"""
+##---DECORATORS
 
-    if not hasattr(stream, 'write'):
-        raise TypeError('need to implement the file/Stream interface!')
-    STD_INFO = stream
+# found here http://code.activestate.com/recipes/577819-deprecated-decorator/
+# Author: Giampaolo Rodola <g.rodola [AT] gmail [DOT] com>
+# License: MIT
+def deprecated(replacement=None):
+    """A decorator which can be used to mark functions as deprecated.
+    replacement is a callable that will be called with the same args
+    as the decorated function.
 
+    >>> @deprecated()
+    ... def foo(x):
+    ...     return x
+    ...
+    >>> ret = foo(1)
+    DeprecationWarning: foo is deprecated
+    >>> ret
+    1
+    >>>
+    >>>
+    >>> def newfun(x):
+    ...     return 0
+    ...
+    >>> @deprecated(newfun)
+    ... def foo(x):
+    ...     return x
+    ...
+    >>> ret = foo(1)
+    DeprecationWarning: foo is deprecated; use newfun instead
+    >>> ret
+    0
+    >>>
+    """
 
-def d_info(*args):
-    """debug output to info stream"""
+    def outer(oldfun):
+        def inner(*args, **kwargs):
+            msg = "%s is deprecated" % oldfun.__name__
+            if replacement is not None:
+                msg += "; use %s instead" % (replacement.__name__)
+            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            if replacement is not None:
+                return replacement(*args, **kwargs)
+            else:
+                return oldfun(*args, **kwargs)
 
-    _write_to_stream(STD_INFO, args[0] % args[1:])
+        return inner
 
-
-def d_err(*args):
-    """debug output to error stream"""
-
-    _write_to_stream(STD_ERROR, args[0] % args[1:])
-
-
-def d_var(*args):
-    """debug output of :var: in format "<name> : value" to info stream"""
-
-    if len(args) > 0:
-        for item in args:
-            try:
-                _write_to_stream(STD_INFO, '%s : %s\n' % (
-                    item.__class__.__name__, item))
-            except:
-                _write_to_stream(STD_INFO, ':: unknown item ::\n')
-
-
-def _write_to_stream(s, text):
-    s.write(text)
+    return outer
 
 ##---MAIN
 

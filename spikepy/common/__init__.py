@@ -49,8 +49,7 @@ __docformat__ = 'restructuredtext'
 
 ##---PACKAGE
 
-from .constants import *
-from .debug_helpers import *
+from .util import *
 
 from .amplitude_histogram import *
 from .covariance_estimator import *
@@ -63,7 +62,7 @@ from .ringbuffer import *
 from .spike_alignment import *
 from .datafile import *
 
-# do not change the import order here!! thanks
+# do not change the import order!! thanks
 
 # LEGACY!!!
 # from .spike_train_alignment import *

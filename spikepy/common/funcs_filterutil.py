@@ -46,7 +46,8 @@
 
 """filter related utility functions
 
-!! filtering implementations are outsourced to spikepy.common.mcfilter.py !!
+!! multichanneled crosscorrelation filtering implementations are outsourced
+to spikepy.common.mcfilter.py !!
 """
 
 __docformat__ = 'restructuredtext'
@@ -54,6 +55,7 @@ __all__ = ['xi_vs_f', 'kteo', 'mteo']
 
 ##---IMPORTS
 
+from .util import *
 import scipy as sp
 from .funcs_general import mcvec_from_conc
 from .mcfilter import mcfilter
@@ -67,18 +69,15 @@ def xi_vs_f(xi, f, nc=4):
     with a certain lag is returned as ndarray with dimensions [xi, f, tau].
     All multichanneled vectors are presented in their concatenated form.
 
-    :Parameters:
-        xi : ndarray
-            The patterns, one concatenated pattern per row.
-        f : ndarray
-            The filters, one concatenated filter per row.
-        nc : int
-            The channel count for the concatenated patterns and filters.
-            Default=4
-    :Returns:
-        ndarray
-            The tensor of cross-correlation for each pattern with each filter.
-            Dimensions as [xi, f, xcorr].
+    :type xi: ndarray
+    :param xi: The patterns, one concatenated pattern per row.
+    :type f: ndarray
+    :param f: The filters, one concatenated filter per row.
+    :type nc: int
+    :param nc: The channel count for the concatenated patterns and filters.
+        Default=4
+    :returns: ndarray - The tensor of cross-correlation for each pattern
+        with each filter. Dimensions as [xi, f, xcorr].
     """
 
     # inits and checks
@@ -121,19 +120,15 @@ def mteo(X, kvalues=[1, 3, 5], condense=True):
     ^2),
     as suggested in Choi et al., 2006.
 
-    :Parameters:
-        X : ndarray
-            The signal to operate on. ndim=1
-        kvalues : list
-            List of k-values to run the kteo for. If you want to give a single
-            k-value, either use the kteo directly or put it in a list like
-            [2].
-    :Returns:
-        ndarray
-            Array of same shape as the input signal, holding the response of
-             the
-            kteo which response was maximum after smoothing for each sample in
-            the input signal.
+    :type X: ndarray
+    :param X: The signal to operate on. ndim=1
+    :type kvalues: list
+    :param kvalues: List of k-values to run the kteo for. If you want to give
+        a single k-value, either use the kteo directly or put it in a list
+        like [2].
+    :return: ndarray- Array of same shape as the input signal, holding the
+        response of the kteo which response was maximum after smoothing for
+        each sample in the input signal.
     """
 
     # inits
@@ -160,16 +155,13 @@ def kteo(X, k=1):
     The discrete teager energy operator (TEO) of window size k is defined as:
     M{S{Psi}[x(n)] = x^2(n) - x(n-k) x(n+k)}
 
-    :Parameters:
-        X : ndarray
-            The signal to operate on. ndim=1
-        k : int
-            Parameter defining the window size for the TEO.
-    :Returns:
-        ndarray
-            Array of same shape as the input signal,
-            holding the kteo response.
-    :Exception ValueError: If inconsistant dims or shapes.
+    :type X: ndarray
+    :param X: The signal to operate on. ndim=1
+    :type k: int
+    :param k: Parameter defining the window size for the TEO.
+    :return: ndarray - Array of same shape as the input signal, holding the
+        kteo response.
+    :except: If inconsistant dims or shapes.
     """
 
     # checks and inits
@@ -187,23 +179,5 @@ def kteo(X, k=1):
 
 ##--- MAIN
 
-def xvf_test():
-    from spikepy.common import mcvec_to_conc
-    from spikeplot import plt
-
-    xi1 = sp.array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 6, 4, 2, 0]] * 2,
-                   dtype=float).T
-    xi2 = sp.array([[0, 2, 4, 6, 8, 7, 6, 5, 4, 3, 2, 1, 0]] * 2,
-                   dtype=float).T
-    xc = mcfilter(xi2, xi1)
-    print xi1.shape, xi2.shape, xc.shape
-    plt.plot(xc)
-    plt.show()
-
-    xis = sp.asarray([mcvec_to_conc(xi1), mcvec_to_conc(xi2)])
-    print xis.shape
-    xvf = xi_vs_f(xis, xis, nc=2)
-    print xvf
-
 if __name__ == '__main__':
-    xvf_test()
+    pass

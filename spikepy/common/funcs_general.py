@@ -46,16 +46,21 @@
 
 """general utility functions"""
 __docformat__ = 'restructuredtext'
-__all__ = ['dict_sort_ndarrays', 'dict_list_to_ndarray', 'filter_calculation',
+__all__ = ['sortrows', 'vec2ten', 'ten2vec', 'mcvec_to_conc',
+           'mcvec_from_conc', 'xcorr',
+
+           'dict_sort_ndarrays', 'dict_list_to_ndarray',
+           'filter_calculation',
            'find_sorting', 'matrix_argmax', 'matrix_argmin', 'matrixrank',
-           'princomp', 'shift_rows', 'shifted_matrix_mul', 'sortrows',
-           'shifted_matrix_sub', 'ten2vec', 'vec2ten', 'xcorr',
-           'mcvec_from_conc', 'mcvec_to_conc', 'get_idx']
+           'princomp', 'shift_rows', 'shifted_matrix_mul',
+           'shifted_matrix_sub', 'ten2vec',
+           'get_idx']
 
 ##--- IMPORTS
 
+import scipy as sp
 from scipy import linalg as sp_la
-from spikepy.common.constants import *
+from .util import *
 
 ##---FUNCTIONS
 
@@ -76,18 +81,14 @@ def sortrows(data):
 
 def vec2ten(data, nchan=4):
     """converts from templates/spikes that are concatenated across the
-    channels
-    to tensors that have an extra dim for the channels
+    channels to tensors that have an extra dim for the channels
 
-    :Parameters:
-        data : ndarray
-            input array [templates][vars * channels]
-        nchan : int
-            count of channels
-            Default=4
-    :Returns:
-        ndarray
-            data converted to tensor [templates][vars][channels]
+    :type data: ndarray
+    :param data: input array [templates][vars * channels]
+    :type nchan: int
+    :param nchan: count of channels
+        Default=4
+    :returns: ndarray - data converted to tensor [templates][vars][channels]
     """
 
     if data.ndim == 1:
@@ -111,13 +112,10 @@ def ten2vec(data):
     """converts from templates/spikes that are not concatenated across the
     channels to vectors.
 
-    :Parameters:
-        data : ndarray
-            input array [templates][vars][channels]
-    :Returns:
-        ndarray
-            data converted to concatenated vectors [templates][channels *
-            vars]
+    :type data: ndarray
+    :param data: input array [templates][vars][channels]
+    :returns: ndarray- data converted to concatenated vectors
+        [templates][channels * vars]
     """
 
     # init
@@ -184,6 +182,7 @@ def xcorr(a, b=None, lag=None, unbiased=False):
     return rval
 
 
+@deprecated
 def princomp(data, explain=0, percentage=False):
     """calculate the principal component projections for data
 

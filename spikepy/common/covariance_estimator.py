@@ -51,6 +51,7 @@ __all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
 
 ##--- IMPORTS
 
+from .util import *
 import scipy as sp
 from scipy import linalg as sp_la
 from spikepy.common.funcs_general import xcorr

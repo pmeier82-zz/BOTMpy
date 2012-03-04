@@ -51,6 +51,7 @@ __all__ = ['AmplitudeHistogram']
 
 ##---IMPORTS
 
+from .util import *
 import scipy as sp
 from spikepy.common.ringbuffer import MxRingBuffer
 
