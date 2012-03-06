@@ -334,6 +334,40 @@ class TestCommonFuncsSpike(ut.TestCase):
             assert_equal(ovlp[k], sts_test[k])
             assert_equal(ovlp_nums[k], sum(sts_test[k]))
 
+
+class TestCommonMatrixOps(ut.TestCase):
+    def old_code_container(self):
+        r = sp.array([1.0, 0.9, 0.8])
+        C = sp_la.toeplitz(r)
+        cnos = [10, 15.3, 50]
+
+        print 'initial matrix:'
+        print C
+        print
+
+        for cno in cnos:
+            print 'initial condition:', matrix_cond(C)
+            print 'target condition:', cno
+            print
+            Ddiag = diagonal_loading(C, cno)
+            Dcol = coloured_loading(C, cno)
+            print 'diagonally loaded:', matrix_cond(Ddiag)
+            print Ddiag
+            print 'coloured loaded:', matrix_cond(Dcol)
+            print Dcol
+            print
+
+        print 'C matrix:', matrix_cond(C)
+        print C
+        Cnew = coloured_loading(C, 10, overwrite_mat=True)
+        print 'Cnew loaded at condition:', matrix_cond(Cnew)
+        print Cnew
+        print 'same matrices: C is Cnew', C is Cnew
+        print
+
+    def testMergeEpochs(self):
+        pass
+
 ##---MAIN
 
 if __name__ == '__main__':

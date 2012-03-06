@@ -44,13 +44,12 @@
 #
 
 
-"""loading algorithms for matrices"""
+"""matrix operations"""
 __docformat__ = 'restructuredtext'
-
-##---ALL
-
 __all__ = ['matrix_cond', 'diagonal_loading', 'coloured_loading',
            'matrix_argmax', 'matrix_argmin']
+
+# TODO: should we enforce square matrices for all ops?
 
 ##---IMPORTS
 
@@ -64,69 +63,89 @@ SUFFICIENT_CONDITION = 50
 ##---FUNCTIONS
 
 def matrix_cond(mat):
-    """yield the matrix condition number w.r.t. l2-norm (using svd)"""
+    """yield the matrix condition number w.r.t. l2-norm (using svd)
 
-    mat_ = sp.atleast_2d(mat)
-    if mat_.ndim != 2:
+    :type mat: ndarray
+    :param mat: input matrix
+    :returns: float - condition number of :mat: or :inf: on error
+    """
+
+    mat = sp.atleast_2d(mat)
+    if mat.ndim != 2:
         raise ValueError('expected matrix')
-    if mat_.size == 0:
+    if mat.size == 0:
         raise ValueError('undefined for empty matrix')
     try:
-        sv = sp_la.svd(mat_, compute_uv=False)
+        sv = sp_la.svd(mat, compute_uv=False)
         return compute_matrix_cond(sv)
     except:
         return sp.inf
 
 
 def compute_matrix_cond(sv):
-    """yield matix condition number w.r.t. l2-norm given a set of singular
-    values"""
+    """yield matrix condition number w.r.t. l2-norm given singular values
 
-    sv_ = sp.atleast_1d(sv)
-    if sv_.ndim != 1:
-        raise ValueError(
-            'please provide singular values as list or 1dim array!')
-    if sv_.size == 0:
+    :type sv: ndarray
+    :param sv: vector of singular values sorted s.t. :sv[i]: >= :sv[i+1]:
+    :returns: float - condition number of :mat: or :inf: on error
+    """
+
+    sv = sp.atleast_1d(sv)
+    if sv.size == 0:
         raise ValueError('undefined for empty list')
     try:
-        return sp.absolute(sv_[0] / sv_[-1])
+        return sp.absolute(sv[0] / sv[-1])
     except:
         return sp.inf
 
 
 def diagonal_loading(mat, target_cond=SUFFICIENT_CONDITION,
                      overwrite_mat=False):
-    """tries to condition the matrix by adding the scaled identity matrix
+    """tries to condition the :mat: by imposing a spherical constraint on the
+    covariance ellipsoid (adding alpha*eye)
 
     solves: cond(mat + alpha*I) = target_cond for alpha
 
-    Note that nothing will be done if the condition is already >= target_cond!
+    Note: this is a noop if the condition is already >= target_cond!
 
-    imposes a spherical constraint on the covariance ellipsoid
+    :type mat: ndarray
+    :param mat: input matrix
+    :type target_cond: float
+    :param target_cond: condition number to archive after loading
+    :type overwrite_mat: bool
+    :param overwrite_mat: if True, operate inplace and overwrite :mat:
+    :returns: ndarray - matrix like :mat: conditioned s.t. cond = target_cond
     """
 
-    mat_ = sp.atleast_2d(mat)
-    if mat_.ndim != 2:
-        raise ValueError('expected matrix')
-    if mat_.size == 0:
+    mat = sp.atleast_2d(mat)
+    if mat.size == 0:
         raise ValueError('undefined for empty matrix')
-    svd = sp_la.svd(mat_)
-    return compute_diagonal_loading(mat_, svd, target_cond, overwrite_mat)
+    svd = sp_la.svd(mat)
+    return compute_diagonal_loading(mat, svd, target_cond, overwrite_mat)
 
 
 def compute_diagonal_loading(mat, svd, target_cond=SUFFICIENT_CONDITION,
                              overwrite_mat=False):
-    """tries to condition the matrix by adding the scaled identity matrix
+    """tries to condition :mat: by imposing a spherical constraint on the
+    covariance ellipsoid (adding alpha*eye)
 
     solves: cond(mat + alpha*I) = target_cond for alpha
 
-    Note that nothing will be done if the condition is already >= target_cond!
+    Note: this is a noop if the condition is already >= target_cond!
 
-    imposes a spherical constraint on the matrix
+    :type mat: ndarray
+    :param mat: input matrix
+    :type svd: tuple
+    :param svd: return tuple of svd(:mat:) - consistency will not be checked!
+    :type target_cond: float
+    :param target_cond: condition number to archive after loading
+    :type overwrite_mat: bool
+    :param overwrite_mat: if True, operate inplace and overwrite :mat:
+    :returns: ndarray - matrix like :mat: conditioned s.t. cond = target_cond
     """
 
     sv = svd[1]
-    if target_cond == 1:
+    if target_cond == 1.0:
         return sp.eye(mat.shape[0], mat.shape[1])
     if target_cond > compute_matrix_cond(sv):
         return mat
@@ -140,31 +159,43 @@ def compute_diagonal_loading(mat, svd, target_cond=SUFFICIENT_CONDITION,
 
 def coloured_loading(mat, target_cond=SUFFICIENT_CONDITION,
                      overwrite_mat=False):
-    """tries to condition the matrix by adjusting the lowest eigenvalues
+    """tries to condition :mat: by inflating the badly conditioned subspace
+    of :mat: using a spherical constraint.
 
-    imposes an spherical constraint on a subspace of the covariance ellipsoid
+    :type mat: ndarray
+    :param mat: input matrix
+    :type target_cond: float
+    :param target_cond: condition number to archive after loading
+    :type overwrite_mat: bool
+    :param overwrite_mat: if True, operate inplace and overwrite :mat:
+    :returns: ndarray - matrix like :mat: conditioned s.t. cond = target_cond
     """
 
-    mat_ = sp.atleast_2d(mat)
-    if mat_.ndim != 2:
-        raise ValueError('expected matrix')
-    if mat_.size == 0:
+    mat = sp.atleast_2d(mat)
+    if mat.size == 0:
         raise ValueError('undefined for empty matrix')
-    svd = sp_la.svd(mat_)
-    return compute_coloured_loading(mat_, svd, target_cond, overwrite_mat)
+    svd = sp_la.svd(mat)
+    return compute_coloured_loading(mat, svd, target_cond, overwrite_mat)
 
 
 def compute_coloured_loading(mat, svd, target_cond=SUFFICIENT_CONDITION,
                              overwrite_mat=False):
-    """tries to condition the matrix by adjusting the lowest eigenvalues
+    """tries to condition :mat: by inflating the badly conditioned subspace
+    of :mat: using a spherical constraint.
 
-    imposes an spherical constraint on the subspace of mat contributing most
-     to
-    the bad conditioning of mat.
+    :type mat: ndarray
+    :param mat: input matrix
+    :type svd: tuple
+    :param svd: return tuple of svd(:mat:) - consistency will not be checked!
+    :type target_cond: float
+    :param target_cond: condition number to archive after loading
+    :type overwrite_mat: bool
+    :param overwrite_mat: if True, operate inplace and overwrite :mat:
+    :returns: ndarray - matrix like :mat: conditioned s.t. cond = target_cond
     """
 
     U, sv = svd[0], svd[1]
-    if target_cond == 1:
+    if target_cond == 1.0:
         return sp.eye(mat.shape[0])
     if target_cond > compute_matrix_cond(sv):
         return mat
@@ -181,78 +212,49 @@ def compute_coloured_loading(mat, svd, target_cond=SUFFICIENT_CONDITION,
     return rval
 
 
-def matrix_argmax(M):
-    """returns the indices (row,col) of the maxmum in M
+def matrix_argmax(mat):
+    """returns the indices (row,col) of the maximum value in :mat:
 
-    :Parameters:
-        M : ndarray
-            ndarray where to find the maximum
-    :Returns:
-        tuple
-            tuple of indices for each dimension of M indicating the max of M.
+    :type mat: ndarray
+    :param mat: input matrix
+    :returns: tuple - (row,col) of the maximum value in :mat:
     """
-    idx = sp.nanargmax(M)
-    j = int(idx % M.shape[1])
-    i = int(sp.floor(idx / M.shape[1]))
+
+    idx = sp.nanargmax(mat)
+    j = int(idx % mat.shape[1])
+    i = int(sp.floor(idx / mat.shape[1]))
     return i, j
 
+    # XXX
     # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
     # UNIQUE!
     # rval = []
-    # for i in reversed(xrange(M.ndim)):
-    #     rval.append(M.max(axis=i).argmax())
+    # for i in reversed(xrange(mat.ndim)):
+    #     rval.append(mat.max(axis=i).argmax())
     # return tuple(rval)
 
 
-def matrix_argmin(M):
-    """returns the indices (row,col) of the minimum in M
+def matrix_argmin(mat):
+    """returns the indices (row,col) of the minimum value in :mat:
 
-    :Parameters:
-        M : ndarray
-            ndarray where to find the minimum
-    :Returns:
-        tuple
-            tuple of indices for each dimension of M indicating the min of M.
+    :type mat: ndarray
+    :param mat: input matrix
+    :returns: tuple - (row,col) of the minimum value in :mat:
     """
-    idx = sp.nanargmin(M)
-    j = int(idx % M.shape[1])
-    i = int(sp.floor(idx / M.shape[1]))
+    idx = sp.nanargmin(mat)
+    j = int(idx % mat.shape[1])
+    i = int(sp.floor(idx / mat.shape[1]))
     return i, j
 
+    # XXX
     # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
     # UNIQUE!
     # rval = []
-    # for i in reversed(xrange(M.ndim)):
-    #     rval.append(M.min(axis=i).argmin())
+    # for i in reversed(xrange(mat.ndim)):
+    #     rval.append(mat.min(axis=i).argmin())
     # return tuple(rval)
 
 ##---MAIN
 
 if __name__ == '__main__':
-    r = sp.array([1.0, 0.9, 0.8])
-    C = sp_la.toeplitz(r)
-    cnos = [10, 15.3, 50]
-
-    print 'initial matrix:'
-    print C
-    print
-
-    for cno in cnos:
-        print 'initial condition:', matrix_cond(C)
-        print 'target condition:', cno
-        print
-        Ddiag = diagonal_loading(C, cno)
-        Dcol = coloured_loading(C, cno)
-        print 'diagonally loaded:', matrix_cond(Ddiag)
-        print Ddiag
-        print 'coloured loaded:', matrix_cond(Dcol)
-        print Dcol
-        print
-
-    print 'C matrix:', matrix_cond(C)
-    print C
-    Cnew = coloured_loading(C, 10, overwrite_mat=True)
-    print 'Cnew loaded at condition:', matrix_cond(Cnew)
-    print Cnew
-    print 'same matrices: C is Cnew', C is Cnew
-    print
+    pass
