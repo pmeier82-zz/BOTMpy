@@ -46,15 +46,15 @@
 
 """functions for spike sorting"""
 __docformat__ = 'restructuredtext'
-__all__ = ['threshold_detection', 'epochs_from_binvec',
-           'epochs_from_spiketrain', 'epochs_from_spiketrain_set',
-           'extract_spikes', 'get_cut', 'chunk_data', 'invert_epochs',
-           'merge_epochs', 'prewhiten', 'snr_maha', 'snr_peak', 'snr_power',
-           'overlaps']
+__all__ = [
+    'threshold_detection', 'merge_epochs', 'invert_epochs',
+    'epochs_from_binvec', 'epochs_from_spiketrain',
+    'epochs_from_spiketrain_set', 'chunk_data', 'extract_spikes', 'get_cut',
+    'snr_maha', 'snr_peak', 'snr_power', 'overlaps']
 
 ##--- IMPORTS
 
-from scipy import linalg as sp_la
+import scipy as sp
 from .util import *
 from .funcs_general import sortrows
 
@@ -65,36 +65,38 @@ from .funcs_general import sortrows
 def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     """detect events by applying a threshold to the data
 
-    :Parameters:
-        data : ndarray
-            the 2d-data to apply the theshold on. channels are in the second
-            dimension (columns).
-            Required
-        th : ndarray or list
-            list of threshold values, one value per channel in the data
-            Required
-        min_dist : int
-            minimal distance two successive events have to be separated in
-            samples, else the event is ignored.
-            Default=1
-        mode : str
-            one of 'gt' for greater than or 'lt' for less than. will determine
-            how the threshold is applied.
-            Default='gt'
-        find_max : bool
-            if True, will find the maximum for each event epoch,
-            else will find
-            the start for each event epoch.
-            Default=True
+    :type data: ndarray
+    :param data: the 2d-data to apply the theshold on. channels are in the
+        second dimension (columns).
+        Required
+    :type th: ndarray or list
+    :param th: list of threshold values, one value per channel in the data
+        Required
+    :type min_dist: int
+    :param min_dist: minimal distance two successive events have to be
+        separated in samples, else the event is ignored.
+        Default=1
+    :type mode: str
+    :param mode: one of 'gt' for greater than or 'lt' for less than. will
+        determine how the threshold is applied.
+        Default='gt'
+    :type find_max: bool
+    :param find_max: if True, will find the maximum for each event epoch, else
+        will find the start for each event epoch.
+        Default=True
+    :returns: ndarray - event samples
     """
+
     # checks
+    data = sp.asarray(data)
     if data.ndim != 2:
         if data.ndim == 1:
             data = sp.atleast_2d(data).T
         else:
-            raise ValueError('data has to be like  1 <= ndim <= 2')
+            raise ValueError('data.ndim != 2')
+    th = sp.asarray(th)
     if th.ndim != 1:
-        raise ValueError('thresholds have to be 1d!')
+        raise ValueError('th.ndim != 1')
     if th.size != data.shape[1]:
         raise ValueError('thresholds have to match the data channel count')
     if mode not in ['gt', 'lt']:
@@ -134,25 +136,17 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
 ## epoch handling functions
 
 def merge_epochs(*args, **kwargs):
-    """check for a set of epochs if they overlap and rval_ovlp to one
-    consistent set
+    """for a set of epoch sets check if the combined set of epochs overlap
+    and merge to one set with no overlapping epochs and no epochs of negative
+    length.
 
-    Consistency means no overlapping epochs and no epoch of negative length.
-
-    :Parameters:
-        args : tuple
-            arbitrary count of [[start, end]] epochs sets
-        kwargs : dict
-            keywords
-    :Keywords:
-        'min_dist' : int
-            If present and greater than zero, this integer will be taken as
-            the
-            minimum distance in between epochs that is allowed. Should the gap
-            in between two epochs smaller than min_dist, they are merged
-            including the gap. This might reduce the segmentation of the data.
-    :Returns:
-        ndarray : merged and consitent set of epochs [[start, end]]
+    :param args: arbitrary count of epoch sets [[start, end]]
+    :keyword min_dist' : int - If present and greater than zero, this integer
+        will be taken as the minimum distance in between epochs that is
+        allowed. Should the gap in between two epochs smaller than min_dist,
+        they are merged including the gap. This might reduce the
+        segmentation of the data.
+    :returns: ndarray - merged epoch set [[start, end]]
     """
 
     # checks
@@ -202,43 +196,37 @@ def invert_epochs(epochs, end=None):
     """inverts epochs inverted
 
     The first epoch will be mapped to [0, start] and the last will be mapped
-     to
-    [start next of last, start of last] or
+    to [end of last epoch, :end:]. Epochs that accidentally become negative
+    or zero-length will be omitted.
 
-    :Parameters:
-        epochs : ndarray
-            epochs to invert
-        end : int
-            If not None and an integer value, it i taken for the end point of
-            the last epochs, if None max(index-dtype) is taken instead.
-    :Returns:
-        ndarray
-            inverted epochs
+    :type epochs: ndarray
+    :param epochs: epoch set to invert
+    :type end: int
+    :param end: If not None, it i taken for the end of the last epoch,
+        else max(index-dtype) is taken instead.
+        Default=None
+    :returns: ndarray - inverted epoch set
     """
 
-    # inits
+    # checks
     if end is None:
         end = sp.iinfo(INDEX_DTYPE).max
     else:
-        end = end
+        end = INDEX_DTYPE.type(end)
 
     # flip them
     rval = sp.vstack((
         sp.concatenate(([0], epochs[:, 1])),
-        sp.concatenate((epochs[:, 0], [end]))
-        )).T
+        sp.concatenate((epochs[:, 0], [end])))).T
     return (rval[rval[:, 1] - rval[:, 0] > 0]).astype(INDEX_DTYPE)
 
 
 def epochs_from_binvec(binvec):
-    """returns the epochs where the passed binary vector is true
+    """returns the discrete epochs where the :binvec: is true
 
-    :Parameters:
-        binvec : ndarray
-            A 1d-boolean-ndarray.
-    :Returns:
-        ndarray
-            Epochs where binvec is True. [[start, end]]
+    :type binvec: ndarray
+    :param binvec: one-domensinal boolean ndarray.
+    :returns: ndarray - epoch set where :binvec: is True [[start, end]]
     """
 
     # early exit
@@ -249,75 +237,35 @@ def epochs_from_binvec(binvec):
     output = sp.correlate(sp.concatenate(([0], binvec, [0])), [-1, 1], 'same')
     return sp.vstack((
         (output > 0).nonzero()[0] - 1,
-        (output < 0).nonzero()[0] - 2
-        )).T
+        (output < 0).nonzero()[0] - 2)).T
 
 
 def epochs_from_spiketrain(st, cut, end=None, with_corrected_st=False):
-    """yields epochs, given a spiketrain and cut parameters
+    """yields epoch set, given a spiketrain and cut parameter
 
-    :Parameters:
-        st : ndarray
-            the spiketrains as 1d array
-        cut : tuple
-            2-tuple of cutting parameters, (cut_left, cut_right)
-            spikes-epochs will be generated by using cut_left and cut_right
-            on the spike time. If an int is given, a symmetric cut tuple is
-            assumed.
-        end : int
-            To determine potential problems with epochs overlapping data
-            boundaries. If an event in the spiketrain is closer to end that
-            the
-            cut value, the corresponding epoch will be droped. If end is None,
-            no such checking will be done.
+    :type st: ndarray
+    :param st: spiketrains as 1d array
+    :type cut: tuple
+    :param cut: 2-tuple of cutting parameters, (cut_left,cut_right) spike
+        epochs will be generated by using cut_left and cut_right on the spike
+        time. If an int is given, a symmetric cut tuple is assumed.
+    :type end: int
+    :param end: to determine potential problems with epochs overlapping data
+        boundaries. If an event in the spiketrain is closer to 0 than :cut[0]:
+        or closer to :end: than :cut[1]: the corresponding epoch will be
+        omitted. If None, :end: will be set to max(INDEX_DTYPE)
+        Default=None
+    :type with_corrected_st: bool
+    :param with_corrected_st: if True, return the corrected spiketrain by
+        omitting spike events that cannot generate valid spike epochs given
+        the passed cut settings.
+        Default=False
+    :returns: ndarray - epoch set of valid spike epochs, and if
+        :with_corrected_st: is True additionally the corrected spike train
     """
 
-    # inits and checks
-    if not isinstance(st, sp.ndarray):
-        raise ValueError('st has to be a ndarray')
-    if not isinstance(cut, (int, tuple)):
-        raise ValueError('cut has to be either a 2-tuple or an int')
-    else:
-        if isinstance(cut, int):
-            cut = get_cut(cut)
-
-    # return the epochs for the spiketrain
-    st_ok = (st >= cut[0])
-    if end is not None:
-        st_ok *= (st < end - cut[1])
-    rval = sp.vstack((
-        st[st_ok] - cut[0],
-        st[st_ok] + cut[1]
-        )).T.astype(INDEX_DTYPE)
-    if with_corrected_st is True:
-        return rval, st[st_ok]
-    else:
-        return rval
-
-
-def epochs_from_spiketrain_set(sts, cut, end=None):
-    """yields epoch sets, given a spiketrain set and cut parameters
-
-    one set for each unit plus one for the noise epochs
-
-    :Parameters:
-        sts : dict
-            dictionary with the spike trains for each unit in the set.
-            none of the units in the spiketrain set may have the key 'noise'!
-        cut : tuple
-            2-tuple of cutting parameters, (cut_left, cut_right)
-            spikes-epochs will be generated by using cu_left and cut_right
-            on the spike time. If an int is given, a symmetric cut tuple is
-            assumed.
-        end : int
-            sample of the end of the data window to get the end of the last
-            noise epoch right. If None, this will default to max(INDEX_DTYPE)
-            Default=None
-    """
-
-    # inits and checks
-    if not isinstance(sts, dict):
-        raise ValueError('sts has to be a set of spiketrains in a dict')
+    # checks
+    st = sp.asarray(st)
     if not isinstance(cut, (int, tuple)):
         raise ValueError('cut has to be either a 2-tuple or an int')
     else:
@@ -326,7 +274,43 @@ def epochs_from_spiketrain_set(sts, cut, end=None):
     if end is None:
         end = sp.iinfo(INDEX_DTYPE).max
     else:
-        end = end
+        end = INDEX_DTYPE.type(end)
+
+    # return the epochs for the spiketrain
+    st_ok = (st >= cut[0]) * (st < end - cut[1])
+    rval = sp.vstack((
+        st[st_ok] - cut[0],
+        st[st_ok] + cut[1])).T.astype(INDEX_DTYPE)
+    if with_corrected_st is True:
+        return rval, st[st_ok]
+    else:
+        return rval
+
+
+def epochs_from_spiketrain_set(sts, cut, end=None):
+    """yields epoch sets, given a spiketrain set and cut parameter
+
+    one set for each unit plus one for the noise epochs in a dict
+
+    :type sts: dict
+    :param sts: dict with the spiketrains for each unit in the set. none of
+        the units in the spiketrain set may have the key 'noise'!
+    :type cut: tuple
+    :param cut: 2-tuple of cutting parameters, (cut_left, cut_right) spike
+        epochs will be generated by using cu_left and cut_right on the spike
+        time. If an int is given, a symmetric cut tuple is assumed.
+    :param end: to determine potential problems with epochs overlapping data
+        boundaries. If an event in the spiketrain is closer to 0 than :cut[0]:
+        or closer to :end: than :cut[1]: the corresponding epoch will be
+        omitted. If None, :end: will be set to max(INDEX_DTYPE)
+        Default=None
+    :returns: dict - one epoch set per spike train plus the merged noise
+        epoch set.
+    """
+
+    # inits and checks
+    if not isinstance(sts, dict):
+        raise ValueError('sts has to be a set of spiketrains in a dict')
     rval = {}
 
     # get the spiketrain epochs
@@ -342,17 +326,23 @@ def epochs_from_spiketrain_set(sts, cut, end=None):
 ## spike and data extraction
 
 def chunk_data(data, epochs=None):
-    """returns a generator of chunks from data given epochs"""
+    """returns a generator of chunks from data given epochs
 
-    # checks and inits
-    if not isinstance(data, sp.ndarray):
-        raise ValueError('data is not an ndarray')
+    :type data: ndarray
+    :param data: signal data [[samples, channels]]
+    :type epochs: ndarray
+    :param epochs: epoch set
+    :returns: generator - data chunks as per :epochs:
+    """
+
+    # checks
+    data = sp.asarray(data)
     if data.ndim != 2:
         raise ValueError('data has be ndim==2')
     if epochs is None or len(epochs) < 1:
         epochs = [[0, data.shape[0]]]
 
-    # generate data chunks
+    # yield data chunks
     for ep in epochs:
         if len(ep) != 2:
             raise ValueError('invalid epoch: %s' % ep)
@@ -362,28 +352,29 @@ def chunk_data(data, epochs=None):
 def extract_spikes(data, epochs, mc=False):
     """extract spike waveforms of size tf from data
 
-    :Parameters:
-        data : ndarray
-            the signal. channels on the columns
-        epochs : ndarray
-            epochs [[start,end]]
-        mc : bool
-            if True, extract multichanneled spikes as [n, tf, nc] else extract
-            concatenated spikes as [n, tf*nc]
-            *False as default for legacy compatibility*
-            Default=False
-    :Returns:
-        ndarray
-            Extracted epochs from data as either [m,tf,nc] or [n, tf*nc].
-
+    :type data: ndarray
+    :param data: signal data [[samples, channels]]
+    :type epochs: ndarray
+    :param epochs: spike epoch set [[start,end]]
+    :type mc: bool
+    :param mc: if True, extract multichanneled spike waveforms as [n,tf,nc]
+        else extract channel concatenated spike waveforms as [n, tf*nc]
+        *False as default for legacy compatibility*
+        Default=False
+    :returns: ndarray - extracted spike data epochs
     """
 
-    # inits and checks
+    # checks
+    data = sp.asarray(data)
+    if data.ndim != 2:
+        raise ValueError('data has be ndim==2')
+
+    # inits
     nspikes = epochs.shape[0]
     if epochs.shape[0] == 0:
+        # early exit
         return sp.zeros((0, epochs.shape[1]))
-    tf = epochs[0, 1] - epochs[0, 0]
-    nc = data.shape[1]
+    tf, nc = epochs[0, 1] - epochs[0, 0], data.shape[1]
 
     # extract
     if mc is True:
@@ -396,193 +387,150 @@ def extract_spikes(data, epochs, mc=False):
             if epochs[s, 1] > data.shape[0]:
                 clamp = epochs[s, 1] - data.shape[0]
             if mc is True:
-                rval[s, :tf - clamp, c] = data[
-                                          epochs[s, 0]:epochs[s, 1] - clamp,
-                                          c]
+                rval[s, :tf - clamp, c] =\
+                data[epochs[s, 0]:epochs[s, 1] - clamp, c]
             else:
-                rval[s, c * tf:(c + 1) * tf - clamp] = data[
-                                                       epochs[s, 0]:epochs[
-                                                                    s,
-                                                                    1] - clamp
-                , c]
+                rval[s, c * tf:(c + 1) * tf - clamp] =\
+                data[epochs[s, 0]:epochs[s, 1] - clamp, c]
 
     # return
     return rval
 
 
 def get_cut(tf, off=0):
-    """returns the tuple for cutting out waveforms
+    """cut 2-tuple (cut_left,cut_right) generating function
 
-    :Parameters:
-        tf : int
-            length of the waveform in samples
-            Required
-        off : int
-            offset for cutting out
-            Default=0
+    Used to generate epochs from events. Per default the epoch will be
+    placed symmetrically around the event sample. :off: can be used to
+    influence the placement. For odd tf values the extension of the
+    cut_right part will be favored.
+
+    :type tf: int
+    :param tf: length of the waveform in samples
+    :type off: int
+    :param off: offset for epoch start/end
+        Default=0
     """
 
     return int(tf / 2.0) - int(off), int(tf / 2.0) + tf % 2 + int(off)
 
 ## SNR functions - added by Felix 10. aug 2009
 
-def snr_peak(data, noise_var):
-    """standard SNR
+def snr_peak(waveforms, noise_var):
+    """SNR from instantaneous variance
 
-    Standard definition of signal to noise ratio (SNR) as the ratio between
-    the
-    peak of a waveform and the noise standard deviation.
+    Definition of signal to noise ratio (SNR) as the ratio between the peak of
+    a waveforms and the noise standard deviation.
 
-    :Parameters:
-        data : ndarray
-            the signal
-        noise_var : float
-            the noise variance
-    :Returns:
-        float
-            the SNR
+    :type waveforms: ndarray
+    :param waveforms: waveform data (signal), one per row
+    :type noise_var: float
+    :param noise_var: instantaneous variance of the noise (noise)
+    :returns: ndarray - SNR per waveform
     """
 
-    return sp.absolute(data).max() / sp.sqrt(noise_var)
+    return sp.absolute(waveforms).max(axis=1) / sp.sqrt(noise_var)
 
 
-def snr_power(data, noise_var):
-    """energy based SNR
+def snr_power(waveforms, noise_var):
+    """SNR from signal energy
 
-    Signal to noise ratio as defined by Rutishauser et al (2006)
-    (only for single channel waveforms)
+    Definition of signal to noise ratio (SNR) using the waveforms energy as
+    defined by Rutishauser et al (2006)
 
-    :Parameters:
-        data : ndarray
-            the signal
-        noise_var : float
-            the noise variance
-    :Returns:
-        ndarray
-            the SNR for each channel
+    :type waveforms: ndarray
+    :param waveforms: waveform data (signal), one per row
+    :type noise_var: float
+    :param noise_var: instantaneous variance of the noise (noise)
+    :returns: ndarray - SNR per waveform
     """
 
-    dim = data.shape[1]
-    return sp.sqrt((data * data).sum(1) / (dim * noise_var))
+    denom = waveforms.shape[1] * noise_var
+    return sp.sqrt((waveforms * waveforms).sum(axis=1) / denom)
 
 
-def snr_maha(data, invC, mu=None):
-    """mahalanobis distance SNR
+def snr_maha(waveforms, invC, mu=None):
+    """SNR from Mahalanobis distance (generalised euclidean distance)
 
-    Signal to noise ratio as derived from the Mahalanobis Distance. Only for
-    single channel waveforms. This is in the case of C being the identity
-    matrix
-    the same as snr_power
+    Definition of signal to noise ratio (SNR) as derived from the Mahalanobis
+    distance. For C=eye this is equivalent to snr_power.
 
-    :Parameters:
-        data : ndarray
-            the templates, concatenated across the channels, one per row
-        invC : ndarray
-            noise covariance marix as a block toeplitz matrix
-        mu : ndarray
-            Mean correction. Usually we assume zero-mean data.
-    :Returns:
-        ndarray
-            the SNR for each row of data, w.r.t invC
+    :type waveforms: ndarray
+    :param waveforms: waveform data (signal), one per row
+    :type invC: ndarray
+    :param invC: noise covariance matrix (a block toeplitz matrix)
+    :type mu: ndarray
+    :param mu: mean correction. Usually we assume zero-mean waveforms,
+        so if this is None it will be ignored.
+        Default=None
+    :returns: ndarray - SNR per waveform
     """
 
     # inits and checks
-    n, dim = data.shape
-    if dim != invC.shape[0] or dim != invC.shape[1]:
-        raise ValueError('dimension mismatch for data and covariance')
-    rval = sp.zeros(n, dtype=data.dtype)
+    n, dim = waveforms.shape
+    if dim != invC.shape[0] != invC.shape[1]:
+        raise ValueError('dimension mismatch for waveforms and covariance')
+    rval = sp.zeros(n)
 
     # correct for mu
     if mu is not None:
         if mu.shape != (dim,):
-            raise ValueError('dimension mismatch for data and mu')
-        mydata = data - mu
-    else:
-        mydata = data
+            raise ValueError('dimension mismatch for waveforms and mu')
+        waveforms -= mu
 
     # compute
     for i in xrange(n):
-        rval[i] = sp.sqrt(
-            sp.dot(sp.dot(mydata[i, :], invC), mydata[i, :].T) / dim
-        )
-
-    # fire away
-    return rval
+        rval[i] = sp.dot(sp.dot(waveforms[i], invC), waveforms[i].T)
+        rval[i] /= float(dim)
+    return sp.sqrt(rval)
 
 ## data processing algorithms
 
-def prewhiten(data, ncov):
-    """prewhiten data with respect to a noise covariance matrix"""
+def overlaps(sts, window):
+    """produces dict of boolean sequences indicating for all spikes in all
+    spike trains in :sts: if it participates in an overlap event.
 
-    # inits and checks
-    if isinstance(data, sp.ndarray):
-        data = {0:data}
-    size = data[sorted(data.keys())[0]].shape[1]
-    dtype = data[sorted(data.keys())[0]].dtype
-    if ncov is None:
-        ncov = sp.eye(size, dtype=dtype)
-        ncov += 0.01 * sp.randn(*ncov.shape)
-
-    # factorize
-    try:
-        cholncov = sp_la.cholesky(ncov)
-    except:
-        ncov += 0.0001 * sp.randn(*ncov.shape)
-        cholncov = sp_la.cholesky(ncov)
-    iU = sp_la.inv(cholncov)
-
-    # apply to data
-    pwdata = {}
-    for k in sorted(data.keys()):
-        if data[k].shape[1] != ncov.shape[1]:
-            raise ValueError(
-                'dimension mismatch for data (%d) and covariance (%d)' % (
-                    data[k].shape[1], ncov.shape[1]))
-        pwdata[k] = sp.dot(data[k], iU).astype(dtype)
-
-    # return
-    return pwdata, iU, cholncov
-
-
-def overlaps(G, window):
-    """Calculates a "boolean" dict, indicating for every spike in every spike
-    train in G whether it belongs to an overlap or not.
+    :type sts: dict
+    :param sts: spike train set
+    :type window: int
+    :param window: overlap window size
+    :returns: dict - boolean spike train set
     """
 
-    n = len(G)
-    O = {}
-    for k in G.keys():
-        O[k] = sp.zeros(G[k].shape, dtype=sp.bool_)
-    Onums = sp.zeros(len(G))
-    # run over all pairs of spike trains in G
+    # inits
+    n = len(sts)
+    ovlp, ovlp_nums = {}, {}
+    for k in sts.keys():
+        ovlp[k] = sp.zeros(sts[k].shape, dtype=bool)
+        ovlp_nums[k] = 0
+
+    # run over all pairs of spike trains in sts
     for i in xrange(n):
+        i_ = sts.keys()[i]
+        trainI = sts[i_]
         for j in xrange(i + 1, n):
-            # for every pair run over all spikes in i and check whether a
-            # spike
+            # for every pair run over all spikes in i and check if a spike
             # in j overlaps
-            trainI = G[G.keys()[i]]
-            trainJ = G[G.keys()[j]]
+            j_ = sts.keys()[j]
+            trainJ = sts[j_]
             idxI = 0
             idxJ = 0
             while idxI < len(trainI) and idxJ < len(trainJ):
                 # Overlapping?
                 if abs(trainI[idxI] - trainJ[idxJ]) < window:
-                    # Every spike can only be in one or no overlap. prevents
-                    # triple
-                    # counting
-                    if O[G.keys()[i]][idxI] == 0:
-                        O[G.keys()[i]][idxI] = 1
-                        Onums[i] += 1
-                    if O[G.keys()[j]][idxJ] == 0:
-                        O[G.keys()[j]][idxJ] = 1
-                        Onums[j] += 1
-
+                    # single spike can participate in up to a single overlap
+                    # event! prevents triple counting
+                    if ovlp[i_][idxI] == False:
+                        ovlp[i_][idxI] = True
+                        ovlp_nums[i_] += 1
+                    if ovlp[j_][idxJ] == False:
+                        ovlp[j_][idxJ] = True
+                        ovlp_nums[j_] += 1
                 if trainI[idxI] < trainJ[idxJ]:
                     idxI += 1
                 else:
                     idxJ += 1
-    ret = {'O':O, 'Onums':Onums}
-    return ret
+    return ovlp, ovlp_nums
 
 ##--- MAIN
 

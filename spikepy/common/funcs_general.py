@@ -46,9 +46,10 @@
 
 """general utility functions"""
 __docformat__ = 'restructuredtext'
-__all__ = ['sortrows', 'vec2ten', 'ten2vec', 'mcvec_to_conc',
-           'mcvec_from_conc', 'xcorr', 'shifted_matrix_sub',
-           'dict_sort_ndarrays', 'dict_list_to_ndarray', 'get_idx']
+__all__ = [
+    'sortrows', 'vec2ten', 'ten2vec', 'mcvec_to_conc', 'mcvec_from_conc',
+    'xcorr', 'shifted_matrix_sub', 'dict_sort_ndarrays',
+    'dict_list_to_ndarray', 'get_idx']
 
 ##--- IMPORTS
 

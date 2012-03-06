@@ -9,10 +9,13 @@ except ImportError:
 
 from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
-from spikepy.common import (INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows,
-                            vec2ten, ten2vec, deprecated, mcvec_from_conc,
-                            mcvec_to_conc, xcorr, shifted_matrix_sub,
-                            dict_list_to_ndarray, dict_sort_ndarrays, get_idx)
+from spikepy.common import (
+    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec, deprecated,
+    mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
+    dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
+    invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
+    epochs_from_spiketrain_set, chunk_data, get_cut, snr_maha, snr_peak,
+    snr_power, overlaps)
 
 ##---TESTS-alphabetic-by-file
 
@@ -178,6 +181,158 @@ class TestCommonFuncsGeneral(ut.TestCase):
         idxs = [0, 2, 3, 4, 7]
         assert_equal(get_idx(idxs, append=False), 1)
         assert_equal(get_idx(idxs, append=True), 8)
+
+
+class TestCommonFuncsSpike(ut.TestCase):
+    def testMergeEpochs(self):
+        ep1 = sp.array([
+            [0, 10],
+            [25, 30],
+        ])
+        ep2 = sp.array([
+            [5, 15],
+            [50, 65],
+            [90, 88],
+        ])
+        ep_test = sp.array([
+            [0, 15],
+            [25, 30],
+            [50, 65],
+        ])
+        assert_equal(merge_epochs(ep1, ep2), ep_test)
+
+    def testInvertEpochs(self):
+        """test invert epochs"""
+
+        ep1 = sp.array([
+            [25, 30],
+            [55, 60],
+        ])
+        ep2 = sp.array([
+            [0, 10],
+            [90, 110],
+        ])
+        end = 100
+        ep1_test = sp.array([
+            [0, 25],
+            [30, 55],
+            [60, end],
+        ])
+        ep2_test = sp.array([
+            [10, 90],
+        ])
+        assert_equal(invert_epochs(ep1, end=end), ep1_test)
+        assert_equal(invert_epochs(ep2, end=end), ep2_test)
+
+    def testEpochsFromBinvec(self):
+        """test for filtering of epochs from a binary vector"""
+
+        data = sp.array([
+            False, True, True, True, False, False, False, False,
+            False, True, True, True, False, True, True, True])
+        data_ep_test = sp.array([[1, 3], [9, 11], [13, 15]])
+        assert_equal(epochs_from_binvec(data), data_ep_test)
+
+    def testEpochsFromSpiketrain(self):
+        """test for epoch generation from a spiketrain"""
+
+        st = sp.array([50, 100, 150])
+        cut = (5, 5)
+        st_ep = sp.array([
+            [45, 55],
+            [95, 105],
+            [145, 155],
+        ])
+        assert_equal(epochs_from_spiketrain(st, cut), st_ep)
+        assert_equal(epochs_from_spiketrain(st, cut, end=150), st_ep[:-1])
+        assert_equal(epochs_from_spiketrain(st, cut),
+                     epochs_from_spiketrain(st, sum(cut)))
+
+    def testEpochsFromSpiketrainSet(self):
+        """test for epoch generation from a spiketrain set"""
+
+        sts = {0:sp.array([50, 100, 150]),
+               1:sp.array([250, 300, 350])}
+        cut = (5, 5)
+        sts_ep = {
+            0:sp.array([
+                [45, 55],
+                [95, 105],
+                [145, 155]]),
+            1:sp.array([
+                [245, 255],
+                [295, 305],
+                [345, 355]])
+        }
+        sts_test = epochs_from_spiketrain_set(sts, cut)
+        for k, v in sts_ep.items():
+            self.assertTrue(k in sts_test)
+            assert_equal(sts_test[k], v)
+
+    def testChunkData(self):
+        """test for chunking generator"""
+
+        data = sp.array([sp.arange(100), sp.arange(100)]).T
+        ep = sp.array([[0, 50], [65, 88]])
+        for chunk, epoch in chunk_data(data, epochs=ep):
+            assert_equal(chunk[0, 0], epoch[0])
+            assert_equal(data[epoch[0]:epoch[1]], chunk)
+
+    def testGetCut(self):
+        """test for cut window parameter generation"""
+
+        self.assertTupleEqual(get_cut(10), (5, 5))
+        self.assertTupleEqual(get_cut(10, off=2), (3, 7))
+        self.assertTupleEqual(get_cut(11, off=2), (3, 8))
+
+    def testSnrFuncs(self):
+        """test for signal to noise ratio functions"""
+
+        # trivial
+        data_triv = sp.ones((3, 10))
+        snr_triv_test = sp.ones(3)
+        assert_equal(
+            snr_peak(data_triv, 1.0),
+            snr_triv_test)
+        assert_equal(
+            snr_power(data_triv, 1.0),
+            snr_triv_test)
+        assert_equal(
+            snr_maha(data_triv, sp.eye(data_triv.shape[1])),
+            snr_triv_test)
+
+        # application
+        data = sp.array([
+            sp.sin(sp.linspace(0.0, 2 * sp.pi, 100)),
+            sp.sin(sp.linspace(0.0, 2 * sp.pi, 100)) * 2,
+            sp.sin(sp.linspace(0.0, 2 * sp.pi, 100)) * 5,
+            ])
+        assert_equal(
+            snr_peak(data, 1.0),
+            sp.absolute(data).max(axis=1))
+        assert_equal(
+            snr_power(data, 1.0),
+            sp.sqrt((data * data).sum(axis=1) / data.shape[1]))
+        assert_almost_equal(
+            snr_maha(data, sp.eye(data.shape[1])),
+            sp.sqrt((data * data).sum(axis=1) / data.shape[1]))
+
+    def testOverlaps(self):
+        """test for overlap finder"""
+
+        sts = {
+            'A':sp.array([50, 150, 250]),
+            'B':sp.array([51, 251, 300]),
+            'C':sp.array([20, 200, 299])}
+        sts_test = {
+            'A':sp.array([True, False, True]),
+            'B':sp.array([True, True, True]),
+            'C':sp.array([False, False, True])}
+        ovlp, ovlp_nums = overlaps(sts, 10)
+        self.assertEqual(ovlp.keys(), sts_test.keys())
+        for k in ovlp.keys():
+            assert_equal(ovlp[k], sts_test[k])
+            assert_equal(ovlp_nums[k], sum(sts_test[k]))
 
 ##---MAIN
 
