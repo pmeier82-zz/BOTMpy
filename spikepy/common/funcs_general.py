@@ -52,7 +52,7 @@ __all__ = ['sortrows', 'vec2ten', 'ten2vec', 'mcvec_to_conc',
            'dict_sort_ndarrays', 'dict_list_to_ndarray',
            'filter_calculation',
            'find_sorting', 'matrix_argmax', 'matrix_argmin', 'matrixrank',
-           'princomp', 'shift_rows', 'shifted_matrix_mul',
+           'shift_rows', 'shifted_matrix_mul',
            'shifted_matrix_sub', 'ten2vec',
            'get_idx']
 
@@ -146,21 +146,43 @@ def mcvec_from_conc(x, nc=4):
     return x.reshape(nc, nsamples).T
 
 
-def xcorr(a, b=None, lag=None, unbiased=False):
-    """xcorr, with specific lag and correct normalisation w.r.t.
-    zero-padding"""
+def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
+    """cross-correlation for one-dimensional input signals of equal size
+
+    If :b: is not given the auto-correlation of :a: will be computed.
+
+    :type a: ndarray
+    :param a: one-dimensional time series
+    :type b: ndarray
+    :param b: one-dimensional time series, if None :a: will be taken instead
+        Default=None
+    :type lag: int
+    :param lag: lag up to which the cross correlation will be calculated. If
+        None all possible lags (2*a.size-1) will be computed.
+        Default=None
+    :type normalise: bool
+    :param normalise: if True, normalise
+        Default=False
+    :type unbiased: bool
+    :param unbiased: if True and :normalise: is True, use a.size-|tau| to
+        normalize instead of a.size
+        Default=False
+    """
 
     # checks
+    a = sp.asarray(a)
     if b is None:
-        b = a
+        b = a.copy()
+    else:
+        b = sp.asarray(b)
     if not (a.ndim == b.ndim == 1):
-        raise ValueError('not a.ndim == b.ndim == 1')
-    if a.size < 2:
-        raise ValueError('a.size < 2')
+        raise ValueError('a.ndim == b.ndim == 1')
     if a.size != b.size:
         raise ValueError('a.size != b.size')
+    if a.size < 2:
+        raise ValueError('a.size < 2')
     if lag is None:
-        lag = a.size - 1
+        lag = int(a.size - 1)
     if lag > a.size - 1:
         raise ValueError('lag > vector size - 1')
 
@@ -173,102 +195,16 @@ def xcorr(a, b=None, lag=None, unbiased=False):
     for tau in lagrange:
         rval[lag + tau] = sp.dot(a[max(0, +tau):min(T, T + tau)],
                                  b[max(0, -tau):min(T, T - tau)])
-        norm_fac = T
+
+    # normalise
+    if normalise is True:
+        denom = sp.array([T] * len(lagrange))
         if unbiased is True:
-            norm_fac -= abs(tau)
-        rval[lag + tau] /= norm_fac
+            denom -= sp.absolute(lagrange)
+        rval /= denom
 
     # return
     return rval
-
-
-@deprecated
-def princomp(data, explain=0, percentage=False):
-    """calculate the principal component projections for data
-
-    :Parameters:
-        data : ndarray
-            the signal data with observations in the rows and variables in the
-            columns.
-        explain : number
-            if percentage is False, the data will be projected into the
-            explain
-            first principal components. If percentage is True, explain} has to
-            be a value between 0 and 1 and the C{data} will be projected
-            into as
-            many principal components as needed to explain explain
-            percentage of
-            the total variance. If explain is 0, the data will not be
-            projected
-            at all.
-        percentage : float
-            value between 0 and 1 as a percentage of the total variance in the
-            data that should be explained by the projection.
-    :Returns:
-        ndarray
-            eigenvectors of the covariance matrix (in the columns)
-        ndarray
-            eigenvalues of the covariance matrix
-        ndarray
-            data projected into a set of the eigenvectors
-        float
-            percentage of the total variance explained by the projected data
-    """
-
-    raise DeprecationWarning('USE MDP-TOOLKIT NODE INSTEAD!!')
-
-    # checks
-    if type(data) is not dict:
-        data = {0:data}
-
-    # inits
-    dim = data[data.keys()[0]].shape[1]
-    data_cov = sp.zeros([dim] * 2)
-    total_samples = 0
-
-    # compute data mean
-    data_mean = sp.zeros(dim)
-    for k in data.keys():
-        my_samples = data[k].shape[0]
-        my_mean = data[k].mean(axis=0)
-        total_samples += my_samples
-        data_mean += my_mean * my_samples
-    data_mean /= total_samples
-
-    # compute covariance
-    for k in data.keys():
-        my_samples = data[k].shape[0]
-        data_mean_cor = data[k] - data_mean
-        data_cov += sp.cov(data_mean_cor.T) * my_samples
-    data_cov /= total_samples
-
-    # get eigenvalues/-vectors and sort
-    v, pc = sp_la.eig(data_cov)
-    v, pc = sp.real(v), sp.real(pc)
-    sort_idx = (-v).argsort()
-    v, pc = v[sort_idx], pc[:, sort_idx]
-
-    # project data
-    pca_data = {}
-    explained = None
-    if explain > 0:
-        max_pc = explain
-        if percentage is True:
-            if 0 < explain < 1:
-                pass
-            elif 1 <= explain <= 100:
-                explain /= 100.0
-            else:
-                raise ValueError('misleading explain value %s' % explain)
-            explain_var = explain * v.sum()
-            max_pc = (v.cumsum() < explain_var).argmin()
-        if max_pc < 2:
-            max_pc = 2
-        for k in data.keys():
-            pca_data[k] = sp.dot(data[k], pc[:, :max_pc])
-        explained = v[:max_pc].sum() / v.sum()
-
-    return pc, v, pca_data, explained
 
 ## filtering and related processing
 

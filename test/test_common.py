@@ -7,7 +7,7 @@ try:
 except ImportError:
     import unittest as ut
 
-from numpy.testing import *
+from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 from spikepy.common import (INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows,
                             vec2ten, ten2vec, deprecated, mcvec_from_conc,
@@ -101,15 +101,15 @@ class TestCommonFuncsGeneral(ut.TestCase):
         assert_equal(mcvec_to_conc(mcvec_from_conc(concv, nc)), concv)
         assert_equal(mcvec_from_conc(mcvec_to_conc(mcvec), nc), mcvec)
 
-    def testXcorr(self):
-        """shamelessly stolen from matlab-docu"""
+    def testXcorr1(self):
+        """testing the xcorr function, trivial test of functionality"""
 
         n = 10
         lag_n = 5
         data = sp.ones(n)
-        xcorr_test = sp.array(
-            [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1., 0.9,
-             0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1])
+        xcorr_test = sp.array([
+            1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 9., 8., 7., 6., 5., 4.,
+            3., 2., 1.])
         assert_equal(xcorr(sp.zeros(n)).sum(), 0)
         assert_equal(xcorr(data), xcorr_test)
         assert_equal(xcorr(data, sp.zeros(n)), sp.zeros(2 * n - 1))
@@ -118,6 +118,25 @@ class TestCommonFuncsGeneral(ut.TestCase):
         assert_equal(xcorr(data), xcorr(data, data))
         assert_equal(xcorr(data, data * 2), 2 * xcorr_test)
         assert_equal(xcorr(data, 2 * data), xcorr(data) * 2)
+
+    def testXcorr2(self):
+        """testing the xcorr function, sine acorr against matlab reference"""
+
+        n = 10
+        lag_n = 5
+        data = sp.array([
+            0.00000000e+00, 6.42787610e-01, 9.84807753e-01, 8.66025404e-01,
+            3.42020143e-01, -3.42020143e-01, -8.66025404e-01, -9.84807753e-01,
+            -6.42787610e-01, -2.44929360e-16])
+        xcorr_test = sp.array([
+            2.22044605e-16, 4.44089210e-16, -4.13175911e-01, -1.26604444e+00,
+            -2.08318711e+00, -2.14542968e+00, -9.83955557e-01, 1.19459271e+00,
+            3.44719999e+00, 4.50000000e+00, 3.44719999e+00, 1.19459271e+00,
+            -9.83955557e-01, -2.14542968e+00, -2.08318711e+00,
+            -1.26604444e+00, -4.13175911e-01, 4.44089210e-16, 1.11022302e-16])
+        assert_almost_equal(xcorr(data), xcorr_test)
+        assert_almost_equal(xcorr(data, lag=lag_n),
+                            xcorr_test[n - lag_n - 1:n + lag_n])
 
 ##---MAIN
 

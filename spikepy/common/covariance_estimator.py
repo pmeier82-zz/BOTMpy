@@ -54,11 +54,11 @@ __all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
 from .util import *
 import scipy as sp
 from scipy import linalg as sp_la
-from spikepy.common.funcs_general import xcorr
-from spikepy.common.matrix_loading import (compute_coloured_loading,
-                                           compute_diagonal_loading,
-                                           compute_matrix_cond)
-from spikepy.common.constants import INDEX_DTYPE
+from .funcs_general import xcorr
+from .matrix_loading import (compute_coloured_loading,
+                             compute_diagonal_loading,
+                             compute_matrix_cond)
+from .util import INDEX_DTYPE
 
 ##--- CLASSES
 
@@ -401,8 +401,6 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         n_epoch = epochs.shape[0]
         len_epoch = epochs[:, 1] - epochs[:, 0]
         len_epoch_all = len_epoch.sum()
-
-        # allet chic
         self._clear_buf()
 
         # calculate cross-correlation functions for new observation

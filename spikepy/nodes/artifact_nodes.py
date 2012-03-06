@@ -59,8 +59,8 @@ __all__ = ['ArtifactDetectorNode']
 ##--- IMPORTS
 
 import scipy as sp
-from spikepy.common import (epochs_from_binvec, merge_epochs, invert_epochs,
-                            INDEX_DTYPE)
+from ..common import (epochs_from_binvec, merge_epochs, invert_epochs,
+                      INDEX_DTYPE)
 from .detector_nodes import ThresholdDetectorNode
 
 ##--- CLASSES

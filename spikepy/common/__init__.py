@@ -51,11 +51,12 @@ __docformat__ = 'restructuredtext'
 
 from .util import *
 
+from .funcs_general import *
+from .funcs_filterutil import *
+from .funcs_spike import *
+
 from .amplitude_histogram import *
 from .covariance_estimator import *
-from .funcs_filterutil import *
-from .funcs_general import *
-from .funcs_spike import *
 from .matrix_loading import *
 from .mcfilter import *
 from .ringbuffer import *
