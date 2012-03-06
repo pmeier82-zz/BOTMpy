@@ -55,8 +55,8 @@ __all__ = ['threshold_detection', 'epochs_from_binvec',
 ##--- IMPORTS
 
 from scipy import linalg as sp_la
-from spikepy.common.funcs_general import sortrows
-from spikepy.common.constants import *
+from .util import *
+from .funcs_general import sortrows
 
 ##---FUNCTIONS
 
@@ -557,7 +557,8 @@ def overlaps(G, window):
     # run over all pairs of spike trains in G
     for i in xrange(n):
         for j in xrange(i + 1, n):
-            # for every pair run over all spikes in i and check whether a spike
+            # for every pair run over all spikes in i and check whether a
+            # spike
             # in j overlaps
             trainI = G[G.keys()[i]]
             trainJ = G[G.keys()[j]]
@@ -566,7 +567,8 @@ def overlaps(G, window):
             while idxI < len(trainI) and idxJ < len(trainJ):
                 # Overlapping?
                 if abs(trainI[idxI] - trainJ[idxJ]) < window:
-                    # Every spike can only be in one or no overlap. prevents triple
+                    # Every spike can only be in one or no overlap. prevents
+                    # triple
                     # counting
                     if O[G.keys()[i]][idxI] == 0:
                         O[G.keys()[i]][idxI] = 1

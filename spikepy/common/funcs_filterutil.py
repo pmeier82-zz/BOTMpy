@@ -55,7 +55,6 @@ __all__ = ['xi_vs_f', 'kteo', 'mteo']
 
 ##---IMPORTS
 
-from .util import *
 import scipy as sp
 from .funcs_general import mcvec_from_conc
 from .mcfilter import mcfilter

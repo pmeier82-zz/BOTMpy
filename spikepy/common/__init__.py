@@ -57,7 +57,7 @@ from .funcs_spike import *
 
 from .amplitude_histogram import *
 from .covariance_estimator import *
-from .matrix_loading import *
+from .matrix_ops import *
 from .mcfilter import *
 from .ringbuffer import *
 from .spike_alignment import *

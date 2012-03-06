@@ -47,20 +47,13 @@
 """general utility functions"""
 __docformat__ = 'restructuredtext'
 __all__ = ['sortrows', 'vec2ten', 'ten2vec', 'mcvec_to_conc',
-           'mcvec_from_conc', 'xcorr',
-
-           'dict_sort_ndarrays', 'dict_list_to_ndarray',
-           'filter_calculation',
-           'find_sorting', 'matrix_argmax', 'matrix_argmin', 'matrixrank',
-           'shift_rows', 'shifted_matrix_mul',
-           'shifted_matrix_sub', 'ten2vec',
-           'get_idx']
+           'mcvec_from_conc', 'xcorr', 'shifted_matrix_sub',
+           'dict_sort_ndarrays', 'dict_list_to_ndarray', 'get_idx']
 
 ##--- IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
-from .util import *
 
 ##---FUNCTIONS
 
@@ -132,13 +125,25 @@ def ten2vec(data):
 
 
 def mcvec_to_conc(x):
-    """returns the concatenated vector for a multichanneled vector"""
+    """returns the concatenated vector for a multichanneled vector
+
+    :type x: ndarray
+    :param x: multi-channeled vector in matrix form
+    :returns: ndarray - multi-channeled vector in channel concatenated form
+    """
 
     return x.T.flatten()
 
 
 def mcvec_from_conc(x, nc=4):
-    """returns the multichanneled vector from a concatenated representation"""
+    """returns the multichanneled vector from a concatenated representation
+
+    :type x: ndarray
+    :param x: multi-channeled vector in channel concatenated form
+    :type nc: int
+    :param nc: channel count
+    :returns: ndarray - multi-channeled vector in matrix form
+    """
 
     nsamples = x.size / nc
     if nsamples != round(x.size / nc):
@@ -167,6 +172,7 @@ def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
     :param unbiased: if True and :normalise: is True, use a.size-|tau| to
         normalize instead of a.size
         Default=False
+    :returns: ndarray - cross-correlate of :a: and :b: upt to lags :lag:
     """
 
     # checks
@@ -208,41 +214,19 @@ def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
 
 ## filtering and related processing
 
-def filter_calculation(template, invR=None):
-    """calculates an optimal linear filter [citation]
-
-    The filter is calculated from the inverse of a the data covariance matrix
-    and a (potentially multichanneled) template.
-
-    :Parameters:
-        template : ndarray
-            The (potentially multichanneled) template, channels on the rows,
-            vars on the columns.
-        invR : ndarray
-            Inverse of the data covariance matrix. If None, identiy matrix is
-            substituted.
-    """
-
-    # check for invR
-    if invR is None:
-        invR = sp.eye(template.shape[0], dtype=template.dtype)
-
-    # compute
-    return sp.dot(invR, template.T) / sp.dot(sp.dot(template, invR),
-                                             template.T)
-
-
 def shifted_matrix_sub(data, sub, tau, pad_val=0.0):
-    """Subtracts the multi channel vector (rows are channels) y from
+    """Subtracts the multi-channeled vector (rows are channels) y from
     the vector x with a certain offset. x and y can due to the offset be only
-    partly overlapping
+    partly overlapping.
+
+    REM: from matlab
 
     :type data: ndarray
-    :param data: the data array to apply the subtractor to
+    :param data: data array to apply the subtractor to
     :type sub: ndarray
-    :param sub: the subtractor array
+    :param sub: subtractor array
     :type tau: int
-    :param tau: offset to the subtractor w.r.t. start of :data:
+    :param tau: offset of :sub: w.r.t. start of :data:
     :type pad_val: float
     :param pad_val: value to use for the padding
         Default=0.0
@@ -259,222 +243,61 @@ def shifted_matrix_sub(data, sub, tau, pad_val=0.0):
     data_sub[max(0, tau):tau + ns_sub] = sub[max(0, -tau):ns_data - tau]
     return data - data_sub
 
-
-def shifted_matrix_mul(mix, data, shift, trunc=True):
-    """Solves the equation rval = mix * shift(data) where shift() is a
-    shift-operator for each row (i) in mix, the rows (j) in data are
-    shifted by shift[i] [citation]
-
-    :Parameters:
-        mix : ndarray
-            Symetric mixture matrix.
-        data : ndarray
-            Data for one unit vstacked. This is the confused filter output for
-            each unit.
-        shift : ndarray
-            Symetric shifting matrix.
-    :Returns:
-        ndarray
-            the result of mix * shift(data), the deconfused filter output,
-            where
-            each filter output was replaced by a component-wise shifted
-            mixture
-            of all given filter outputs, respecting the mixture and shifting
-            matrix.
-    """
-
-    # checks and inits
-    if not data.any():
-        raise ValueError('data is a null matrix')
-    if data.shape[0] != shift.shape[0] != mix.shape[0]:
-        raise ValueError('shape mismatch!')
-
-    min_shift = shift.min()
-    max_shift = shift.max()
-
-    rval = sp.zeros(
-        (data.shape[0], data.shape[1] - min_shift + max_shift),
-                                                              dtype=data.dtype
-    )
-
-    # loop over templates to mix outputs of all filters to that template
-    for i in xrange(data.shape[0]):
-        min_shift_i = shift[i, :].min()
-        max_shift_i = shift[i, :].max()
-
-        rval[i, -min_shift + min_shift_i:
-        rval[i, :].size - (max_shift - max_shift_i)] =\
-        sp.dot(mix[i, :], shift_rows(data, shift[i, :]))
-
-    # truncate rval back to dims of data
-    if trunc is True:
-        rval = rval[:, 0 - min_shift:rval.shape[1] - max_shift]
-
-    # return
-    return rval
-
-
-def shift_rows(data, tau, nchan=1):
-    """shifts the rows of data by tau. data can contain multichannel data,
-    with all rows concatinated. If so, the number of channels has to be given
-    by nchan
-
-    :Parameters:
-        data : ndarray
-            The rows to be shifted
-        tau : ndarray
-            The shiftin operator, 1d array with on integer for each row,
-            indicating the samples of shift. Negative means shift left,
-            positive
-            means shift right.
-        nchan : int
-            channel count of the data
-    :Returns:
-        ndarray
-            the shifted row data
-    """
-
-    # inits
-    n, dim_tot = data.shape
-    if tau.size < n:
-        raise ValueError('size of tau is too small')
-    dim = dim_tot / nchan
-    if not tau.any():
-        return data
-    tau = tau.astype(sp.integer)
-    min_tau = tau.min()
-    tau = tau - min_tau
-    max_tau = tau.max()
-    dim_tot_new = dim_tot + nchan * max_tau
-    dim_neu = dim_tot_new / nchan
-
-    # calc
-    rval = sp.zeros((n, dim_tot_new), dtype=data.dtype)
-    for i in xrange(n):
-        for c in xrange(nchan):
-            idx_old = c * dim + sp.arange(dim)
-            idx_new = c * dim_neu + sp.arange(dim) + tau[i]
-            rval[i, idx_new] = data[i, idx_old]
-
-    # return
-    return rval
-
-## matrix utilities
-
-def matrixrank(M, tol=1e-8):
-    """computes the rank of a matrix (sloppy)"""
-
-    return sp.sum(sp.where(sp_la.svd(M, compute_uv=0) > tol, 1, 0))
-
-
-def matrix_argmax(M):
-    """returns the indices (row,col) of the maxmum in M
-
-    :Parameters:
-        M : ndarray
-            ndarray where to find the maximum
-    :Returns:
-        tuple
-            tuple of indices for each dimension of M indicating the max of M.
-    """
-    idx = sp.nanargmax(M)
-    j = int(idx % M.shape[1])
-    i = int(sp.floor(idx / M.shape[1]))
-    return i, j
-
-    # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
-    # UNIQUE!
-    # rval = []
-    # for i in reversed(xrange(M.ndim)):
-    #     rval.append(M.max(axis=i).argmax())
-    # return tuple(rval)
-
-
-def matrix_argmin(M):
-    """returns the indices (row,col) of the minimum in M
-
-    :Parameters:
-        M : ndarray
-            ndarray where to find the minimum
-    :Returns:
-        tuple
-            tuple of indices for each dimension of M indicating the min of M.
-    """
-    idx = sp.nanargmin(M)
-    j = int(idx % M.shape[1])
-    i = int(sp.floor(idx / M.shape[1]))
-    return i, j
-
-    # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
-    # UNIQUE!
-    # rval = []
-    # for i in reversed(xrange(M.ndim)):
-    #     rval.append(M.min(axis=i).argmin())
-    # return tuple(rval)
-
-
-def find_sorting(data):
-    """find the sorting of an ndarray
-
-    :Parameters:
-        data : ndarray
-            ndarray to sort
-    :Returns:
-        ndarray
-            data sorted
-    """
-
-    data = data.copy().tolist()
-    rval = []
-    for item in sorted(data):
-        rval.append(data.index(item))
-    return rval
-
+## data structure utilities
 
 def dict_list_to_ndarray(in_dict):
-    """converts all lists in a dictionary to ndarray
+    """converts all lists in a dictionary to ndarray, works recursively
 
-    If there are dicts found into the in_dict, this will work rekursively.
+    :type in_dict: dict
+    :param in_dict: dict to workd on
+    :returns: dict - all list are converted to ndarray
     """
 
-    for k, v in in_dict.items():
+    for k in in_dict:
         if isinstance(in_dict[k], list):
-            in_dict[k] = sp.asarray(v)
+            in_dict[k] = sp.asarray(in_dict[k])
         elif isinstance(in_dict[k], dict):
-            dict_list_to_ndarray(in_dict[k])
+            in_dict[k] = dict_list_to_ndarray(in_dict[k])
         else:
             pass
     return in_dict
 
 
 def dict_sort_ndarrays(in_dict):
-    """sort all arrays in a dictionary"""
+    """sort all arrays in a dictionary, works recursively
 
-    for k in in_dict.keys():
+    :type in_dict: dict
+    :param in_dict: dict to work on
+    :returns:
+    """
+
+    for k in in_dict:
         if isinstance(in_dict[k], sp.ndarray):
+            # in_dict[k] = sp.sort(in_dict[k])
             in_dict[k] = sp.sort(in_dict[k])
-
+        elif isinstance(in_dict[k], dict):
+            in_dict[k] = dict_sort_ndarrays(in_dict[k])
+        else:
+            pass
     return in_dict
 
 ## index calculations
 
-def get_idx(idxset):
-    """yields the first free index in a positive integer index set"""
+def get_idx(idxset, append=False):
+    """yields the first free index in a positive integer index set
 
-    #    # checks
-    #    if not isinstance(idxset, list):
-    #        raise ValueError('only lists are valid index sets')
-    #    if len(idxset) == 0:
-    #        return 0
-    #    rval = 0
-    #    for i in xrange(max(idxset) + 2):
-    #        if i not in idxset:
-    #            rval = i
-    #            break
-    #    return rval
+    :type append: bool
+    :param append: if True, returns max(:idxset:)+1,
+        else find the first free index in :idxset:
+    :returns: int - the first free index
+    """
+
     try:
-        r = arange(max(idxset) + 1)
-        return r[sp.nanargmin(sp.in1d(r, idxset))]
+        idxmax = max(idxset) + 1
+        if append is True:
+            return idxmax
+        idxrange = sp.arange(idxmax)
+        return idxrange[sp.nanargmin(sp.in1d(idxrange, idxset))]
     except:
         return 0
 

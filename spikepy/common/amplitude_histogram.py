@@ -51,7 +51,6 @@ __all__ = ['AmplitudeHistogram']
 
 ##---IMPORTS
 
-from .util import *
 import scipy as sp
 from .ringbuffer import MxRingBuffer
 

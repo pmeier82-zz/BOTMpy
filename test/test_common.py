@@ -11,7 +11,8 @@ from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 from spikepy.common import (INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows,
                             vec2ten, ten2vec, deprecated, mcvec_from_conc,
-                            mcvec_to_conc, xcorr)
+                            mcvec_to_conc, xcorr, shifted_matrix_sub,
+                            dict_list_to_ndarray, dict_sort_ndarrays, get_idx)
 
 ##---TESTS-alphabetic-by-file
 
@@ -137,6 +138,46 @@ class TestCommonFuncsGeneral(ut.TestCase):
         assert_almost_equal(xcorr(data), xcorr_test)
         assert_almost_equal(xcorr(data, lag=lag_n),
                             xcorr_test[n - lag_n - 1:n + lag_n])
+
+    def testShiftedMatrixSub(self):
+        """test for shifted matrix subtraction"""
+
+        at, nsub, ns, nc = 25, 10, 100, 2
+        data = sp.zeros((ns, nc))
+        data[at:at + nsub] = 1.0
+        sub = sp.ones((10, nc))
+        sub_test = sp.zeros_like(data)
+        assert_equal(shifted_matrix_sub(data, sub, at), sub_test)
+        # TODO: complete for edge cases
+
+    def testDictListToNdarray(self):
+        """test for recursive dict list to ndarray converter"""
+
+        d = {'str':'a string',
+             'dict':{'a':'dict',
+                     'arr10':range(10)},
+             'arr10':range(10)}
+        dict_list_to_ndarray(d)
+        self.assertIsInstance(d['arr10'], sp.ndarray)
+        self.assertIsInstance(d['dict']['arr10'], sp.ndarray)
+
+    def testDictSortNdarrays(self):
+        """test for recursive dict ndarray sorter"""
+
+        d = {'str':'a string',
+             'dict':{'a':'dict',
+                     'arr10':sp.array([5, 6, 7, 8, 9, 0, 1, 2, 3, 4])},
+             'arr10':sp.array([5, 6, 7, 8, 9, 0, 1, 2, 3, 4])}
+        dict_sort_ndarrays(d)
+        assert_equal(d['arr10'], sp.arange(10))
+        assert_equal(d['dict']['arr10'], sp.arange(10))
+
+    def testGetIdx(self):
+        """test for index sets"""
+
+        idxs = [0, 2, 3, 4, 7]
+        assert_equal(get_idx(idxs, append=False), 1)
+        assert_equal(get_idx(idxs, append=True), 8)
 
 ##---MAIN
 

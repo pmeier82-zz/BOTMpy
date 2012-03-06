@@ -52,10 +52,9 @@ __all__ = ['get_tau_for_alignment', 'get_tau_align_min', 'get_tau_align_max',
 ##--- IMPORTS
 
 import scipy as sp
-from spikepy.common.constants import INDEX_DTYPE
-from spikepy.common.funcs_general import mcvec_to_conc
-from spikepy.common.funcs_spike import (epochs_from_spiketrain, get_cut,
-                                        extract_spikes)
+from .util import INDEX_DTYPE
+from .funcs_general import mcvec_to_conc
+from .funcs_spike import epochs_from_spiketrain, get_cut, extract_spikes
 
 ##---FUNCTIONS
 

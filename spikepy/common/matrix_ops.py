@@ -49,7 +49,8 @@ __docformat__ = 'restructuredtext'
 
 ##---ALL
 
-__all__ = ['matrix_cond', 'diagonal_loading', 'coloured_loading']
+__all__ = ['matrix_cond', 'diagonal_loading', 'coloured_loading',
+           'matrix_argmax', 'matrix_argmin']
 
 ##---IMPORTS
 
@@ -178,6 +179,52 @@ def compute_coloured_loading(mat, svd, target_cond=SUFFICIENT_CONDITION,
             alpha = min_s - sv[col_idx]
             rval += alpha * sp.outer(U[:, col_idx], U[:, col_idx])
     return rval
+
+
+def matrix_argmax(M):
+    """returns the indices (row,col) of the maxmum in M
+
+    :Parameters:
+        M : ndarray
+            ndarray where to find the maximum
+    :Returns:
+        tuple
+            tuple of indices for each dimension of M indicating the max of M.
+    """
+    idx = sp.nanargmax(M)
+    j = int(idx % M.shape[1])
+    i = int(sp.floor(idx / M.shape[1]))
+    return i, j
+
+    # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
+    # UNIQUE!
+    # rval = []
+    # for i in reversed(xrange(M.ndim)):
+    #     rval.append(M.max(axis=i).argmax())
+    # return tuple(rval)
+
+
+def matrix_argmin(M):
+    """returns the indices (row,col) of the minimum in M
+
+    :Parameters:
+        M : ndarray
+            ndarray where to find the minimum
+    :Returns:
+        tuple
+            tuple of indices for each dimension of M indicating the min of M.
+    """
+    idx = sp.nanargmin(M)
+    j = int(idx % M.shape[1])
+    i = int(sp.floor(idx / M.shape[1]))
+    return i, j
+
+    # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
+    # UNIQUE!
+    # rval = []
+    # for i in reversed(xrange(M.ndim)):
+    #     rval.append(M.min(axis=i).argmin())
+    # return tuple(rval)
 
 ##---MAIN
 

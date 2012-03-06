@@ -51,11 +51,11 @@ __all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
 
 ##--- IMPORTS
 
-from .util import *
 import scipy as sp
 from scipy import linalg as sp_la
+from .util import *
 from .funcs_general import xcorr
-from .matrix_loading import (compute_coloured_loading,
+from .matrix_ops import (compute_coloured_loading,
                              compute_diagonal_loading,
                              compute_matrix_cond)
 from .util import INDEX_DTYPE
