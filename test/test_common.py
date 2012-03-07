@@ -17,31 +17,10 @@ from spikepy.common import (
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
     epochs_from_spiketrain_set, chunk_data, get_cut, snr_maha, snr_peak,
     snr_power, overlaps, matrix_cond, diagonal_loading, coloured_loading,
-    matrix_argmax, matrix_argmin)
+    matrix_argmax, matrix_argmin, get_tau_for_alignment, get_tau_align_min,
+    get_tau_align_max, get_tau_align_energy, get_aligned_spikes)
 
 ##---TESTS-alphabetic-by-file
-
-class TestCommon(ut.TestCase):
-    pass
-
-
-class TestCommonUtil(ut.TestCase):
-    def testIndexDtype(self):
-        self.assertEqual(INDEX_DTYPE, sp.dtype(sp.int64))
-
-    def testDeprecatedDecorator(self):
-        # --- new function
-        def sum_many(*args):
-            return sum(args)
-
-        # --- old / deprecated function
-        @deprecated(sum_many)
-        def sum_couple(a, b):
-            return a + b
-
-        # --- test
-        assert_equal(sum_couple(2, 2), 4)
-
 
 class TestCommonFuncsFilterutil(ut.TestCase):
     def testXiVsF(self, nc=2):
@@ -405,6 +384,61 @@ class TestCommonMatrixOps(ut.TestCase):
         mat[1, 0] = 1
         self.assertTupleEqual(matrix_argmax(mat), (1, 0))
         self.assertTupleEqual(matrix_argmin(mat), (0, 1))
+
+
+class TestCommonSpikeAlignment(ut.TestCase):
+    def testGetTauForAlignment(self):
+        data = sp.zeros((4, 10, 2))
+        for spike in data:
+            spike[4, 0] = 2
+            spike[8, 1] = 1
+        assert_equal(get_tau_for_alignment(data, 5), sp.ones(4))
+
+    def testAligMax(self):
+        data = sp.zeros((4, 10, 2))
+        for spike in data:
+            spike[4] = 1
+        assert_equal(get_tau_align_max(data, 5), sp.ones(4))
+
+    def testAlignMin(self):
+        data = sp.zeros((4, 10, 2))
+        for spike in data:
+            spike[4] = -1
+        assert_equal(get_tau_align_min(data, 5), sp.ones(4))
+
+    def testAlignNrg(self):
+        data = sp.array([sp.array([sp.sin(
+            sp.linspace(0, sp.pi, 10))] * 2).T] * 4)
+        assert_equal(get_tau_align_energy(data, 5), sp.ones(4))
+
+    def testGetAlignedSpikes(self):
+        data = sp.zeros((1000, 2))
+        spike_start = sp.arange(50, 1000, 50)
+        wf = sp.array([sp.sin(sp.linspace(0, 2 * sp.pi, 20))] * 2).T * 5
+        for ev in spike_start:
+            data[ev:ev + 20] += wf
+        spikes, st = get_aligned_spikes(data, spike_start, (0, 30), 5,
+                                        mc=True, kind='max')
+        exval_max = sp.array([spike[:, 0].argmax() for spike in spikes])
+        assert_equal(exval_max, sp.ones(spike_start.size) * 5)
+
+
+class TestCommonUtil(ut.TestCase):
+    def testIndexDtype(self):
+        self.assertEqual(INDEX_DTYPE, sp.dtype(sp.int64))
+
+    def testDeprecatedDecorator(self):
+        # --- new function
+        def sum_many(*args):
+            return sum(args)
+
+        # --- old / deprecated function
+        @deprecated(sum_many)
+        def sum_couple(a, b):
+            return a + b
+
+        # --- test
+        assert_equal(sum_couple(2, 2), 4)
 
 ##---MAIN
 

@@ -44,114 +44,18 @@
 #
 
 
-"""ring buffer implementation"""
+"""matrix based ringbuffer implementation"""
 __docformat__ = 'restructuredtext'
-__all__ = ['RingBuffer', 'MxRingBuffer']
+__all__ = ['MxRingBuffer']
 
 ##---IMPORTS
 
-from collections import deque
 import scipy as sp
 
 ##---CLASSES
 
-class RingBuffer(object):
-    """ringbuffer implementation based on collections.deque
-
-    Ringbuffer behavior is archived by checking for len(data) vs self.capacity
-    property, and poping a datum at the opposite side of the buffer if
-    capacity
-    is reached. collections.deque has O(1) access for pop and popleft.
-
-    This Ringbuffer is prefered for non array-like number types and generic
-    python objects. See also MxRingbuffer for a ringbuffer working with on a
-    prealocated ndarray.
-    """
-
-    ## constructor
-
-    def __init__(self, capacity=64):
-        """
-        :Parameters:
-            capacity : int
-                maximum capacity
-        """
-
-        self._data = deque()
-        self.capacity = capacity
-
-    ## interface methods
-
-    def append(self, datum):
-        """append a datum at the end of the buffer, and pop a datum on the
-        start
-        of the buffer if the capacity is reached
-
-        :Parameters:
-            datum : object
-                object to store
-        """
-
-        self._data.append(datum)
-        if len(self._data) > self.capacity:
-            self._data.popleft()
-
-    def extend(self, iterable):
-        """append iterable at the end of the buffer using multiple appends
-
-        :Parameters:
-            iterable : iterable
-                iterable of objects to be stored in the ringbuffer
-
-        TODO: may be ineffective if len(iterable) >> capacity
-        """
-
-        for item in iterable:
-            self.append(item)
-
-    def tolist(self):
-        """return the buffer as a python list
-
-        :Returns:
-            list
-                the buffer as a python list of the objects stored
-        """
-
-        return list(self._data)
-
-    def flush(self):
-        """return the buffer as a list and clear the RingBuffer
-
-        Convenience method. This returns self.tolist() and calls self.clear()
-        afterwards.
-
-        :Returns:
-            list
-                the buffer as a python list of the objects stored
-        """
-
-        try:
-            return list(self._data)
-        finally:
-            self._data.clear()
-
-    ## special methods
-
-    def __str__(self):
-        return 'RingBuffer{%s}' % self.capacity
-
-    def __len__(self):
-        return len(self._data)
-
-    def __getitem__(self, k):
-        return self._data[k]
-
-    def __iter__(self):
-        return self._data.__iter__()
-
-
 class MxRingBuffer(object):
-    """ringbuffer implementation based on prealocated ndarray
+    """ringbuffer implementation based on pre-allocated ndarray
 
     Ringbuffer behavior is archived by cycling though the buffer forward,
     wrapping around to the start upon reaching capacity.
@@ -161,21 +65,27 @@ class MxRingBuffer(object):
 
     def __init__(self, capacity=64, dimension=1, dtype=None):
         """
-        :Parameters:
-            capacity : int
-                capacity of the ringbuffer (rows)
-            dimension : tuple or int
-                dimensionality of the items to store in the ringbuffer. If
-                int,
-                this will be converted internally to (int,)
-            dtype : scipy.dtype resolvable
+        :type capacity: int
+        :param capacity: capacity of the ringbuffer (rows)
+            Default=64
+        :type dimension: tuple or int
+        :param dimension: dimensionality of the items to store in the
+            ringbuffer. If int, this will be converted internally to (int,)
+            Default=1
+        :type dtype: dtype resolvable
+        :param dtype: dtype of single entries
+            Default=float32
         """
 
         # checks
         if capacity < 1:
-            raise ValueError('capacity has to be > 0')
+            raise ValueError('capacity < 1')
         if isinstance(dimension, int):
             dimension = (dimension,)
+        elif isinstance(dimension, tuple):
+            pass
+        else:
+            raise ValueError('dimension has to be tuple or int')
 
         # members
         self._capacity = int(capacity)
@@ -193,7 +103,7 @@ class MxRingBuffer(object):
 
         # mappings
         self._idx_append = self._idx_fullcap_proto
-        self._idx_retreive = self._idx_belowcap_proto
+        self._idx_retrieve = self._idx_belowcap_proto
 
     ## properties
 
@@ -202,10 +112,10 @@ class MxRingBuffer(object):
 
     dimension = property(get_dimension)
 
-    def is_full(self):
+    def get_is_full(self):
         return self._full
 
-    full = property(is_full)
+    is_full = property(get_is_full)
 
     def get_capacity(self):
         return self._capacity
@@ -214,7 +124,7 @@ class MxRingBuffer(object):
         if not isinstance(value, int):
             raise ValueError('takes integer as argument')
         if value < 1:
-            raise ValueError('capacity has to be > 0')
+            raise ValueError('capacity < 1')
         hist = min(len(self), value)
         old_data = self[-hist:].copy()
         self._capacity = value
@@ -228,17 +138,18 @@ class MxRingBuffer(object):
     ## methods interface
 
     def append(self, datum):
-        """append one datum at the end of the buffer, overwriting the oldes
-        datum in the buffer if the capacity is reached.
+        """append one datum at the end of the buffer, overwriting the oldest
+        datum in the buffer if the capacity has been reached.
 
-        :Parameters:
-            datum : ndarray
-                ndarray od shape self.dimension
+        :type datum: ndarray
+        :param datum: ndarray of shape :self.dimension:
         """
 
         # checks
+        datum = sp.asarray(datum)
         if datum.shape != self._dimension:
-            raise ValueError('datum has wrong dimension!')
+            raise ValueError('datum has wrong dimension! expected %s was %s' %
+                             (self._dimension, datum.shape))
 
         # append
         self._data[self._idx_append()[0], :] = datum
@@ -248,28 +159,24 @@ class MxRingBuffer(object):
         if self._next == self._capacity:
             self._next = 0
             if self._full is False:
-                self._idx_retreive = self._idx_fullcap_proto
+                self._idx_retrieve = self._idx_fullcap_proto
                 self._full = True
 
     def extend(self, iterable):
         """append iterable at the end of the buffer using multiple append's
 
-        :Parameters:
-            iterable : iterable
-                iterable of objects to be stored in the ringbuffer
-
-        TODO: may be ineffective if len(iterable) >> capacity
+        :type iterable: iterable
+        :param iterable: iterable of objects to be stored in the ringbuffer
         """
 
+        # TODO: may be ineffective if len(iterable) >> capacity
         for item in iterable:
             self.append(item)
 
     def tolist(self):
         """return the buffer as a list
 
-        :Returns:
-            list
-                the buffer as a python list
+        :returns: list- the buffer as a python list
         """
 
         return self._data.tolist()
@@ -279,7 +186,7 @@ class MxRingBuffer(object):
 
         self._next = 0
         self._full = False
-        self._idx_retreive = self._idx_belowcap_proto
+        self._idx_retrieve = self._idx_belowcap_proto
         self._data[:] = 0.0
 
     def flush(self):
@@ -288,52 +195,49 @@ class MxRingBuffer(object):
         Convenience method. This returns self.tolist() and calls self.clear()
         afterwards.
 
-        :Returns:
-            list
-                the buffer as a python list of the objects stored
+        :returns: list - the buffer as a python list of the objects stored
         """
 
         try:
-            return self._data.tolist()
+            return self[:].tolist()
         finally:
             self.clear()
 
     def mean(self, last=None):
-        """yields the mean over the last entries
+        """yields the mean over the :last: entries
 
-        :Parameters:
-            last : int
-                the last entries to include for the calculation of the mean.
-                 If
-                not given or None, include everything.
-        :Returns:
-            float
-                mean over the last entries, or the appropriate zero element if
-                the ringbuffer is empty.
+        :type last: int
+        :param last: number entries from the back of the ringbuffer to
+            include for mean calculation. If None, use all contents
+            Default=None
+        :returns: ndarray(self.dimension) - mean over the last entries,
+            or the appropriate zero element if the ringbuffer is empty.
         """
 
         # checks
         if len(self) == 0:
-            return sp.mean(sp.zeros(self._dimension, dtype=self._dtype),
-                           axis=0)
-            # TODO: should we raise an exception here?!
+            # XXX: changed to just zeros(dim, dtype)
+            # return sp.mean(sp.zeros(self._dimension, dtype=self._dtype),
+            #                axis=0)
+            return sp.zeros(self._dimension, dtype=self._dtype)
         if last is None or last > len(self):
             last = len(self)
 
         # return
-        return sp.mean(self._data[self._idx_retreive()[-last:], :], axis=0)
+        return sp.mean(self._data[self._idx_retrieve()[-last:], :], axis=0)
 
     def fill(self, datum):
         """fill all slots of the ringbuffer with the same datum.
 
-        :Parameters:
-            datum : ndarray
-                ndarray od shape self.dimension
+        :type datum: ndarray
+        :param daaum: ndarray of shape :self.dimension:
         """
 
         # checks
+        datum = sp.asarray(datum)
         if datum.shape != self._dimension:
-            raise ValueError('datum has wrong dimension!')
+            raise ValueError('datum has wrong dimension! expected %s was' %
+                             (self._dimension, datum.shape))
 
         # append
         self._data = sp.ones_like(self._data)
@@ -342,7 +246,7 @@ class MxRingBuffer(object):
         # index and capacity status bookkeeping
         self._next = 0
         if self._full is False:
-            self._idx_retreive = self._idx_fullcap_proto
+            self._idx_retrieve = self._idx_fullcap_proto
             self._full = True
 
     ## special methods
@@ -356,64 +260,19 @@ class MxRingBuffer(object):
                                                        str(self._dimension))
 
     def __len__(self):
-        return len(self._idx_retreive())
+        return len(self._idx_retrieve())
 
     def __getitem__(self, k):
-        # checks
-        if k > self._data.shape[0]:
-            raise KeyError('MxRingbuffer: invalid index')
-
-        # return
-        return self._data[self._idx_retreive()[k], :]
-
-    def __getslice__(self, k_start, k_end):
-        return self._data[self._idx_retreive()[k_start:k_end], ...]
+        try:
+            idx = self._idx_retrieve()[k]
+            return self._data[idx, ...]
+        except IndexError:
+            raise IndexError('ringbuffer index out of range')
 
     def __iter__(self):
-        return self._data.__iter__()
+        return self._data[self._idx_retrieve(), ...].__iter__()
 
 ##---MAIN
 
 if __name__ == '__main__':
-    RB = MxRingBuffer(6, (4, 4))
-    print RB
-    print
-    print 'inserting eye(4) * [0,1,2,3]'
-    RB.extend([sp.eye(4) * (i + 1) for i in xrange(4)])
-    print RB
-    print
-    print 'RB[-1:]:'
-    print RB[-1:]
-    print
-    print 'RB[-2:]'
-    print RB[-2:]
-    print
-    print 'RB[-3:]'
-    print RB[-3:]
-    print
-    print 'inserting eye(4) * [0,1,2,3]'
-    RB.extend([sp.eye(4) * (i + 1) for i in xrange(4, 8)])
-    print RB
-    print
-    print 'RB[-1:]:'
-    print RB[-1:]
-    print
-    print 'RB[-2:]'
-    print RB[-2:]
-    print
-    print 'RB[-3:]'
-    print RB[-3:]
-    print
-    print 'resizing to cap 4'
-    RB.set_capacity(4)
-    print RB
-    print RB[:]
-    print
-    print 'filling with aranges'
-    xi = sp.array([sp.arange(4) + 1] * 4).T
-    RB.fill(xi)
-    print RB
-    print RB[:]
-    print
-    print 'mean after fill'
-    print RB.mean()
+    pass

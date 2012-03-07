@@ -49,6 +49,8 @@ __docformat__ = 'restructuredtext'
 
 ##---PACKAGE
 
+# XXX: do not change the import order!! thanks
+
 from .util import *
 
 from .funcs_general import *
@@ -62,11 +64,6 @@ from .mcfilter import *
 from .ringbuffer import *
 from .spike_alignment import *
 from .datafile import *
-
-# do not change the import order!! thanks
-
-# LEGACY!!!
-# from .spike_train_alignment import *
 
 ##---MAIN
 

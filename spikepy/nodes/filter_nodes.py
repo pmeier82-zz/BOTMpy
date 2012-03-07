@@ -383,7 +383,7 @@ if __name__ == '__main__':
     #  plot
     from spikeplot import plt
 
-    plt.plot(mcfilter(x, mf_h.f), label='mcfilter (scipy.correlate)',
+    plt.plot(mcfilter_(x, mf_h.f), label='mcfilter_ (scipy.correlate)',
              color='r')
     plt.plot(y_h + .02, label='mcfilter_hist (py/c)', color='g')
     plt.plot(signal + 5)

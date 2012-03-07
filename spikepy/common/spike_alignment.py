@@ -59,19 +59,18 @@ from .funcs_spike import epochs_from_spiketrain, get_cut, extract_spikes
 ##---FUNCTIONS
 
 def get_tau_for_alignment(spikes, align_at):
-    """return tau per spike so that the spike's energetic maximum is aligned
-    to a certain sample in the waveform
+    """return the per spike offset in samples (taus) of the maximum values to
+    the desired alignment sample within the spike waveform.
 
-    :Parameters:
-        spikes : ndarray
-            spikes as [nspikes, tf, nc] in their multichanneled representation
-        align_at : int
-            sample to align at
-    :Returns:
-        ndarray : taus with the offsets of the individual spikes
+    :type spikes: ndarray
+    :param spikes: stacked spike waveforms in their multichanneled
+        representation [nspikes, tf, nc]
+    :type align_at: int
+    :param align_at: sample to align the maximum at
+    :returns: ndarray - offset per spike
     """
 
-    dchan = [item.max(0).argmax() for item in spikes]
+    dchan = [spike.max(0).argmax() for spike in spikes]
     tau = [spikes[i, :, dchan[i]].argmax() - align_at
            for i in xrange(spikes.shape[0])]
     return - sp.asarray(tau, dtype=INDEX_DTYPE)

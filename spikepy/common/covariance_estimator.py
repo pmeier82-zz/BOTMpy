@@ -53,11 +53,9 @@ __all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
 
 import scipy as sp
 from scipy import linalg as sp_la
-from .util import *
 from .funcs_general import xcorr
-from .matrix_ops import (compute_coloured_loading,
-                             compute_diagonal_loading,
-                             compute_matrix_cond)
+from .matrix_ops import (compute_coloured_loading, compute_diagonal_loading,
+                         compute_matrix_cond)
 from .util import INDEX_DTYPE
 
 ##--- CLASSES
@@ -67,22 +65,19 @@ class BaseTimeSeriesCovarianceEstimator(object):
 
     ## constructor
 
-    def __init__(self,
-                 weight=0.05,
-                 cond=50,
-                 dtype=None, ):
+    def __init__(self, weight=0.05, cond=50, dtype=None):
         """
-        :Parameters:
-            weight : float
-                float from [0.0, 1.0]. new observations will be weighted and
-                contribute to the update with the factor weight
-                Default=0.05
-            cond : float
-                Condition number to assert if requesting the loaded matrix.
-                Default=50
-            dtype : numpy.dtype
-                anything that can be used as a numpy.dtype object
-                Default=None
+        :type weight: float
+        :param weight: from [0.0, 1.0]. new observations will be weighted and
+            contribute to the update with the factor weight. (exp model)
+            Default=0.05
+        :type cond: float
+        :param cond: condition number to assert if the loaded
+            matrix is requested.
+            Default=50
+        :type dtype: dtype resolvable
+        :param dtype: anything that can be used as a numpy.dtype object
+            Default=float32
         """
 
         # members
@@ -215,45 +210,31 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
 
     ## constructor
 
-    def __init__(self,
-                 # TimeSeriesCovE
-                 tf_max=100,
-                 nc=4,
-                 # BaseTimeSeriesCovarianceEstimator
-                 weight=0.05,
-                 cond=50,
-                 dtype=None,
-                 ):
+    def __init__(self, tf_max=100, nc=4, weight=0.05, cond=50, dtype=None):
         """
-        :Parameters:
-            see BaseTimeSeriesCovarianceEstimator
+        see BaseTimeSeriesCovarianceEstimator
 
-            tf_max : int
-                the maximum lag for the cross-correlation function to
-                calculate
-                and store internally. the estimator will be able to provide
-                covariance matrices for lags in [1..tf_max].
-                Default=100
-            nc : int
-                channel count of expected data. data that is feed to update
-                the
-                estimator is checked for this channel count. also determines
-                 the
-                size of the internal storage for the correlation functions.
-                Default=4
+        :type tf_max: int
+        :param tf_max: the maximum lag for the cross-correlation function to
+            calculate and store internally. the estimator will be able to
+            provide covariance matrices for lags in [1..tf_max].
+            Default=100
+        :type nc: int
+        :param nc: channel count of expected data. data that is feed to update
+            the estimator is checked for this channel count. also determines
+            the size of the internal storage for the correlation functions.
+            Default=4
         """
 
         # checks
         if tf_max <= 0:
-            raise ValueError('tf_max <= 0! has to be > 0')
+            raise ValueError('tf_max <= 0')
         if nc <= 0:
-            raise ValueError('nc <= 0! has to be > 0')
+            raise ValueError('nc <= 0')
 
         # super
-        super(TimeSeriesCovE, self).__init__(
-            weight=weight,
-            cond=cond,
-            dtype=dtype)
+        super(TimeSeriesCovE, self).__init__(weight=weight, cond=cond,
+                                             dtype=dtype)
 
         # members
         self._tf_max = int(tf_max)
