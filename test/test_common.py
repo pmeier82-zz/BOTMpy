@@ -9,13 +9,15 @@ except ImportError:
 
 from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
+import scipy.linalg as sp_la
 from spikepy.common import (
     INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec, deprecated,
     mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
     dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
     epochs_from_spiketrain_set, chunk_data, get_cut, snr_maha, snr_peak,
-    snr_power, overlaps)
+    snr_power, overlaps, matrix_cond, diagonal_loading, coloured_loading,
+    matrix_argmax, matrix_argmin)
 
 ##---TESTS-alphabetic-by-file
 
@@ -336,6 +338,10 @@ class TestCommonFuncsSpike(ut.TestCase):
 
 
 class TestCommonMatrixOps(ut.TestCase):
+    def setUp(self):
+        self.vec = sp.array([4.0, 2.0, 1.0])
+        self.mat = sp_la.toeplitz(self.vec)
+
     def old_code_container(self):
         r = sp.array([1.0, 0.9, 0.8])
         C = sp_la.toeplitz(r)
@@ -365,8 +371,40 @@ class TestCommonMatrixOps(ut.TestCase):
         print 'same matrices: C is Cnew', C is Cnew
         print
 
-    def testMergeEpochs(self):
-        pass
+    def testMatrixCond(self):
+        """test for matrix condition"""
+
+        self.assertEqual(matrix_cond(sp.eye(10)), 1.0)
+        self.assertEqual(matrix_cond(self.mat), 4.5292109924517616)
+
+    def testMatrixLoading(self):
+        """test for diagonal loading"""
+
+        # trivial
+        assert_equal(diagonal_loading(self.mat, 1.0), sp.eye(3))
+        assert_equal(coloured_loading(self.mat, 1.0), sp.eye(3))
+
+        # application
+        c = 5.2445626465380286
+        assert_equal(diagonal_loading(self.mat, 3.0),
+                     sp.array([[c, 2, 1], [2, c, 2], [1, 2, c]]))
+        assert_almost_equal(coloured_loading(self.mat, 3.0), sp.array([
+            [4.1713186830564446, 1.7111326024008537, 1.1713186830564448],
+            [1.7111326024008537, 4.4870710649124632, 1.7111326024008537],
+            [1.1713186830564448, 1.7111326024008537, 4.1713186830564446]]))
+
+    def testMatrixExtrema(self):
+        """test for matrix extrema"""
+
+        mat = sp.zeros((4, 4))
+        mat[1, 1] = -1
+        mat[2, 2] = 1
+        self.assertTupleEqual(matrix_argmax(mat), (2, 2))
+        self.assertTupleEqual(matrix_argmin(mat), (1, 1))
+        mat[0, 1] = -1
+        mat[1, 0] = 1
+        self.assertTupleEqual(matrix_argmax(mat), (1, 0))
+        self.assertTupleEqual(matrix_argmin(mat), (0, 1))
 
 ##---MAIN
 
