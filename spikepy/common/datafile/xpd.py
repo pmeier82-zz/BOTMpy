@@ -44,7 +44,7 @@
 #
 
 
-"""datafile implementation for xpd filefomat - MUNK@MPI-Tuebingen"""
+"""datafile implementation for xpd file fomat"""
 __docformat__ = 'restructuredtext'
 __all__ = ['XpdFile', '_XPD_TH', '_XPD_CH']
 
@@ -52,7 +52,7 @@ __all__ = ['XpdFile', '_XPD_TH', '_XPD_CH']
 
 import scipy as sp
 from struct import Struct
-from spikepy.common.datafile.datafile import DataFile, DataFileError
+from .datafile import DataFile, DataFileError
 
 ##---CONSTANTS
 
@@ -67,7 +67,7 @@ _CONV_255s = Struct('255s')
 ##--- CLASSES
 
 class _XPD_TH(object):
-    """data structure holding information about the contents of a xpd file
+    """XPD trial header struct
 
         ===== =============================
         Size  XPD Trial Header Member
@@ -93,9 +93,8 @@ class _XPD_TH(object):
 
     def __init__(self, fp):
         """
-        :Parameters:
-            fp : file pointer
-                A file pointer to a seek(@header_start) binary file
+        :type fp: file
+        :param fp: open file at seek(header_start)
         """
 
         # read buffer
@@ -140,7 +139,7 @@ class _XPD_TH(object):
 
 
 class _XPD_CH(object):
-    """data structure holding information about a channel
+    """XPD channel header struct
 
         ===== =====================
         Size  XPD Channel Header
@@ -157,9 +156,8 @@ class _XPD_CH(object):
 
     def __init__(self, fp):
         """
-        :Parameters:
-            fp : filepointer
-                A file pointer to a seek(@header_start) binary file
+        :type fp: file
+        :param fp: open file at seek(header_start)
         """
 
         # read buffer
@@ -183,21 +181,11 @@ class _XPD_CH(object):
 
 
 class XpdFile(DataFile):
-    """xpd file from Matthias Munk Group @ MPI Tübingen"""
+    """XPD file from - Matthias Munk Group @ MPI Tübingen"""
 
-    ## constuctor
+    ## constructor
 
-    def __init__(self, filename=None, dtype=sp.float32, cache=False):
-        """
-        :Parameters:
-            filename : str
-                Valid path to a XPD file on the local file system.
-            dtype : scyip.dtype
-                Object that resolves to a valid scipy.dtype.
-            cache : bool
-                If True, cache data and do not read on every query.
-        """
-
+    def __init__(self, filename=None, dtype=None, cache=False):
         # members
         self.trial_header = None
         self.n_achan = None
@@ -288,33 +276,23 @@ class XpdFile(DataFile):
         return self.fp.name
 
     def _get_data(self, **kwargs):
-        """get data for one tetrode (default all channels) as ndarray
+        """returns a numpy array of the data with samples on the rows and
+        channels on the columns. channels may be selected via the channels
+        parameter.
 
-        :Keywords:
-            item : int
-                Id of the tetrode in question. Default = 1
-            chans : list
-                Channel list. Default = [0,1,2,3]
+        get data for one tetrode (default all channels) as ndarray
 
-        DTYPE=float32
-        TETRODE IDX STARTS AT 1!!
+        :type item: int
+        :keyword item: tetrode id. starts at 1!!
+            Default = 1
+        :type chans: list
+        :keyword chans: Channel list.
+            Default = [0,1,2,3]
         """
 
-        # tetr
-        mode = 'tetr'
-        if 'mode' in kwargs:
-            mode = kwargs['mode']
-        if mode not in ['tetr']:
-            raise ValueError('unknown mode: %s' % mode)
-            # item
-        item = 1
-        if 'item' in kwargs:
-            item = kwargs['item']
-            # chans
-        chans = [0, 1, 2, 3]
-        if 'chans' in kwargs:
-            if kwargs['chans'] is not None:
-                chans = kwargs['chans']
+        # keywords
+        item = kwargs.get('item', 1)
+        chans = kwargs.get('chans', [0, 1, 2, 3])
 
         # inits
         my_chans = [item + chans[i] * 16 for i in xrange(len(chans))]
@@ -328,7 +306,7 @@ class XpdFile(DataFile):
         if nsample == 0:
             raise IndexError('no data for tetrode %s' % item)
 
-        # return
+        # collect data
         rval = sp.zeros((nsample, len(chans)), dtype=self.dtype)
         for i in xrange(len(my_chans)):
             load_item = None
@@ -366,9 +344,8 @@ class XpdFile(DataFile):
     def _get_achan(self, idx):
         """yields an analog channel as ndarray
 
-        :Parameters:
-            idx : int
-                Channel id.
+        :type idx: int
+        :param idx: channel id
         """
 
         # checks
@@ -386,14 +363,11 @@ class XpdFile(DataFile):
             return sp.array([], dtype=sp.int16)
         return sp.frombuffer(byte_data, dtype=sp.int16)
 
-    ## private helpers
-
     def _get_echan(self, idx):
         """yields an event channel as ndarray
 
-        :Parameters:
-            idx : int
-                Channel id.
+        :type idx: int
+        :param idx: channel id.
         """
 
         # checks
@@ -412,7 +386,7 @@ class XpdFile(DataFile):
 ##--- MAIN
 
 if __name__ == '__main__':
-    arc = XpdFile('/home/phil/monkey-data/Louis/L011/L0111001.xpd')
-    X = arc.get_data(tetr=1)
+    arc = XpdFile('/home/phil/Data/Munk/Louis/L011/L0111001.xpd')
+    X = arc.get_data(item=1)
     print X
     del arc, X

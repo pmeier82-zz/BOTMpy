@@ -46,11 +46,10 @@
 
 """multi-channeled filtering package"""
 __docformat__ = 'restructuredtext'
-__all__ = ['mcfilter', 'mcfilter_hist']
 
 ##---PACKAGE
 
-from .mcfilter import mcfilter, mcfilter_hist
+from .mcfilter import *
 
 ##---MAIN
 

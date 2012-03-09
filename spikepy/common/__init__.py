@@ -53,12 +53,12 @@ __docformat__ = 'restructuredtext'
 
 from .util import *
 
-from .datafile import *
-from .mcfilter import *
-
 from .funcs_general import *
 from .funcs_filterutil import *
 from .funcs_spike import *
+
+from .datafile import *
+from .mcfilter import *
 
 from .amplitude_histogram import *
 from .covariance_estimator import *

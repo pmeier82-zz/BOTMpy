@@ -44,25 +44,24 @@
 #
 
 
-"""datafile implementation for atf fileformat"""
+"""datafile implementation for atf file format"""
 __docformat__ = 'restructuredtext'
 __all__ = ['AtfFile', '_ATF_H']
 
 ##---IMPORTS
 
 import scipy as sp
-from spikepy.common.datafile.datafile import DataFile, DataFileError
+from .datafile import DataFile, DataFileError
 
 ##---CLASSES
 
 class _ATF_H(object):
-    """data structure holding information about a recording"""
+    """ATF file header"""
 
     def __init__(self, fp):
         """
-        :Parameters:
-            fp : filepointer
-                A file pointer at seek(0)
+        :type fp: file
+        :param fp: open file at seek(0)
         """
 
         # version
@@ -102,19 +101,11 @@ class _ATF_H(object):
 
 
 class AtfFile(DataFile):
-    """atf file from GenePix software"""
+    """ATF file format - GenePix software"""
 
     ## constructor
 
-    def __init__(self, filename=None, dtype=sp.float32):
-        """
-        :Parameters:
-            filename : str
-                Avalid path to a ATF file on the local filesystem.
-            dtype : scipy.dtype
-                An object that resolves to a vali scipy.dtype.
-        """
-
+    def __init__(self, filename=None, dtype=None):
         # members
         self.header = None
         self.nchan = None
@@ -161,35 +152,33 @@ class AtfFile(DataFile):
         return self.fp.name
 
     def _get_data(self, **kwargs):
-        """return data as ndarray according to keywords passed
+        """returns a numpy array of the data with samples on the rows and
+        channels on the columns. channels may be selected via the channels
+        parameter.
 
-        :Keywords:
-            mode : str
-                One of 'all', 'chan', 'data' or 'device'. 'all' return all the
-                data in the file. 'chan' returns a specific channel. 'data'
-                returns. 'device' returms all data for a specific device.
-            item : int
-                Relevance depends on the mode.
+        :type mode: str
+        :keyword mode: One of 'all', 'chan', 'data' or 'device'. 'all' return
+            all the data in the file. 'chan' returns a specific channel.'data'
+            returns. 'device' returns all data for a specific device.
+        :type item: int
+        :keyword item: identifier as per mode
+        :rtype: ndarray
+        :returns: requested data
         """
 
-        # mode
-        mode = 'all'
-        if 'mode' in kwargs:
-            mode = kwargs['mode']
+        # checks
+        mode = kwargs.get('mode', 'all')
         if  mode not in ['all', 'chan', 'data', 'device']:
             raise DataFileError('unknown mode: %s' % mode)
-            # item
-        item = 0
-        if 'item' in kwargs:
-            item = kwargs['item']
+        item = kwargs.get('item', 0)
         if mode in ['chan', 'data']:
             if item not in range(self.nchan):
-                raise DataFileError(
-                    'mode is %s, unknown item: %s' % (mode, item))
+                raise DataFileError('mode is %s, unknown item: %s' %
+                                    (mode, item))
         elif mode in ['device']:
             if item not in range(2):
-                raise DataFileError(
-                    'mode is %s, unknown item: %s' % (mode, item))
+                raise DataFileError('mode is %s, unknown item: %s' %
+                                    (mode, item))
 
         # return data copies
         rval = None
@@ -197,21 +186,16 @@ class AtfFile(DataFile):
             rval = {}
             for chan in xrange(self.nchan):
                 rval[chan] = self._data[chan::self.nchan, :].copy()
-            return rval
         elif mode is 'chan':
-            return self._data[item::self.nchan, :].copy()
+            rval = self._data[item::self.nchan, :].copy()
         elif mode is 'data':
-            return self._data[item * self.nchan:(item + 1) * self.nchan,
-                   :].copy()
+            rval = self._data[
+                   item * self.nchan:(item + 1) * self.nchan, :].copy()
         elif mode is 'device':
-            dev_range = None
-            if item == 0:
-                dev_range = [0, 1]
-            else:
-                dev_range = [2, 3, 4, 5]
-            return sp.vstack([
-            sp.hstack(self._data[i::self.nchan, :]) for i in dev_range
-            ]).T.copy()
+            dev_range = {0:[0, 1], 1:[2, 3, 4, 5]}[item]
+            rval = sp.vstack([sp.hstack(self._data[i::self.nchan, :])
+                              for i in dev_range]).T.copy()
+        return rval
 
 if __name__ == '__main__':
     pass

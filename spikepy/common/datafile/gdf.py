@@ -44,34 +44,21 @@
 #
 
 
-"""datafile implementation for gdf fileformat"""
+"""datafile implementation for gdf file format"""
 __docformat__ = 'restructuredtext'
 __all__ = ['GdfFile']
 
 ##---IMPORTS
 
 import scipy as sp
-from spikepy.common import sortrows
-from spikepy.common.datafile.datafile import DataFile
+from .datafile import DataFile
+from ..funcs_general import sortrows, dict_list_to_ndarray
+
 
 ##---CLASSES
 
 class GdfFile(DataFile):
-    """gdf file from Chen Sorter software"""
-
-    ## constuctor
-
-    def __init__(self, filename=None, dtype=sp.float32):
-        """
-        :Parameters:
-            filename : str
-                Avalid path to a Wri file on the local filesystem.
-            dtype : scipy.dtype
-                An object that resolves to a vali scipy.dtype.
-        """
-
-        # super
-        super(GdfFile, self).__init__(filename=filename, dtype=dtype)
+    """GDF file format - Chen Sorter"""
 
     ## implementation
 
@@ -79,82 +66,94 @@ class GdfFile(DataFile):
         self.data = GdfFile.read_gdf(filename)
 
     @staticmethod
-    def read_gdf(file_name):
-        """
-        reads a .gdf file and stores to a dict
+    def read_gdf(filename):
+        """reads a GDF file and stores to a dict
 
-        Seems gdfs can only be read sequentially, so we read in line-wise
-        and store
-        to lists (one list per unit). After reading we convert each list to
-        C{numpy.ndarray}.
+        :type filename: string[path]
+        :param filename: path to the file to read
 
-        @type file_name: string[path]
-        @param file_name: path to the file to read
-
-        @rtype: dict of numpy.ndarray
-        @return: one sequence per unit
+        :rtype: dict of numpy.ndarray
+        :return: one sequence per unit
         """
 
         rval = {}
-        read_file = open(file_name, 'r')
-
-        for line in read_file:
-            data = line.strip().split()
-            if len(data) != 2:
-                continue
-            if data[0] not in rval:
-                rval[data[0]] = []
-            rval[data[0]].append(int(data[1]))
-        read_file.close()
-
-        for k in rval.keys():
-            rval[k] = sp.array(rval[k])
-
-        return rval
+        with open(filename, 'r') as f:
+            for line in f:
+                data = line.strip().split()
+                if len(data) != 2:
+                    continue
+                else:
+                    key, sample = map(int, data)
+                if key not in rval:
+                    rval[key] = []
+                rval[key].append(sample)
+        return dict_list_to_ndarray(rval)
 
     def _closed(self):
         return False
 
     @staticmethod
     def write_gdf(filename, gdf):
-        """Writes a data file. data can be either a dictionary containing a
-        list of timepoints for every neuron
-        or
-        a dictionary containing ndarrays for every neuron
-        or
-        a matrix with two columns where the first is the neuron id and the
-        second is the timepoint"""
+        """Writes GDF data file.
+
+        :type filename: str
+        :param filename: valid path on the filesystem
+        :type gdf: dict or ndarray
+        :param gdf: either a dict mapping unit ids to spike trains or a
+            ndarray with the keys in the first column and the samples in the
+            second column"""
+
         if isinstance(gdf, dict):
             gdf = GdfFile.convert_dict_to_matrix(gdf)
-
-        sp.savetxt(filename, gdf, '%04d %d')
+        sp.savetxt(filename, gdf, fmt='%05d %d')
 
     @staticmethod
-    def convert_dict_to_matrix(gdf_dict):
-        timepoints = sp.concatenate(gdf_dict.values())
-        gdf = sp.zeros((len(timepoints), 2))
-        gdf[:, 0] = timepoints
+    def convert_dict_to_matrix(gdf):
+        """converts a GDF dict representation to a matrix
+
+        :type gdf: dict
+        :param gdf: mapping unit ids to spike trains
+        :rtype: ndarray
+        :returns: first column ids, second column samples
+        """
+
+        samples = sp.concatenate(gdf.values())
+        rval = sp.zeros((len(samples), 2))
+        rval[:, 0] = samples
         idx = 0
         ids = sp.zeros(0)
-        for key in sorted(gdf_dict.keys()):
-            ids = sp.concatenate((ids, sp.ones((len(gdf_dict[key]))) * idx))
+        for key in sorted(gdf.keys()):
+            ids = sp.concatenate((ids, sp.ones((len(gdf[key]))) * idx))
             idx += 1
-        gdf[:, 1] = ids
-        gdf = sortrows(gdf)[:, [1, 0]]
-        return gdf
+        rval[:, 1] = ids
+        rval = sortrows(rval)[:, [1, 0]]
+        return rval
 
     @staticmethod
-    def convert_matrix_to_dict(gdf_mat):
-        gdf = {}
-        for i in xrange(gdf_mat.shape[0]):
-            if not gdf_mat[i, 0] in gdf.keys():
-                gdf[gdf_mat[i, 0]] = []
-            gdf[gdf_mat[i, 0]].append(gdf_mat[i, 1])
-        return gdf
+    def convert_matrix_to_dict(gdf):
+        """converts a GDF ndarray representation to a dict
+
+        :type gdf: ndarray
+        :param gdf: first column ids, second column samples
+        :rtype: dict
+        :returns: mapping unit ids to spike trains
+        """
+
+        rval = {}
+        for i in xrange(gdf.shape[0]):
+            if not gdf[i, 0] in rval.keys():
+                rval[gdf[i, 0]] = []
+            rval[gdf[i, 0]].append(gdf[i, 1])
+        return rval
 
     def _get_data(self, **kwargs):
-        """ Returns the gdf content as a dictionary of ndarrays"""
-        return self.data
+        """returns the GDF data as ndarray
+
+        :rtype: dict
+        :returns: mapping unit ids to spike trains
+        """
+
+        return GdfFile.convert_dict_to_matrix(self.data)
 
 if __name__ == '__main__':
     import os

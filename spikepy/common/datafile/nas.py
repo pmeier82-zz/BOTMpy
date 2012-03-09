@@ -44,26 +44,24 @@
 #
 
 
-"""datafile implementation for nas fileformat"""
+"""datafile implementation for nas file format"""
 __docformat__ = 'restructuredtext'
 __all__ = ['NasFile', '_NAS_ROW_HEADER']
 
 ##---IMPORTS
 
 import scipy as sp
-from spikepy.common.datafile.datafile import DataFile
+from .datafile import DataFile
 
 ##---CLASSES
 
 class _NAS_ROW_HEADER(object):
-    """the metadata preceeding a row of data in the NAS file format"""
+    """the metadata preceding a row of data in the NAS file format"""
 
     FORMAT = '%02d\t%d\t%04d\t%s\t%d\t%04d\t%d\t%s\t%s\t'
 
     def __init__(self, tetr, unit, trial, time, contact, stereo, pxalign, max,
                  std):
-        """"""
-
         self.tetr = tetr
         self.unit = unit
         self.trial = trial
@@ -94,24 +92,16 @@ class _NAS_ROW_HEADER(object):
 
 
 class NasFile(DataFile):
-    """nas file from Neurometer software"""
+    """NAS file format - NeuronMeter"""
 
-    ## constuctor
+    ## constructor
 
-    def __init__(self, filename=None, dtype=sp.float32):
-        """
-        :Parameters:
-            filename : str
-            dtype : scipy.dtype
-        """
-
+    def __init__(self, filename=None, dtype=None):
         # members
         self.contact_count = None
         self.srate = None
         self.window_before = None
         self.window_after = None
-
-        self.fp = None
 
         # super
         super(NasFile, self).__init__(filename=filename, dtype=dtype)
@@ -119,9 +109,27 @@ class NasFile(DataFile):
     ## file header handling
 
     def get_n_data_points(self):
+        """sample count per waveform
+
+        :rtype: int
+        :returns: sample count per waveform
+        """
+
         return self.srate * (self.window_after + self.window_before) / 1000000
 
     def write_header(self, contact_count, srate, window_before, window_after):
+        """write the NAS file format header
+
+        :type contact_count: int
+        :param contact_count: electrodes per recording point
+        :type srate: int
+        :param srate: sampling rate in Hz
+        :type window_before: int
+        :param window_before: cut_left in us
+        :type window_after: int
+        :param window_after: cut_right in us
+        """
+
         self.contact_count = contact_count
         self.srate = srate
         self.window_before = window_before
@@ -140,7 +148,19 @@ Tetrode\tUnit\tTrial\tTime\tContact\tStereo\tPxAlign\tMax\tStdDev\tCnt1Ampl1
     ## row handling
 
     def write_row(self, tetr=0, unit=0, trial=0, time=0, data=None):
-        """write one row of data to the file"""
+        """write one row of data to the file
+
+        :type tetr: int
+        :param tetr: tetrode id
+        :type unit: int
+        :param unit: unit id
+        :type trial: int
+        :param trial: trial id
+        :type time: float
+        :param time: time in us
+        :type data: sequence
+        :param data: waveform data
+        """
 
         # prepare
         if data is None:
@@ -169,6 +189,7 @@ Tetrode\tUnit\tTrial\tTime\tContact\tStereo\tPxAlign\tMax\tStdDev\tCnt1Ampl1
             data.std()
             # std - unclear how this is derived for multichannel waveforms
         )
+
         # write row
         self.fp.write(rowheader())
         for c in xrange(self.contact_count):

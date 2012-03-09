@@ -167,7 +167,7 @@ class BaseTimeSeriesCovarianceEstimator(object):
 
         :type data: ndarray
         :param data: data vector [samples, channels]
-        :exception ValueError: :data: is not a ndarray with ndim == 2
+        :exception ValueError: `data` is not a ndarray with `ndim == 2`
         """
 
         # checks
@@ -450,17 +450,16 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
 
 
 class XcorrStore(object):
-    """storage for cross-correlation functionals"""
+    """storage for cross-correlations"""
 
     def __init__(self, tf=100, nc=4):
         """
-        :Parameters:
-            tf : int
-                the length of the channel xcorrs
-                Default=100
-            nc : int
-                the channel count for the storage
-                Default=4
+        :type tf: int
+        :param tf: length of the channel xcorrs in samples
+            Default=100
+        :type nc: int
+        :param nc: channel count for the storage
+            Default=4
         """
 
         # checks
@@ -515,8 +514,8 @@ class XcorrStore(object):
 def build_idx_set(ids):
     """builds the block index set for an upper triangular matrix
 
-    :Parameters:
-        ids : iterable
+    :type ids: iterable
+    :param ids: set of channel ids
     """
 
     return [(ids[i], ids[j])
@@ -527,19 +526,18 @@ def build_idx_set(ids):
 def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
     """builds a block toeplitz matrix from a set of channel xcorrs
 
-    :Parameters:
-        tf : int
-            desired lag in samples
-        chan_set : list
-            list of channel ids to build the channel set from. the block
-            covarinace matrix will be build so that blocks are ordered from
-            lower to higher channel id.
-        xcorrs : XcorrStore
-            XcorrStore object holding the xcorrs for various channel
-            combinations
-        dtype : dtype derivable
-            this will be passed to the constructor for the matrix returned.
-            Default=None
+    :type tf: int
+    :param tf: desired lag in samples
+    :type chan_set: list
+    :param chan_set: list of channel ids to build the channel set from. the
+        block covariance matrix will be build so that blocks are ordered from
+        lower to higher channel id.
+    :type xcorrs: XcorrStore
+    :param xcorrs: XcorrStore object holding the xcorrs for various channel
+        combinations
+    :type dtype: dtype derivable
+    :param dtype: will be passed to the constructor for the matrix returned.
+        Default=None
     """
 
     # inits and checks

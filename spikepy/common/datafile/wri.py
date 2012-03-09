@@ -44,15 +44,15 @@
 #
 
 
-"""datafile implementation for wri fileformat"""
+"""datafile implementation for wri file format"""
 __docformat__ = 'restructuredtext'
 __all__ = ['WriFile', '_WRI_H']
 
 ##---IMPORTS
 
 import scipy as sp
-from spikepy.common import dict_list_to_ndarray
-from spikepy.common.datafile.datafile import DataFile, DataFileError
+from .datafile import DataFile, DataFileError
+from ..funcs_general import dict_list_to_ndarray
 
 ##---CONSTANTS
 
@@ -61,13 +61,12 @@ VERBOSE = False
 ##---CLASSES
 
 class _WRI_H(object):
-    """data structure holding information about a recording"""
+    """WRI header struct"""
 
     def __init__(self, fp):
         """
-        :Parameters:
-            fp : filepointer
-                A file pointer at seek(0)
+        :type fp: file
+        :param fp: open file at seek(0)
         """
 
         # version
@@ -81,19 +80,11 @@ class _WRI_H(object):
 
 
 class WriFile(DataFile):
-    """wri file from Chen Sorter software"""
+    """WRI file format - Chen Sorter"""
 
-    ## constuctor
+    ## constructor
 
     def __init__(self, filename=None, dtype=sp.float32):
-        """
-        :Parameters:
-            filename : str
-                Avalid path to a Wri file on the local filesystem.
-            dtype : scipy.dtype
-                An object that resolves to a vali scipy.dtype.
-        """
-
         # members
         self.header = None
         self.data = None
@@ -143,7 +134,11 @@ class WriFile(DataFile):
         return self.fp.name
 
     def _get_data(self, **kwargs):
-        """ Returns the wri content as a dictionary of numpy arrays"""
+        """ Returns the wri content as a dictionary of numpy arrays
+        :rtype: dict
+        :returns: mapping unit id to spike train
+        """
+
         return self.npdata
 
 if __name__ == '__main__':

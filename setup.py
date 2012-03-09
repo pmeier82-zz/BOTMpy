@@ -73,8 +73,9 @@ VERSION = find_version()
 if __name__ == "__main__":
     setup(name="SpikePy",
           version=VERSION,
-          packages=['spikepy', 'spikepy.nodes', 'spikepy.ntrode',
-                    'spikepy.common', 'spikepy.common.datafile'],
+          packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
+                    'spikepy.ntrode', 'spikepy.common.datafile',
+                    'spikepy.common.mcfilter'],
           include_package_data=True,
           install_requires=['scipy', 'scikits.learn', 'mdp', 'tables'],
           requires=[],
