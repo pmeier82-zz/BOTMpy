@@ -44,7 +44,7 @@
 #
 
 
-"""utiliy package for dataprocessing tasks - geared towards spike sorting"""
+"""common functions for the spikepy package"""
 __docformat__ = 'restructuredtext'
 
 ##---PACKAGE
@@ -53,6 +53,9 @@ __docformat__ = 'restructuredtext'
 
 from .util import *
 
+from .datafile import *
+from .mcfilter import *
+
 from .funcs_general import *
 from .funcs_filterutil import *
 from .funcs_spike import *
@@ -60,10 +63,8 @@ from .funcs_spike import *
 from .amplitude_histogram import *
 from .covariance_estimator import *
 from .matrix_ops import *
-from .mcfilter import *
 from .ringbuffer import *
 from .spike_alignment import *
-from .datafile import *
 
 ##---MAIN
 

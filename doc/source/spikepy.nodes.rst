@@ -41,14 +41,6 @@ nodes Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`conversion_nodes` Module
-------------------------------
-
-.. automodule:: spikepy.nodes.conversion_nodes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 :mod:`detector_nodes` Module
 ----------------------------
 

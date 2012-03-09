@@ -54,7 +54,6 @@ __all__ = ['AmplitudeHistogram']
 import scipy as sp
 from .ringbuffer import MxRingBuffer
 
-
 ##---CLASSES
 
 class AmplitudeHistogram(object):

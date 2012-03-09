@@ -44,7 +44,7 @@
 #
 
 
-"""interfaces for reading (multichanneled) data from files"""
+"""interfaces for reading (multichanneled) data from various file formats"""
 __docformat__ = 'restructuredtext'
 __all__ = ['DataFileError', 'DataFileMetaclass', 'DataFile']
 
@@ -208,31 +208,30 @@ class DataFileMetaclass(type):
 class DataFile(object):
     """abstract data file interface
 
-    This is an abstract datafile interface. All implementations should
-    implement
-    the whole private interface to prive and handlde tha data! The datafile
-    manages an file handle to the native file and reads in the whole file into
-    memory, where it is buffered to easy further access on the data.
+    This is an abstract datafile interface. Implementations should implement
+    the private interface as required for that file format! A `DataFile`
+    manages a file handle to the physical file and should try to hold
+    its contents in memory, and use buffering to reduce filesystem load.
 
-    All public methods are mainly relays to their private counter parts, which
-    should implement the functionality as necessary.
+    All public methods belong to the interface and relay to their private
+    counter parts, which are provided by the file format implementation.
     """
 
     __metaclass__ = DataFileMetaclass
 
     ## constructor
 
-    def __init__(self, filename=None, dtype=sp.float32, **kwargs):
+    def __init__(self, filename=None, dtype=None, **kwargs):
         """
-        :Parameters:
-            filename : str
-                Path to the file to load.
-            dtype : dtype
-                A numpy dtype
+        :type filename: str
+        :param filename: Path on the filesystem to the physical file.
+        :type dtype: dtype resolveable
+        :param dtype: A numpy dtype
+            Default=float32
         """
 
         # members
-        self.dtype = sp.dtype(dtype)
+        self.dtype = sp.dtype(dtype or sp.float32)
         self.fp = None
 
         # initialize
@@ -241,58 +240,75 @@ class DataFile(object):
     ## public interface
 
     def close(self):
-        """close the datafile"""
+        """close this `DataFile`"""
+
         self._close()
 
     def closed(self):
-        """return the closed status"""
+        """return the `closed` status"""
+
         return self._closed()
 
     def filename(self):
-        """return the filename"""
+        """return the filename of the physical file"""
+
         return self._filename()
 
     def get_data(self, **kwargs):
         """returns a numpy array of the data with samples on the rows and
         channels on the columns. channels may be selected via the channels
         parameter.
+
+        :rtype: ndarray
+        :returns: requested data
         """
 
-        if self.closed():
+        if self._closed():
             raise DataFileError('Archive is closed!')
         return self._get_data(**kwargs)
 
     ## private interface - to be implemented in subclasses
 
     def _initialize_file(self, filename, **kwargs):
-        """initialize the file wrapper
+        """initialize the file handle
 
-        :Parameters:
-            filename : str
-                Valid path on the local filesystem.
-            kwargs : dict
-                Keywords for subclasses
+        :type filename: str
+        :param filename: path on the local filesystem
+        :keyword kwargs: keywords for subclass
         """
 
         raise NotImplementedError
 
     def _close(self):
-        """close the underlying file handle"""
+        """close the file handle"""
 
         raise NotImplementedError
 
     def _closed(self):
-        """return the underlying file status"""
+        """return the file handle status
+
+        :rtype: bool
+        :returns: file handle close state
+        """
 
         raise NotImplementedError
 
     def _filename(self):
-        """return the filename of the underlying file"""
+        """return the filesystem path of the file handle
+
+        :rtype: str
+        :returns: filesystem path of the file handle
+        """
 
         raise NotImplementedError
 
     def _get_data(self, **kwargs):
-        """return ndarray of data according to keywords passed"""
+        """return ndarray of data according to keywords passed
+
+        :keyword kwargs: keywords for subclass
+        :rtype: ndarray
+        :returns: requested data
+        """
 
         raise NotImplementedError
 

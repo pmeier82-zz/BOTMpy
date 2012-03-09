@@ -163,14 +163,11 @@ class BaseTimeSeriesCovarianceEstimator(object):
         self._reset()
 
     def update(self, data, **kwargs):
-        """update covariance matrix with epochs of x
+        """update covariance matrix with epochs of :data:
 
-        :Parameters:
-            data : list or ndarray
-                the data to operate on with observations in the rows
-            kwargs : dict
-        :Exception ValueError:
-                if x is not a ndarray of rank 2
+        :type data: ndarray
+        :param data: data vector [samples, channels]
+        :exception ValueError: :data: is not a ndarray with ndim == 2
         """
 
         # checks
@@ -189,7 +186,7 @@ class BaseTimeSeriesCovarianceEstimator(object):
         raise NotImplementedError
 
     def _reset(self):
-        raise NotImplementedError
+        self._is_initialised = False
 
     ## special methods
 
@@ -200,13 +197,14 @@ class BaseTimeSeriesCovarianceEstimator(object):
 class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
     """covariance estimator for timeseries data
 
-    Given strips of multichanneled data, this covariance estimator is able to
-    produce the time-lagged block-covariance-matrix
-    Estimates are built by taking auto- and cross-correlations of the
-    multichanneled data pieces, with a fixed lag. From this data a toeplitz
-    matrix is build for each combination of channels. The estimate is the
-    toeplitz block matrix of sub-matrices derived like s.a.
+    Given strips of (multi-channeled) data, this covariance estimator is able
+    to estimate the time-lagged (block-)covariance-matrix, which has a
+    (block-)toeplitz structure.
+    Estimates are built by taking (cross- and) auto-correlations of the
+    (multi-channeled) data pieces, for all lags in the defined range. From
+    this data a toeplitz matrix is build (for each combination of channels).
     """
+    # TODO: glibber glibber - better doc text
 
     ## constructor
 
@@ -215,9 +213,9 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         see BaseTimeSeriesCovarianceEstimator
 
         :type tf_max: int
-        :param tf_max: the maximum lag for the cross-correlation function to
-            calculate and store internally. the estimator will be able to
-            provide covariance matrices for lags in [1..tf_max].
+        :param tf_max: the maximum lag for the cross-correlation functions
+            internally stored. the estimator will be able to provide
+            covariance matrices for lags in [1..tf_max].
             Default=100
         :type nc: int
         :param nc: channel count of expected data. data that is feed to update
@@ -249,9 +247,14 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
     ## getter and setter - base
 
     def _get_cmx(self, **kwargs):
-        # keywords:
-        #    chan_set : tuple
-        #    tf : int
+        """yield the current estimate
+
+        :type chan_set: tuple
+        :keyword chan_set: channel ids forming a valid channel set
+        :type tf: int
+        :keyword tf: max lags in samples
+        :returns: ndarray - (block-) toeplitz covariance matrix
+        """
 
         tf = int(kwargs.get('tf'))
         chan_set = tuple(sorted(kwargs.get('chan_set')))
@@ -266,9 +269,14 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         return self._buf_cmx[buf_key]
 
     def _get_icmx(self, **kwargs):
-        # keywords:
-        #    chan_set : tuple
-        #    tf : int
+        """yield the inverse of the current estimate
+
+        :type chan_set: tuple
+        :keyword chan_set: channel ids forming a valid channel set
+        :type tf: int
+        :keyword tf: max lags in samples
+        :returns: ndarray - inverse (block-) toeplitz covariance matrix
+        """
 
         tf = int(kwargs.get('tf'))
         chan_set = tuple(sorted(kwargs.get('chan_set')))
@@ -283,9 +291,14 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         return self._buf_icmx[buf_key]
 
     def _get_svd(self, **kwargs):
-        # keywords:
-        #    chan_set : tuple
-        #    tf : int
+        """yield the singular value decomposition of the current estimate
+
+        :type chan_set: tuple
+        :keyword chan_set: channel ids forming a valid channel set
+        :type tf: int
+        :keyword tf: max lags in samples
+        :returns: tuple - U, s, Vh as returned by :scipy.linalg.svd:
+        """
 
         tf = int(kwargs.get('tf'))
         chan_set = tuple(sorted(kwargs.get('chan_set')))
@@ -322,7 +335,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
 
     def set_tf_max(self, value):
         if value < 1:
-            raise ValueError('tf_max must be >= 1')
+            raise ValueError('tf_max < 1')
         self._tf_max = int(value)
         self.reset()
         # TODO: reset tf_max for self._store
@@ -420,6 +433,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         self._store.reset()
         self._clear_buf()
         self._chan_set = []
+        super(TimeSeriesCovE, self)._reset()
 
     @staticmethod
     def std_white_noise_init(tf_max, nc):

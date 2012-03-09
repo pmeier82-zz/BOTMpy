@@ -62,7 +62,7 @@ import os
 import platform
 from ctypes import CDLL, c_uint, c_ushort
 import scipy as sp
-from funcs_general import mcvec_from_conc, mcvec_to_conc
+from ..funcs_general import mcvec_from_conc
 
 ##---LIBRARY
 

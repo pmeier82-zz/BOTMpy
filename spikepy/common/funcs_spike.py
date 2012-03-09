@@ -66,11 +66,11 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     """detect events by applying a threshold to the data
 
     :type data: ndarray
-    :param data: the 2d-data to apply the theshold on. channels are in the
+    :param data: the 2d-data to apply the threshold on. channels are in the
         second dimension (columns).
         Required
     :type th: ndarray or list
-    :param th: list of threshold values, one value per channel in the data
+    :param th: list of threshold values, one value per channel in the `data`
         Required
     :type min_dist: int
     :param min_dist: minimal distance two successive events have to be
@@ -84,7 +84,8 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     :param find_max: if True, will find the maximum for each event epoch, else
         will find the start for each event epoch.
         Default=True
-    :returns: ndarray - event samples
+    :rtype: ndarray
+    :returns: event samples
     """
 
     # checks
@@ -141,7 +142,7 @@ def merge_epochs(*args, **kwargs):
     length.
 
     :param args: arbitrary count of epoch sets [[start, end]]
-    :keyword min_dist' : int - If present and greater than zero, this integer
+    :keyword min_dist: int - If present and greater than zero, this integer
         will be taken as the minimum distance in between epochs that is
         allowed. Should the gap in between two epochs smaller than min_dist,
         they are merged including the gap. This might reduce the
@@ -531,8 +532,6 @@ def overlaps(sts, window):
                 else:
                     idxJ += 1
     return ovlp, ovlp_nums
-
-
 
 ##--- MAIN
 

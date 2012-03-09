@@ -11,7 +11,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
-    spikepy/modules
+    modules
 
 Indices and tables
 ==================

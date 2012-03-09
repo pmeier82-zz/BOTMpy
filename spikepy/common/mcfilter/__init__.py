@@ -44,77 +44,15 @@
 #
 
 
-"""type conversion node - used to do AD conversions"""
-
+"""multi-channeled filtering package"""
 __docformat__ = 'restructuredtext'
-__all__ = ['TypeConversionNode']
+__all__ = ['mcfilter', 'mcfilter_hist']
 
-##--- IMPORTS
+##---PACKAGE
 
-import scipy as sp
-from .base_nodes import ResetNode
+from .mcfilter import mcfilter, mcfilter_hist
 
-##--- CLASSES
-
-class TypeConversionNode(ResetNode):
-    """type conversion node"""
-
-    ## constructor
-
-    def __init__(self, val_range=100.0, output_dtype=sp.float32,
-                 signed=False):
-        """
-        :Parameters:
-            val_range : float
-                the range of values of the projection space
-            output_dtype : scipy.dtype
-                dtype
-            signed : bool
-                is the input signed?
-        """
-        # super call
-        super(TypeConversionNode, self).__init__()
-
-        # init
-        self.output_dtype = output_dtype
-        self.val_range = val_range
-        self.signed = bool(signed)
-
-    ## node implementation
-
-    def _get_supported_dtypes(self):
-        if self.signed is True:
-            return [sp.dtype(c) for c in sp.typecodes['Integer']]
-        elif self.signed is False:
-            return [sp.dtype(c) for c in sp.typecodes['UnsignedInteger']]
-        else:
-            raise ValueError('signed is not boolean')
-
-    def is_trainable(self):
-        return False
-
-    def is_invertible(self):
-        return False
-
-    def _execute(self, x):
-        # inits
-        int_range = sp.iinfo(x.dtype).max
-        mod = 2.0 * self.val_range / int_range
-        print int_range
-
-        # project to range
-        rval = x.astype(self.output_dtype)
-        if self.signed is False:
-            rval -= int_range / 2.0
-        rval *= mod
-
-        # we need to reset the dtype!
-        self._dtype = None
-
-        # return
-        return rval
-
-##--- MAIN
+##---MAIN
 
 if __name__ == '__main__':
     pass

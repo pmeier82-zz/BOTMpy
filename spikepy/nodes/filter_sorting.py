@@ -55,17 +55,17 @@ The revolutionary BOTM Paper
 """
 
 __docformat__ = 'restructuredtext'
-__all__ = ['FilterBankError', 'FilterBankSortingNode', 'FSSNode', 'BOTMNode']
+__all__ = ['FilterBankError', 'FilterBankSortingNode', 'BOTMNode']
 
 ##---IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
-from spikepy.common import (TimeSeriesCovE, xi_vs_f, shifted_matrix_mul,
-                            mcvec_from_conc, mcvec_to_conc, overlaps,
-                            epochs_from_spiketrain_set, shifted_matrix_sub)
+from ..common import (\
+    TimeSeriesCovE, xi_vs_f, mcvec_from_conc, mcvec_to_conc, overlaps,
+    epochs_from_spiketrain_set, shifted_matrix_sub)
 from .sorting_nodes import SortingNode
-from .filter_nodes import (FilterNode, MatchedFilterNode)
+from .filter_nodes import FilterNode, MatchedFilterNode
 
 from Queue import Queue
 from threading import Thread
@@ -484,162 +484,6 @@ class FilterBankSortingNode(SortingNode):
                   show=show)
 
 
-class FSSNode(FilterBankSortingNode):
-    """FilterBankSortingNode implementation using the FSS algorithm
-
-    Since the filters of the filter bank do not constitute an orthogonal basis
-    the response of a template is distributed across the filters of the bank.
-    This confused output of templates across all filters can be deconfused
-    using
-    an orthogonalisation on the xcorr tensor. Solution of the equalisation in
-    the xcorr tensor will lead to a shifted linear combination of filter
-    outputs
-    as true to optimally supress side peaks of templates in non-matching
-    filters.
-
-    [citation spike paper]
-    """
-
-    ## constructor
-
-    def __init__(self, **kwargs):
-        """
-        :Keywords
-            see FilterBankSortingNode
-            det_th : float
-                threshold to detect events in the filter output
-                Default=0.7
-        """
-
-        # super
-        super(FSSNode, self).__init__(**kwargs)
-
-        # members
-        self.det_th = float(kwargs.get('det_th', 0.7))
-        self.mix = None
-        self.imix = None
-        self.tau = None
-        self.itau = None
-
-    ## filter bank implementation
-
-    def _post_filter(self):
-        """deconfusion of filter outputs"""
-
-        # recalc deconfusion matrix from xi_vs_f
-        if self.nfilter > 1:
-            # inits
-            self.mix = sp.zeros([self.nfilter] * 2, dtype=self.dtype)
-            self.tau = sp.zeros([self.nfilter] * 2, dtype=INDEX_DTYPE)
-
-            # apply non-linearity
-            my_xcorrs = self._xcorrs.copy()
-            my_xcorrs[my_xcorrs < 0] = 0
-            my_xcorrs[my_xcorrs < 1] **= 2
-
-            # build mix and shift operator
-            for t in xrange(self.nfilter):
-                # templates
-                for f in xrange(self.nfilter):
-                    # filters
-                    self.mix[t, f] = my_xcorrs[f, t].max()
-                    self.tau[t, f] = my_xcorrs[f, t].argmax() - self._tf + 1
-            self.imix = sp_la.inv(self.mix)
-            self.itau = -self.tau.T
-
-            # dbug_out
-            if self.debug is True:
-                print '### FSSNode DEBUG ###'
-                print 'self.imix:'
-                print self.imix
-                print 'self.itau'
-                print self.itau
-                print '#####################'
-
-            # apply non-linearity
-            self._fout[self._fout < 0] = 0
-            self._fout[self._fout < 1] **= 2
-            #            fout_orig = self._fout.copy()
-
-            # apply deconfusion
-            self._fout = shifted_matrix_mul(
-                self.imix,
-                self._fout.T,
-                self.itau
-            ).T
-
-            # apply old non-linear transformed fouts
-            #self._fout *= fout_orig
-
-    def _sorting(self):
-        """sort by thresholding the filter outputs"""
-
-        # inits
-        self.rval = {}
-
-        # sorting
-        for i in xrange(self.nfilter):
-            self.rval[i] = threshold_detection(self._fout[:, i],
-                                               sp.array([self.det_th]))
-        self.rval = dict_list_to_ndarray(self.rval)
-
-    def plot_sorting(self, ph=None, show=False, debug=False):
-        """plot the sorting of the last data chunk
-
-        if debug is True, also plot the filter outputs
-        """
-
-        # imports
-        from spikeplot import mcdata, COLOURS
-
-        # create events
-        ev = {}
-        for unit in self.rval:
-            ev[unit] = (self.bank[unit].xi, self.rval[unit])
-
-        # create colors
-        cols = COLOURS[:self.nfilter]
-
-        # create other
-        other = None
-        if debug is True:
-            other = self._fout
-            cols += COLOURS[:self.nfilter]
-
-        # plot mcdata
-        mcdata(self._data, other=other, events=ev, colours=cols,
-               plot_handle=ph
-               , show=show)
-
-    def plot_xvft_corrected(self, ph=None, show=False):
-        """plot the Xi vs F Tensor of the filter bank with hte deconfusion
-        applied"""
-
-        # imports
-        from spikeplot import xvf_tensor
-
-        # apply deconfusion to xcorrs
-        my_xcorrs = self._xcorrs.copy()
-        my_xcorrs[my_xcorrs < 0] = 0
-        my_xcorrs[my_xcorrs < 1] **= 2
-        #my_xcorrs_orig = my_xcorrs.copy()
-        for i in xrange(self.nfilter):
-            my_xcorrs[i] = shifted_matrix_mul(
-                self.imix,
-                my_xcorrs[i],
-                self.itau
-            )
-            #my_xcorrs *= my_xcorrs_orig
-
-        # plot xvf_tensor
-        xvf_tensor(
-            [self.template_set, self.filter_set, my_xcorrs],
-                                                           nc=self._nc,
-                                                           plot_handle=ph,
-                                                           show=show
-        )
-
-
 class BOTMNode(FilterBankSortingNode):
     """FilterBanksSortingNode derivative for the BOTM algorithm
 
@@ -943,7 +787,8 @@ def main_single(do_plot=True):
         if FB._ovlp_taus is not None:
             ovlp_meth = 'och'
         print 'overlap method:', ovlp_meth
-        mcdata(x, events=ev, other=fouts, title='overlap method: %s' % ovlp_meth)
+        mcdata(x, events=ev, other=fouts,
+               title='overlap method: %s' % ovlp_meth)
         FB.plot_xvft()
         plt.show()
 

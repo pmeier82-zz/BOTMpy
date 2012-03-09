@@ -168,7 +168,7 @@ def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
         Default=None
     :type normalise: bool
     :param normalise: if True, normalise
-        Default=False
+        Default=True
     :type unbiased: bool
     :param unbiased: if True and :normalise: is True, use a.size-|tau| to
         normalize instead of a.size

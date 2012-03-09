@@ -54,7 +54,6 @@ from .alignment_nodes import *
 from .artifact_nodes import *
 from .base_nodes import *
 from .cluster_nodes import *
-from .conversion_nodes import *
 from .detector_nodes import *
 from .filter_nodes import *
 from .filter_sorting import *

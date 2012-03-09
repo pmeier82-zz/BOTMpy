@@ -17,26 +17,10 @@ common Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`constants` Module
------------------------
-
-.. automodule:: spikepy.common.constants
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 :mod:`covariance_estimator` Module
 ----------------------------------
 
 .. automodule:: spikepy.common.covariance_estimator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`debug_helpers` Module
----------------------------
-
-.. automodule:: spikepy.common.debug_helpers
     :members:
     :undoc-members:
     :show-inheritance:
@@ -65,18 +49,10 @@ common Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`matrix_loading` Module
-----------------------------
+:mod:`matrix_ops` Module
+------------------------
 
-.. automodule:: spikepy.common.matrix_loading
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`mcfilter` Module
-----------------------
-
-.. automodule:: spikepy.common.mcfilter
+.. automodule:: spikepy.common.matrix_ops
     :members:
     :undoc-members:
     :show-inheritance:
@@ -97,10 +73,10 @@ common Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`spike_train_alignment` Module
------------------------------------
+:mod:`util` Module
+------------------
 
-.. automodule:: spikepy.common.spike_train_alignment
+.. automodule:: spikepy.common.util
     :members:
     :undoc-members:
     :show-inheritance:
@@ -111,4 +87,5 @@ Subpackages
 .. toctree::
 
     spikepy.common.datafile
+    spikepy.common.mcfilter
 

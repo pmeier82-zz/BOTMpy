@@ -98,25 +98,29 @@ def get_aligned_spikes(data, spiketrain, cut, align_at, mc=True,
                        kind='energy'):
     """return the set of aligned spikes waveforms and thei taus
 
-    :Parameters:
-        data : ndarray
-            data with channels in the columns
-        spiketrain : ndarray or list
-            spiketrain to get
-        cut : tuple or int
-            (cutleft,cutright) tuple or int for symmetric cut tuple
-        align_at : int
-            align at this sample in the waveform
-        mc : bool
-            if True, return multichanneled waveforms, else return concatenated
-            waveforms.
-            Default=True
-        kind : str
-            String giving the type of alignment to conduct. One of:
-                - "max"    - align on maximum of the waveform
-                - "min"    - align on minimum of the waveform
-                - "energy" - align on peak of energy
-            Default='energy'
+    :type data: ndarray
+    :param data: data with channels in the columns
+    :type spiketrain: ndarray or list
+    :param spiketrain: spike train of events in data
+    :type cut: tuple or int
+    :param cut: (cut_left,cut_right) tuple or int for symmetric cut tuple
+    :type align_at: int
+    :param align_at: align chosen feature at this sample in the waveform
+    :type mc: bool
+    :param mc: if True, return multichanneled waveforms, else return
+        concatenated waveforms.
+        Default=True
+    :type kind: str
+    :param kind: String giving the type of alignment to conduct. One of:
+
+            - "max"    - align on maximum of the waveform
+            - "min"    - align on minimum of the waveform
+            - "energy" - align on peak of energy
+
+        Default='energy'
+    :rtype: ndarray, ndarray
+    :returns: stacked spike events, spike train with events corrected for
+        alignment
     """
 
     ep, st = epochs_from_spiketrain(spiketrain,
