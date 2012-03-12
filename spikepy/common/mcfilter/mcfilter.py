@@ -83,6 +83,7 @@ except:
     try:
         _RUNTIME_DIR = os.environ['SPIDAQ_RUNTIME_DIR']
         _LIB_PATH = os.path.join(_RUNTIME_DIR, _LIB_NAME)
+        cwd = os.getcwd()
         os.chdir(_RUNTIME_DIR)
         _LIB_HANDLE = CDLL(_LIB_PATH)
         _LIB_HANDLE.mcfilter_hist.argtypes = [
@@ -98,6 +99,7 @@ except:
                                    flags="C_CONTIGUOUS,WRITEABLE"),
             ]
         _LIB_HANDLE.mcfilter_hist.restype = None
+        os.chdir(cwd)
     except Exception, ex:
         print 'IMPORT ERROR:', repr(ex)
 

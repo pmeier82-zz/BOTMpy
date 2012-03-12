@@ -190,8 +190,10 @@ class BaseTimeSeriesCovarianceEstimator(object):
 
     ## special methods
 
-    def __str__(self):
-        return '%s(init:%s)' % (self.__class__.__name__, self._is_initialised)
+    def __str__(self, additional=''):
+        return '%s(init=%s%s)' % (self.__class__.__name__,
+                                  self._is_initialised,
+                                  additional)
 
 
 class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
@@ -209,8 +211,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
     ## constructor
 
     def __init__(self, tf_max=100, nc=4, weight=0.05, cond=50, dtype=None):
-        """
-        see BaseTimeSeriesCovarianceEstimator
+        """see BaseTimeSeriesCovarianceEstimator
 
         :type tf_max: int
         :param tf_max: the maximum lag for the cross-correlation functions
@@ -246,6 +247,25 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
 
     ## getter and setter - base
 
+    def _process_keywords(self, kwargs):
+        """return parameters from keywords
+
+        :type kwargs: dict
+        :param kwargs: keyword parameter dict
+        :rtype: tuple
+        :returns: tf, chan_set, dtype
+        """
+
+        try:
+            tf = int(kwargs.get('tf'))
+        except:
+            tf = int(self._tf_max)
+        try:
+            cs = tuple(kwargs.get('chan_set'))
+        except:
+            cs = tuple(range(self._nc))
+        return tf, cs, kwargs.get('dtype')
+
     def _get_cmx(self, **kwargs):
         """yield the current estimate
 
@@ -256,13 +276,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: ndarray - (block-) toeplitz covariance matrix
         """
 
-        tf = int(kwargs.get('tf'))
-        chan_set = tuple(sorted(kwargs.get('chan_set')))
-        if chan_set not in self._chan_set:
-            raise ValueError('unknown chan_set: %s' % str(chan_set))
-        dtype = kwargs.get('dtype', None)
+        tf, chan_set, dtype = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
-
         if buf_key not in self._buf_cmx:
             self._buf_cmx[buf_key] = build_block_toeplitz_from_xcorrs(
                 tf, chan_set, self._store, dtype=dtype)
@@ -278,12 +293,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: ndarray - inverse (block-) toeplitz covariance matrix
         """
 
-        tf = int(kwargs.get('tf'))
-        chan_set = tuple(sorted(kwargs.get('chan_set')))
-        if chan_set not in self._chan_set:
-            raise ValueError('unknown chan_set: %s' % str(chan_set))
+        tf, chan_set, dtype = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
-
         if buf_key not in self._buf_icmx:
             svd = self._get_svd(**kwargs)
             self._buf_icmx[buf_key] = sp.dot(
@@ -300,28 +311,31 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: tuple - U, s, Vh as returned by :scipy.linalg.svd:
         """
 
-        tf = int(kwargs.get('tf'))
-        chan_set = tuple(sorted(kwargs.get('chan_set')))
-        if chan_set not in self._chan_set:
-            raise ValueError('unknown chan_set: %s' % str(chan_set))
+        tf, chan_set, dtype = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
-
         if buf_key not in self._buf_svd:
             cmx = self._get_cmx(**kwargs)
             self._buf_svd[buf_key] = sp_la.svd(cmx)
         return self._buf_svd[buf_key]
 
     def _get_whitening_op(self, **kwargs):
-        # keywords:
-        #    chan_set : tuple
-        #    tf : int
+        """yield the whitening operator with respect to the current
+        estimate for observation from the vector space this matrix operates
+        on.
 
-        tf = int(kwargs.get('tf'))
-        chan_set = tuple(sorted(kwargs.get('chan_set')))
-        if chan_set not in self._chan_set:
-            raise ValueError('unknown chan_set: %s' % str(chan_set))
+        if C = Q.T * Q then Q^-1 is the whitening operator
+
+        calculated via SVD
+
+        :type chan_set: tuple
+        :keyword chan_set: channel ids forming a valid channel set
+        :type tf: int
+        :keyword tf: max lags in samples
+        :returns: ndarray - whitening operator matrix
+        """
+
+        tf, chan_set, dtype = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
-
         if buf_key not in self._buf_whi:
             svd = self._get_svd(**kwargs)
             self._buf_whi[buf_key] = sp.dot(
@@ -360,17 +374,24 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         else:
             raise ValueError('channel set not included!')
 
+    ## special methods
+
+    def __str__(self):
+        return super(TimeSeriesCovE, self).__str__(',tf=%s,nc=%s' % (
+            self._tf_max,
+            self._nc))
+
     ## implementation base
 
     def _update(self, data, **kwargs):
         """updates the estimator with new data
 
-        :Parameters:
-            data : ndarray
-                the data to operate on
-        :Keywords:
-            epochs : ndarray
-                epochs to delimit the data
+        :type data: ndarray
+        :param data: the data to operate on [samples, channels]
+        :type epochs: ndarray
+        :keyword epochs: epochs delimiting the data to take the estimate over
+        :rtype: bool
+        :returns: True on successful estimate, False else
         """
 
         # check data
@@ -570,52 +591,4 @@ def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
 ##--- MAIN
 
 if __name__ == '__main__':
-    dlen = 10000
-    tf_max = 67
-    nc = 4
-
-    my_data = [sp.randn(dlen, nc) * (sp.arange(4) + 1),
-               sp.randn(dlen, nc) * (sp.arange(4) + 5),
-               sp.randn(dlen, nc) * (sp.arange(4) + 9)]
-
-    E = TimeSeriesCovE(tf_max=tf_max, nc=4)
-    E.new_chan_set((0, 1, 2, 3))
-    E.new_chan_set((1, 2))
-    E.update(my_data[0])
-    E.update(my_data[1])
-    E.update(my_data[1], epochs=[[0, 100], [1000, 5000], [9500, 9745]])
-    print E
-
-    Calltf67_params = {'tf':67, 'chan_set':(0, 1, 2, 3)}
-    Calltf67 = E.get_cmx(**Calltf67_params)
-    print Calltf67
-    print Calltf67.shape
-    print E.get_svd(**Calltf67_params)
-    print E.get_cond(**Calltf67_params)
-
-    C12tf67_params = {'tf':20, 'chan_set':(1, 2)}
-    C12tf67 = E.get_cmx(**C12tf67_params)
-    print C12tf67
-    print C12tf67.shape
-    print E.get_svd(**C12tf67_params)
-    print E.get_cond(**C12tf67_params)
-
-    iC12tf67 = E.get_cmx(**C12tf67_params)
-    print iC12tf67
-    print iC12tf67.shape
-
-    whiC12tf67 = E.get_whitening_op(**C12tf67_params)
-    print whiC12tf67
-    print whiC12tf67.shape
-
-    from spikeplot import plt
-
-    plt.matshow(Calltf67)
-    plt.colorbar(ticks=range(16))
-    plt.matshow(C12tf67)
-    plt.colorbar(ticks=range(16))
-    plt.matshow(iC12tf67)
-    plt.colorbar(ticks=range(16))
-    plt.matshow(whiC12tf67)
-    plt.colorbar(ticks=range(16))
-    plt.show()
+    pass
