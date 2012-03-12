@@ -571,7 +571,7 @@ def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
                 build_idx_set(chan_set)]), 'no data for requested channels'
     rval = sp.empty((tf * nc, tf * nc), dtype=dtype)
 
-    # build blocks and insert into rval
+    # build blocks and insert into fout
     for i in xrange(nc):
         m = chan_set[i]
         for j in xrange(i, nc):

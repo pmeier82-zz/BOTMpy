@@ -228,10 +228,10 @@ def matrix_argmax(mat):
     # XXX
     # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
     # UNIQUE!
-    # rval = []
+    # fout = []
     # for i in reversed(xrange(mat.ndim)):
-    #     rval.append(mat.max(axis=i).argmax())
-    # return tuple(rval)
+    #     fout.append(mat.max(axis=i).argmax())
+    # return tuple(fout)
 
 
 def matrix_argmin(mat):
@@ -249,10 +249,10 @@ def matrix_argmin(mat):
     # XXX
     # DO NOT USE THIS VERSION; SINCE IT DOES NOT WORK IF THE EXTREMUM IS NOT
     # UNIQUE!
-    # rval = []
+    # fout = []
     # for i in reversed(xrange(mat.ndim)):
-    #     rval.append(mat.min(axis=i).argmin())
-    # return tuple(rval)
+    #     fout.append(mat.min(axis=i).argmin())
+    # return tuple(fout)
 
 ##---MAIN
 

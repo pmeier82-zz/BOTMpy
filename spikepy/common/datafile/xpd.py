@@ -131,7 +131,7 @@ class _XPD_TH(object):
         rval += 'low_ver\t\t%d\n' % self.low_ver
         rval += 'trial_no\t%d\n' % self.trial_no
         rval += 'stimulus\t%d\n' % self.stimulus
-        #rval += 'error\t%d\n' % self.error
+        #fout += 'error\t%d\n' % self.error
         rval += 'timestamp\t%s\n' % str(self.timestamp)
         rval += 'comment\t\t%s\n' % self.comment
         rval += 'add_comment\t%s\n' % self.add_comment

@@ -48,10 +48,15 @@
 
 __docformat__ = 'restructuredtext'
 
-from setuptools import setup
+#from setuptools import setup
+from distutils.core import setup
+from distutils.extension import Extension
+from Cython.Distutils import build_ext
+import numpy
 
 def find_version():
     """read version from __init__"""
+
     rval = '0'
     try:
         f = open('./spikepy/__init__.py', 'r')
@@ -71,29 +76,36 @@ DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
 VERSION = find_version()
 
 if __name__ == "__main__":
-    setup(name="SpikePy",
-          version=VERSION,
-          packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
-                    'spikepy.ntrode', 'spikepy.common.datafile',
-                    'spikepy.common.mcfilter'],
-          include_package_data=True,
-          install_requires=['scipy', 'scikits.learn', 'mdp', 'tables'],
-          requires=[],
+    setup(
+        #main
+        name="SpikePy",
+        version=VERSION,
+        packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
+                  'spikepy.ntrode', 'spikepy.common.datafile',
+                  'spikepy.common.mcfilter'],
+        requires=['scipy', 'scikits.learn', 'mdp', 'tables'],
 
-          # metadata
-          author="Philipp Meier",
-          author_email="pmeier82@googlemail.com",
-          maintainer="Philipp Meier",
-          maintainer_email="pmeier82@googlemail.com",
-          description=DESC_TITLE,
-          long_description=DESC_LONG,
-          license="MIT License",
-          url='http://ni.tu-berlin.de',
-          classifiers=[
-              'Development Status :: 4 - Beta',
-              'Intended Audience :: Science/Research',
-              'License :: OSI Approved :: MIT License',
-              'Natural Language :: English',
-              'Operating System :: OS Independent',
-              'Programming Language :: Python',
-              'Topic :: Scientific/Engineering :: Bio-Informatics'])
+        # cython
+        cmdclass={'build_ext':build_ext},
+        ext_modules=[
+            Extension('mcfilter_cython',
+                ['spikepy/common/mcfilter/mcfilter.pyx'],
+                      include_dirs=[numpy.get_include()])],
+
+        # metadata
+        author="Philipp Meier",
+        author_email="pmeier82@googlemail.com",
+        maintainer="Philipp Meier",
+        maintainer_email="pmeier82@googlemail.com",
+        description=DESC_TITLE,
+        long_description=DESC_LONG,
+        license="MIT License",
+        url='http://ni.tu-berlin.de',
+        classifiers=[
+            'Development Status :: 4 - Beta',
+            'Intended Audience :: Science/Research',
+            'License :: OSI Approved :: MIT License',
+            'Natural Language :: English',
+            'Operating System :: OS Independent',
+            'Programming Language :: Python',
+            'Topic :: Scientific/Engineering :: Bio-Informatics'])

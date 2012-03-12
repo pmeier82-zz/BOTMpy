@@ -81,7 +81,7 @@ class SortingNode(ResetNode):
     set of parameters. It should return a python dictionary, with one entry per
     unit, where the entry is a python dictionary as well. The entry should hold
     the spiketrain of that unit and any parameters learned or updated from the
-    spike sorting process. The results should be saved under the self.rval
+    spike sorting process. The results should be saved under the self.fout
     member variable, which should hold the sorting of the last data that was
     passed to the node or None in case the node has not seen any data yet.
 
