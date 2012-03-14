@@ -45,10 +45,14 @@
 
 __docformat__ = 'restructuredtext'
 
+##---IMPORTS
+
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 import numpy
+
+##--HELPERS
 
 def find_version():
     """read version from spikepy.__init__"""
@@ -66,9 +70,13 @@ def find_version():
         rval = '0'
     return rval
 
+##---DEFINITIONS
+
 DESC_TITLE = 'SpikePy : online spike sorting with linear fitlers'
 DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
 VERSION = find_version()
+
+##---MAIN
 
 if __name__ == "__main__":
     setup(
@@ -83,7 +91,7 @@ if __name__ == "__main__":
         # cython
         cmdclass={'build_ext':build_ext},
         ext_modules=[
-            Extension('mcfilter_cython',
+            Extension('spikepy.common.mcfilter.mcfilter_cy',
                 ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
                       include_dirs=[numpy.get_include()])],
 
