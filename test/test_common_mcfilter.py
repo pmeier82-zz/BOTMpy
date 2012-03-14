@@ -83,6 +83,13 @@ class TestMcFilter(ut.TestCase):
         focy, hocy = _mcfilter_hist_cy32(data, filt, hist_cy)
         assert_almost_equal(fopy, focy)
 
+    def testDataConcatenation32(self):
+        data = sp.zeros((100, 1), dtype=sp.float32)
+        data[sp.arange(0, 100, 10)] = 1.0
+        filt = sp.zeros((5, 1), dtype=sp.float32)
+        filt[2] = 1.0
+        fout = _mcfilter_hist_cy32(data, filt)[0][:, 0]
+        assert_equal(data, fout)
 
 """
 def mcfilter_hist_py_test(inp=None, plot=False):
