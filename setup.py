@@ -43,21 +43,16 @@
 #_____________________________________________________________________________
 #
 
-
-"""setuptools script"""
-
 __docformat__ = 'restructuredtext'
 
-#from setuptools import setup
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 import numpy
 
 def find_version():
-    """read version from __init__"""
+    """read version from spikepy.__init__"""
 
-    rval = '0'
     try:
         f = open('./spikepy/__init__.py', 'r')
         try:
@@ -89,7 +84,7 @@ if __name__ == "__main__":
         cmdclass={'build_ext':build_ext},
         ext_modules=[
             Extension('mcfilter_cython',
-                ['spikepy/common/mcfilter/mcfilter.pyx'],
+                ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
                       include_dirs=[numpy.get_include()])],
 
         # metadata
