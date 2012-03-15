@@ -60,92 +60,82 @@ version is loaded as a fallback.
 
 """multi-channeled filtering package"""
 __docformat__ = 'restructuredtext'
-__all__ = ['mcfilter', 'mcfilter_hist']
+__all__ = ['mcfilter', 'mcfilter_hist', 'USE_CYTHON']
 
 ##---IMPORTS
 
 import scipy as sp
-from ..funcs_general import mcvec_from_conc
-from .mcfilter_py import *
-from .mcfilter_cy import *
+import warnings
 
-##---CYTHON
+warnings.simplefilter('once')
 
-VERBOSE = True
+##---USE_CYTHON
 
-#try:
-#    import mcfilter_cython
-#
-#    if VERBOSE is True:
-#        print 'using cython!'
-#
-#except ImportError:
-#    import mcfilter_py
-#
-#    if VERBOSE is True:
-#        print 'using python!'
+try:
+    from .mcfilter_cy import (
+        _mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32,
+        _mcfilter_hist_cy64)
+
+    USE_CYTHON = True
+except ImportError, ex:
+    from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
+
+    print ex
+    warnings.warn('Cython implementation not found! Falling back to Python!',
+                  ImportWarning)
+    USE_CYTHON = False
 
 ##---FUNCTIONS
-
-def _mcfilter_check(mc_data, mc_filt):
-    return mc_data, mc_filt
-
-
-def _mcfilter_hist_check(mc_data, mc_filt, mc_hist):
-    dtype = mc_data.dtype
-    if dtype not in [sp.float32, sp.float64]:
-        dtype = sp.float32
-    mc_data = sp.ascontiguousarray(mc_data, dtype=dtype)
-    mc_filt = sp.ascontiguousarray(mc_filt, dtype=dtype)
-    if mc_hist is None:
-        mc_hist = sp.zeros(
-            (mc_filt.shape[0] - 1,
-             mc_filt.shape[1]), dtype=dtype)
-    mc_hist = sp.ascontiguousarray(mc_data, dtype=dtype)
-    return mc_data, mc_filt, mc_hist
-
 
 def mcfilter(mc_data, mc_filt):
     """filter a multichanneled signal with a multichanneled filter
 
-    This is the python implementation for batch mode filtering.
+    This is the Python implementation for batch mode filtering. The signal
+    will be zeros on both ends to overcome filter artifacts.
 
-    We do not need to account for zero padding, as we are only interested in
-    the 'same' size vector of the xcorr.
-
-    :Parameters:
-        mc_data : ndarray
-            Data for one channel per columsp.
-        mc_filt : ndarray
-            A multichanneled finite impulse response filter with either:
-            channels concatenate or the filter for each channel on one column.
-        correlate_mode : str
-            string to pass to scipy.correlate
-            Default='same'
-    :Returns:
-        ndarray
-            filtered signal (same shape as data)
+    :type mc_data: ndarray
+    :param mc_data: signal data [data_samples, channels]
+    :type mc_filt: ndarray
+    :param mc_filt: FIR filter [filter_samples, channels]
+    :rtype: ndarray
+    :returns: filtered signal [data_samples]
     """
 
-    # checks and inits
-    if mc_data.ndim != mc_filt.ndim > 2:
-        raise ValueError('wrong dimensions: %s, %s' %
-                         (mc_data.shape, mc_filt.shape))
-    if mc_data.ndim == 1:
-        mc_data = sp.atleast_2d(mc_data).T
-    nc = mc_data.shape[1]
-    if mc_filt.ndim == 1:
-        mc_filt = mcvec_from_conc(mc_filt, nc=nc)
-    if mc_data.shape[1] != mc_filt.shape[1]:
-        raise ValueError('channel count does not match')
-
-    # filter the signal
-    return sp.sum(
-        [sp.correlate(mc_data[:, c], mc_filt[:, c], mode=correlate_mode)
-         for c in xrange(nc)], axis=0)
+    if USE_CYTHON is True:
+        dtype = mc_data.dtype
+        if dtype not in [sp.float32, sp.float64]:
+            dtype = sp.float32
+        if mc_data.shape[1] != mc_filt.shape[1]:
+            raise ValueError('channel count does not match')
+        mc_data, mc_filt = (sp.ascontiguousarray(mc_data, dtype=dtype),
+                            sp.ascontiguousarray(mc_filt, dtype=dtype))
+        if dtype == sp.float32:
+            return _mcfilter_cy32(mc_data, mc_filt)
+        elif dtype == sp.float64:
+            return _mcfilter_cy64(mc_data, mc_filt)
+        else:
+            raise TypeError('dtype is not float32 or float64: %s' % dtype)
+    else:
+        return _mcfilter_py(mc_data, mc_filt)
 
 
 def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
+    """filter a multichanneled signal with a multichanneled fir filter
+
+    This is the Python implementation for online mode filtering with a
+    chunk-wise history item, holding the last samples of tha preceding chunk.
+
+    :type mc_data: ndarray
+    :param mc_data: signal data [data_samples, channels]
+    :type mc_filt: ndarray
+    :param mc_filt: FIR filter [filter_samples, channels]
+    :type mc_hist:
+    :param mc_hist: history [hist_samples, channels]. the history is of size
+        ´filter_samples - 1´. If None, this will be substituted with zeros.
+    :rtype: tuple(ndarray,ndarray)
+    :returns: filter output [data_samples], history item [hist_samples,
+        channels]
+    """
     """filter a multichanneled signal with a multichanneled filter
 
     We dont need to account for zero padding, as we are only interested in the
@@ -166,20 +156,11 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
             new history item for next filter step
     """
 
-    # checks and inits
-    if mc_data.ndim != mc_filt.ndim > 2:
-        raise ValueError('wrong dimensions: %s, %s' %
-                         (mc_data.shape, mc_filt.shape))
-    if mc_data.ndim == 1:
-        mc_data = sp.atleast_2d(mc_data).T
-    td, nc = mc_data.shape
-    if mc_filt.ndim == 1:
-        mc_filt = mcvec_from_conc(mc_filt, nc=nc)
-    if mc_data.shape[1] != mc_filt.shape[1]:
-        raise ValueError('channel count does not match')
-    tf = mc_filt.shape[0]
     if mc_hist is None:
-        mc_hist = sp.zeros((tf - 1, nc))
+        mc_hist = sp.zeros((mc_filt.shape[0] - 1, mc_data.shape[0]))
+    if mc_hist.shape[0] - 1 != mc_filt.shape[0]:
+        raise ValueError
+
     th = mc_hist.shape[0]
     if th + 1 != tf:
         raise ValueError(
@@ -187,35 +168,31 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     mc_data = sp.vstack((mc_hist, mc_data))
     rval = sp.zeros(td, dtype=mc_data.dtype)
 
-    # filter the signal (by hand)
+    # filter the signal
     for t in xrange(td):
         for c in xrange(nc):
             rval[t] += sp.dot(mc_data[t:t + tf, c], mc_filt[:, c])
 
-    # return
-    return rval, mc_data[t + 1:, :].copy()
+    if USE_CYTHON is True:
+        dtype = mc_data.dtype
+        if dtype not in [sp.float32, sp.float64]:
+            dtype = sp.float32
+        if mc_data.shape[1] != mc_filt.shape[1]:
+            raise ValueError('channel count does not match')
+        mc_data, mc_filt, mc_hist = (
+            sp.ascontiguousarray(mc_data, dtype=dtype),
+            sp.ascontiguousarray(mc_filt, dtype=dtype),
+            sp.ascontiguousarray(mc_hist, dtype=dtype))
+        if dtype == sp.float32:
+            return _mcfilter_hist_cy32(mc_data, mc_filt, mc_hist)
+        elif dtype == sp.float64:
+            return _mcfilter_hist_cy64(mc_data, mc_filt, mc_hist)
+        else:
+            raise TypeError('dtype is not float32 or float64: %s' % dtype)
+    else:
+        return _mcfilter_hist_py(mc_data, mc_filt, mc_hist)
 
-#if mcfilter_cython is not None:
-#    def _mcfilter_hist_cy(mc_data, mc_filt, mc_hist=None):
-#        dtype = mc_data.dtype
-#        if dtype not in [sp.float32, sp.float64]:
-#            dtype = sp.float32
-#        mc_data = sp.ascontiguousarray(mc_data, dtype=dtype)
-#        mc_filt = sp.ascontiguousarray(mc_filt, dtype=dtype)
-#        if mc_hist is None:
-#            mc_hist = sp.zeros(
-#                (mc_filt.shape[0] - 1,
-#                 mc_filt.shape[1]), dtype=dtype)
-#        mc_hist = sp.ascontiguousarray(mc_data, dtype=dtype)
-#        if dtype == sp.float32:
-#            return mcfilter_cython._mcfilter_hist_cy32(
-#                mc_data, mc_filt, mc_hist)
-#        else:
-#            return mcfilter_cython._mcfilter_hist_cy64(
-#                mc_data, mc_filt, mc_hist)
-#mcfilter_hist = _mcfilter_hist_cy or _mcfilter_hist_py
-#mcfilter_hist.__doc__ = str("multichanneled filter application without "
-#                            "causal part of the filter")
+##---MAIN
 
 if __name__ == '__main__':
     pass
