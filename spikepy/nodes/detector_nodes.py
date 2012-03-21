@@ -43,12 +43,13 @@
 #_____________________________________________________________________________
 #
 
-
 """detector nodes for multichanneled data
 
 These detecors find features and feature epochs on multichanneled signals.
-Mostly, you will want to reset the internals of the detector after processing a
-chunk of data, which is featured by deriving from ResetNode. There are different
+Mostly, you will want to reset the internals of the detector after
+processing a
+chunk of data, which is featured by deriving from ResetNode. There are
+different
 kinds of detectors, distinguished by their way of feature to noise
 discrimination.
 """
@@ -60,9 +61,9 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 ##--- IMPORTS
 
 import scipy as sp
-from spikepy.common import (threshold_detection, extract_spikes, merge_epochs,
-                            get_cut, kteo, mteo, INDEX_DTYPE)
 from .base_nodes import ResetNode
+from ..common import (threshold_detection, extract_spikes, merge_epochs,
+                      get_cut, kteo, mteo, INDEX_DTYPE)
 
 ##--- CLASSES
 
@@ -77,12 +78,16 @@ class ThresholdDetectorNode(ResetNode):
     """abstract interface for detecting feature epochs in a signal
 
     The ThresholdDetectorNode is the abstract interface for all detectors. The
-    input signal is assumed to be a (multi-channeled) signal, with data for one
-    channel in each column (or one multi-channeled observation/sample per row).
+    input signal is assumed to be a (multi-channeled) signal,
+    with data for one
+    channel in each column (or one multi-channeled observation/sample per
+    row).
 
-    The output will be a timeseries of detected feature in the input signal. To
+    The output will be a timeseries of detected feature in the input signal.
+     To
     find the features, the input signal is transformed by applying an operator
-    (called the energy function from here on) that produces an representation of
+    (called the energy function from here on) that produces an
+    representation of
     the input signal, which should optimize the SNR of the features vs the
     remainder of the input signal. A threshold is then applied to this energy
     representation of the input signal to find the feature epochs.
@@ -107,15 +112,18 @@ class ThresholdDetectorNode(ResetNode):
             energy_func: function
                 Optional function handle to calculate the energy of the input
                 signal. If this parameter is specified, self._energy_func will
-                be replaced with the function passed. The energy operator should
+                be replaced with the function passed. The energy operator
+                should
                 take the input signal as the only input argument.
                 Default=None
             threshold_func: function
-                Optional function handle to calculate the thresholds for feature
+                Optional function handle to calculate the thresholds for
+                feature
                 epoch detection. The threshold function has to return a scalar
                 value and will be applied to each channel or  to apply to
                 the energy of the signal. If this parameter is specified,
-                self._threshold_func will be replaced with the function passed.
+                self._threshold_func will be replaced with the function
+                passed.
                 Default=None
             threshold_mode : 'gt' or 'lt'
                 Defines wether the threshold is applied with the 'gt' (greater
@@ -125,18 +133,22 @@ class ThresholdDetectorNode(ResetNode):
                 Determines what quantity is taken to derive the treshold from.
                 If 'signal', the current input signal will be taken to derive
                 the trheshold from. If 'energy', the energy representation of
-                current input signal will be taken to derive the threshold from.
+                current input signal will be taken to derive the threshold
+                from.
                 Default='energy'
             threshold_factor : float
-                Scalar to adjust the threshold linearly. Threshold will be set at
+                Scalar to adjust the threshold linearly. Threshold will be
+                set at
                 threshold_factor * threshold_func(threhold_base).
             tf : int
-                The width/length in samples ot the features to be detected. Used
+                The width/length in samples ot the features to be detected.
+                Used
                 for extraction and self.get_epochs.
                 Default=47
             min_dist : int
                 Minimum distance in samples that has to lie in between two
-                detected feature epochs, so they will be detected as two distinct
+                detected feature epochs, so they will be detected as two
+                distinct
                 feature epochs. Feature epochs closer than min_dist will be
                 merged into one feature epoch.
                 Default=1
@@ -160,7 +172,8 @@ class ThresholdDetectorNode(ResetNode):
             raise ValueError('threshold mode must be eiter \'gt\' or \'lt\'')
         self.th_mode = threshold_mode
         if threshold_base not in ['signal', 'energy']:
-            raise ValueError('threshold base must be eiter \'signal\' or \'energy\'')
+            raise ValueError(
+                'threshold base must be eiter \'signal\' or \'energy\'')
         self.th_base = threshold_base
         self.th_fac = float(threshold_factor)
         self.data = []
@@ -182,11 +195,9 @@ class ThresholdDetectorNode(ResetNode):
     ## node implementations
 
     def is_invertible(self):
-
         return False
 
     def _reset(self):
-
         self.data = []
         self.energy = None
         self.threshold = None
@@ -196,15 +207,12 @@ class ThresholdDetectorNode(ResetNode):
         self.extracted_events = None
 
     def _get_supported_dtypes(self):
-
         return ['float32', 'float64']
 
     def _train(self, x):
-
         self.data.append(x)
 
     def _stop_training(self, *args, **kwargs):
-
         # produce data in one piece
         self.data = sp.vstack(self.data)
         # calculate energy
@@ -307,8 +315,10 @@ class ThresholdDetectorNode(ResetNode):
         Overwrite this method in subclasses, default behaviour: identity
 
         This method calculates the energy to use during the feature detection.
-        This can be any operator that maps the input signal [x] into a signal of
-        equal shape. Do not set any members here, just return the result of the
+        This can be any operator that maps the input signal [x] into a
+        signal of
+        equal shape. Do not set any members here, just return the result of
+        the
         energy operator applied to the input signal.
         """
 
@@ -337,7 +347,7 @@ class ThresholdDetectorNode(ResetNode):
         self.threshold = sp.asarray(
             [self._threshold_func(base[:, c])
              for c in xrange(base.shape[1])],
-            dtype=self.dtype)
+                                            dtype=self.dtype)
         self.threshold *= self.th_fac
 
     def plot(self, show=False):
@@ -374,7 +384,6 @@ class SDAbsNode(ThresholdDetectorNode):
         super(SDAbsNode, self).__init__(**kwargs)
 
     def _threshold_func(self, x):
-
         return self.th_fac * x.std(axis=0)
 
 
@@ -424,7 +433,6 @@ class SDMteoNode(ThresholdDetectorNode):
         self.kvalues = map(int, kvalues)
 
     def _energy_func(self, x):
-
         return sp.vstack([mteo(x[:, c], kvalues=self.kvalues, condense=True)
                           for c in xrange(x.shape[1])]).T
 
@@ -454,7 +462,6 @@ class SDKteoNode(ThresholdDetectorNode):
         self.kvalue = int(kvalue)
 
     def _energy_func(self, x):
-
         return sp.vstack([kteo(x[:, c], k=self.kvalue)
                           for c in xrange(x.shape[1])]).T
 
@@ -475,7 +482,6 @@ class SDIntraNode(ThresholdDetectorNode):
         # super
         kwargs.update(threshold_base='signal')
         super(SDIntraNode, self).__init__(**kwargs)
-
 
 ##--- MAIN
 

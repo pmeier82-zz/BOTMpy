@@ -74,7 +74,15 @@ def find_version():
 
 DESC_TITLE = 'SpikePy : online spike sorting with linear fitlers'
 DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
-VERSION = find_version()
+
+##---USE_CYTHON
+
+ext_mod_list = [
+    Extension(
+        'spikepy.common.mcfilter.mcfilter_cy',
+        ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
+        include_dirs=[numpy.get_include()])
+]
 
 ##---MAIN
 
@@ -82,18 +90,11 @@ if __name__ == "__main__":
     setup(
         #main
         name="SpikePy",
-        version=VERSION,
+        version=find_version(),
         packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
                   'spikepy.ntrode', 'spikepy.common.datafile',
                   'spikepy.common.mcfilter'],
         requires=['scipy', 'scikits.learn', 'mdp', 'tables'],
-
-        # cython
-        cmdclass={'build_ext':build_ext},
-        ext_modules=[
-            Extension('spikepy.common.mcfilter.mcfilter_cy',
-                ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
-                      include_dirs=[numpy.get_include()])],
 
         # metadata
         author="Philipp Meier",
@@ -111,4 +112,9 @@ if __name__ == "__main__":
             'Natural Language :: English',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
-            'Topic :: Scientific/Engineering :: Bio-Informatics'])
+            'Topic :: Scientific/Engineering :: Bio-Informatics'],
+
+        # cython
+        cmdclass={'build_ext':build_ext},
+        ext_modules=ext_mod_list,
+    )

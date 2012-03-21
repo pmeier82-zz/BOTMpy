@@ -9,10 +9,10 @@ mcfilter Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`mcfilter` Module
-----------------------
+:mod:`mcfilter_py` Module
+-------------------------
 
-.. automodule:: spikepy.common.mcfilter.mcfilter
+.. automodule:: spikepy.common.mcfilter.mcfilter_py
     :members:
     :undoc-members:
     :show-inheritance:

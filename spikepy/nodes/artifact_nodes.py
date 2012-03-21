@@ -68,21 +68,28 @@ from .detector_nodes import ThresholdDetectorNode
 class ArtifactDetectorNode(ThresholdDetectorNode):
     """detects artifacts by detecting zero-crossing frequencies
 
-    For a zero-mean gaussian process the the zero-crossing rate zcr is
-    independent of the moments and its expectation is approaches 0.5 as the
-    integration-window size approaches infinity.
+    For a zero-mean gaussian process the the zero-crossing rate `zcr` is
+    independent of its moments and approaches 0.5 as the integration window
+    size approaches infinity:
+
+    .. math::
+
+        s_t \\sim N(0,\\Sigma)
+
+        zcr_{wsize}(s_t) = \\frac{1}{wsize-1} \\sum_{t=1}^{wsize-1}
+        {{\\mathbb I}\\left\{{s_t s_{t-1} < 0}\\right\\}}
+
+        \\lim_{wsize \\rightarrow \\infty} zcr_{wsize}(s_t) = 0.5
 
     The capacitive artifacts seen in the Munk dataset have a significantly
-    lower
-    frequency, such that the zcr decreases to 0.1 and below. Detecting the zcr
-    and blocking epochs where the zcr significantly deviates from the
-    expectation imposed by the gaussian noise process can lead to detection of
-    artifact epochs.
+    lower frequency, s.t. zcr decreases to 0.1 and below, for the integration
+    window sizes relevant to our application. Detecting epochs where the zcr
+    significantly deviates from the expectation, assuming a coloured Gaussian
+    noise process, can thus lead be used for detection of artifact epochs.
 
     The zero crossing rate (zcr) is given by the convolution of a moving
-    average
-    window (although this is configurable to use other weighting methods) with
-    the XOR of the signbits of X(t) and X(t+1).
+    average window (although this is configurable to use other weighting
+    methods) with the XOR of the signbits of X(t) and X(t+1).
     """
 
     ## constructor
@@ -90,34 +97,35 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
     def __init__(self, wsize_ms=15.0, psize_ms=(5.0, 10.0), wfunc=sp.ones,
                  srate=32000.0, zcr_th=0.1, mindist_ms=10.0):
         """
-        :Parameters:
-            wsize_ms : float
-                Window size in ms for the integration window. This should be
-                large enough to cover the low band of the artifacts.
-                Default=15.0
-            psize_ms : float
-                Padding size in ms. Detected epochs will be extended by the
-                padding window on both ends, to limit unnecessary segmentation
-                of the data.
-                Default=5.0
-            wfunc : func
-                Function that creates the integration window. The function has
-                to take one parameter denoting the window size in samples.
-                Default=scipy.ones
-            srate : float
-                The sample rate in Hz. Used to convert the windows sizes in ms
-                representation into their sampled representation.
-                Default=32000.0
-            zcr_th : float
-                The zrc (zero crossing rate) threshold, epochs where the zrc
-                falls below the threshold will be classified as artifact
-                epochs.
-                Default=0.11
-            mindist_ms : float
-                The minimum size for non-artifact epochs. Epochs in between
-                artifacts that are smaller than this window in ms, are merged
-                into the artifact epochs.
-                Default=10.0
+        :type wsize_ms: float
+        :param wsize_ms: window size of the integration window in `ms`. Should
+            be large enough to cover the low band of the artifacts and not
+            overlap with the lower band of spikes (spike clusters).
+            Default=15.0
+        :type psize_ms: tuple
+        :param psize_ms: window size of the padding windows in `ms`. Will be
+            applied to detected artifact epochs. (left_pad, right_pad)
+            Default=5.0
+        :type wfunc: function
+        :param wfunc: function that creates the integration window. The
+            function has to take one parameter denoting the window size in
+            samples.
+            Default=scipy.ones
+        :type srate: float
+        :param srate: sample rate in `Hz`. Used to convert the windows sizes
+            from `ms` to data samples.
+            Default=32000.0
+        :type zcr_th: float
+        :param zrc_th: zrc (zero crossing rate) threshold, epochs of the data
+            where the zrc falls below the threshold will be classified as
+            artifact epochs.
+            Default=0.11
+        :type mindist_ms: float
+        :param mindist_ms: minimum size for non-artifact epochs in `ms`.
+            Data epochs in between artifacts epochs that are smaller than this
+            window, are merged into the artifact epochs to reduce
+            segmentation.
+            Default=10.0
         """
 
         # super
@@ -137,9 +145,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
     def _energy_func(self, x, **kwargs):
         x_signs = sp.signbit(x)
         return sp.vstack((
-            sp.bitwise_xor(x_signs[:-1], x_signs[1:]),
-            [False] * x.shape[1]
-            ))
+            sp.bitwise_xor(x_signs[:-1], x_signs[1:]), [False] * x.shape[1]))
 
     def _execute(self, x, *args, **kwargs):
         # inits
@@ -149,8 +155,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
         for c in xrange(self.nchan):
             # filter energy with window
             xings = sp.correlate(self.energy[:, c], self.window, 'same')
-            # replace range at start and end of signal with the mean of the
-            # rest
+            # replace filter artifacts with the mean
             mu = xings[self.window.size:-self.window.size].mean()
             xings[:self.window.size] = xings[-self.window.size:] = mu
             ep = epochs_from_binvec(xings < self.threshold)
@@ -191,29 +196,4 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
 ##--- MAIN
 
 if __name__ == '__main__':
-    from os import listdir, path as osp
-    from spikeplot import mcdata, plt
-    from spikepy.common import XpdFile
-    from spikepy.nodes import SDMteoNode as SDET
-
-    tf = 65
-    AD = ArtifactDetectorNode()
-    SD = SDET(tf=tf, min_dist=int(tf * 0.5))
-    XPDPATH = '/home/phil/Data/Munk/Louis/L011'
-
-    for fname in sorted(filter(lambda x:x.startswith('L011') and
-                                        x.endswith('.xpd'),
-                               listdir(XPDPATH)))[
-                 :20]:
-        arc = XpdFile(osp.join(XPDPATH, fname))
-        data = arc.get_data(item=7)
-        AD(data)
-        print AD.events
-        print AD.get_nonartefact_epochs()
-        print AD.get_fragmentation()
-        SD(data)
-        f = mcdata(data=data, other=SD.energy, events={0:SD.events},
-                   epochs=AD.events, show=False)
-        for t in SD.threshold:
-            f.axes[-1].axhline(t)
-        plt.show()
+    pass

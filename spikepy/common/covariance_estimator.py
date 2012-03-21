@@ -210,7 +210,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
 
     ## constructor
 
-    def __init__(self, tf_max=100, nc=4, weight=0.05, cond=50, dtype=None):
+    def __init__(self, tf_max=100, nc=4, weight=0.05, cond=50,
+                 with_default_chan_set=True, dtype=None):
         """see BaseTimeSeriesCovarianceEstimator
 
         :type tf_max: int
@@ -223,6 +224,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
             the estimator is checked for this channel count. also determines
             the size of the internal storage for the correlation functions.
             Default=4
+        :type with_default_chan_set: bool
+        :param with_default_chan_set: if True, add the default channel set
         """
 
         # checks
@@ -245,6 +248,10 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         self._buf_whi = {}
         self._chan_set = []
 
+        # intis
+        if with_default_chan_set is True:
+            self.new_chan_set(tuple(range(self._nc)))
+
     ## getter and setter - base
 
     def _process_keywords(self, kwargs):
@@ -264,7 +271,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
             cs = tuple(kwargs.get('chan_set'))
         except:
             cs = tuple(range(self._nc))
-        return tf, cs, kwargs.get('dtype')
+        return tf, cs
 
     def _get_cmx(self, **kwargs):
         """yield the current estimate
@@ -276,11 +283,11 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: ndarray - (block-) toeplitz covariance matrix
         """
 
-        tf, chan_set, dtype = self._process_keywords(kwargs)
+        tf, chan_set = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
         if buf_key not in self._buf_cmx:
             self._buf_cmx[buf_key] = build_block_toeplitz_from_xcorrs(
-                tf, chan_set, self._store, dtype=dtype)
+                tf, chan_set, self._store, dtype=self.dtype)
         return self._buf_cmx[buf_key]
 
     def _get_icmx(self, **kwargs):
@@ -293,7 +300,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: ndarray - inverse (block-) toeplitz covariance matrix
         """
 
-        tf, chan_set, dtype = self._process_keywords(kwargs)
+        tf, chan_set = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
         if buf_key not in self._buf_icmx:
             svd = self._get_svd(**kwargs)
@@ -311,7 +318,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: tuple - U, s, Vh as returned by :scipy.linalg.svd:
         """
 
-        tf, chan_set, dtype = self._process_keywords(kwargs)
+        tf, chan_set = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
         if buf_key not in self._buf_svd:
             cmx = self._get_cmx(**kwargs)
@@ -334,7 +341,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :returns: ndarray - whitening operator matrix
         """
 
-        tf, chan_set, dtype = self._process_keywords(kwargs)
+        tf, chan_set = self._process_keywords(kwargs)
         buf_key = (tf, chan_set)
         if buf_key not in self._buf_whi:
             svd = self._get_svd(**kwargs)
@@ -377,9 +384,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
     ## special methods
 
     def __str__(self):
-        return super(TimeSeriesCovE, self).__str__(',tf=%s,nc=%s' % (
-            self._tf_max,
-            self._nc))
+        return super(TimeSeriesCovE, self).__str__(',tf=%s,nc=%s' %
+                                                   (self._tf_max, self._nc))
 
     ## implementation base
 
@@ -415,7 +421,6 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         epochs = epochs[len_epoch > self._tf_max]
         n_epoch = epochs.shape[0]
         len_epoch = epochs[:, 1] - epochs[:, 0]
-        len_epoch_all = len_epoch.sum()
         self._clear_buf()
 
         # calculate cross-correlation functions for new observation
@@ -429,12 +434,13 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
                     continue
                 for e in xrange(n_epoch):
                     chunk = data[epochs[e, 0]:epochs[e, 1]]
-                    xc = xcorr(chunk[:, m], chunk[:, n], lag=self._tf_max - 1)
-                    processed[m, n].append((len_epoch[e], xc))
+                    xc = xcorr(chunk[:, m],
+                               chunk[:, n],
+                               lag=self._tf_max - 1,
+                               normalise=True)
+                    processed[m, n].append(xc * len_epoch[e])
         for k in processed.keys():
-            processed[k] = sp.vstack(
-                [item[0] * item[1] for item in processed[k]]
-            ).sum(axis=0) / len_epoch_all
+            processed[k] = sp.sum(processed[k], axis=0) / len_epoch.sum()
             if k in self._store:
                 self._store[k] *= 1.0 - self._weight
                 self._store[k] += self._weight * processed[k]
@@ -453,7 +459,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
     def _reset(self):
         self._store.reset()
         self._clear_buf()
-        self._chan_set = []
+        # self._chan_set = [] # setting to default chan_set
+        self._chan_set = [tuple(range(self._nc))]
         super(TimeSeriesCovE, self)._reset()
 
     @staticmethod
@@ -566,7 +573,7 @@ def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
     chan_set = sorted(chan_set)
     nc = len(chan_set)
     assert all(sp.diff(chan_set) >= 1)
-    assert max(chan_set) <= xcorrs._nc
+    assert max(chan_set) < xcorrs._nc
     assert all([key in xcorrs for key in
                 build_idx_set(chan_set)]), 'no data for requested channels'
     rval = sp.empty((tf * nc, tf * nc), dtype=dtype)

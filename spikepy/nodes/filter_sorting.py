@@ -43,7 +43,6 @@
 #_____________________________________________________________________________
 #
 
-
 """implementation of spikesorting with optimal linear filters
 
 See:
@@ -61,12 +60,13 @@ __all__ = ['FilterBankError', 'FilterBankSortingNode', 'BOTMNode']
 
 import scipy as sp
 from scipy import linalg as sp_la
-from ..common import (\
-    TimeSeriesCovE, xi_vs_f, mcvec_from_conc, mcvec_to_conc, overlaps,
-    epochs_from_spiketrain_set, shifted_matrix_sub)
 from .sorting_nodes import SortingNode
 from .filter_nodes import FilterNode, MatchedFilterNode
+from ..common import (TimeSeriesCovE, xi_vs_f, mcvec_to_conc, overlaps,
+                      epochs_from_spiketrain_set, shifted_matrix_sub,
+                      epochs_from_binvec, merge_epochs, matrix_argmax)
 
+# for paralell mixin
 from Queue import Queue
 from threading import Thread
 import ctypes as ctypes
@@ -84,51 +84,48 @@ class FilterBankSortingNode(SortingNode):
 
     def __init__(self, **kwargs):
         """
-        :Keywords:
-            templates : ndarray
-                Templates to initialise the filter stack.
-                [ntemps][tf][nc] a tensor of templates
-                Required
-            ce : CovarianceEstimator
-                The covariance estimator instance, if None a new instance will
-                be created and initialised with the identity matrix
-                corresponding
-                to the template size.
-                Required
-            chan_set : tuple
-                tuple of int designating the subset of channels this filter
-                operates on.
-                Default=(0,1,2,3)
-            filter_cls : FilterNode
-                the class of filter node to use for the filter bank, this must
-                be a subclass of 'FilterNode'.
-                Default=MatchedFilterNode
-            rb_cap : int
-                capacity of the ringbuffer that stored observations for the
-                filters to calculate the mean template.
-                Default=350
-            adapt_templates: int
-                If non-negative integer, adapt the filters with the found
-                events
-                aligned at that sample.
-                Default=-1
-            learn_noise : bool
-                if True, adapt the noise covariance matrix with the noise
-                epochs
-                w.r.t. the found events. Else, do not learn the noise.
-                Default=True
-            chunk_size : int
-                if input data will be longer than chunk_size,
-                the input will be
-                processed chunk per chunk to encounter memory sinks
-                Default=32000
-            debug :bool
-                if True, store intermediate results and generate verbose
-                output
-                Default=False
-            dtype : dtype resolvable
-                anything that resolves into a scipy dtype, like a string, type
-                Default=None
+        :type templates: ndarray
+        :keyword templates: templates to initialise the filter stack.
+            [ntemps][tf][nc] a tensor of templates
+            Required
+        :type ce: TimeSeroesCovE
+        :keyword ce: covariance estimator instance, if None a new instance
+            will be created and initialised with the identity matrix
+            corresponding to the template size.
+            Required
+        :type chan_set: tuple
+        :keyword chan_set: tuple of int designating the subset of channels
+            this filter bank operates on.
+            Default=(0,1,2,3)
+        :type filter_cls: FilterNode
+        :keyword filter_cls: the class of filter node to use for the filter
+            bank, this must be a subclass of 'FilterNode'.
+            Default=MatchedFilterNode
+        :type rb_cap: int
+        :keyword rb_cap: capacity of the ringbuffer that stored observations
+            for the filters to calculate the mean template.
+            Default=350
+        :type adapt_templates: int
+        :keyword adapt_templates: if non-negative integer, adapt the filters
+            with the found events aligned at that sample.
+            Default=-1
+        :type learn_noise: bool
+        :keyword learn_noise: if True, adapt the noise covariance matrix with
+            the noise epochs w.r.t. the found events. Else, do not learn the
+            noise.
+            Default=True
+        :type chunk_size: int
+        :keyword chunk_size: if input data will be longer than chunk_size, the
+            input will be processed chunk per chunk to overcome memory sinks
+            Default=32000
+        :type debug: bool
+        :keyword debug: if True, store intermediate results and generate
+            verbose output
+            Default=False
+        :type dtype: dtype resolvable
+        :keyword dtype: anything that resolves into a scipy dtype, like a
+            string or number type
+            Default=None
         """
 
         # process kwargs
@@ -155,6 +152,8 @@ class FilterBankSortingNode(SortingNode):
                                   'like [ntemps][tf][nc]!')
         if not issubclass(filter_cls, FilterNode):
             raise TypeError('filter_cls has to be a subclass of FilterNode!')
+        if ce is None:
+            ce = TimeSeriesCovE.std_white_noise_init(*templates.shape[1:])
         if not isinstance(ce, TimeSeriesCovE):
             raise TypeError('ce has to be an instance of TimeSeriesCovE '
                             'or None!')
@@ -181,7 +180,6 @@ class FilterBankSortingNode(SortingNode):
         self.debug = bool(debug)
         self.bank = []
         self.ce = ce
-        self.rval = {}
 
         # add filters for templates
         for temp in templates:
@@ -265,13 +263,11 @@ class FilterBankSortingNode(SortingNode):
         """adds a new filter to the filter bank"""
 
         # check input
-        xi_ = sp.asarray(xi, dtype=self.dtype)
-        if xi_.ndim != 2:
-            xi_ = mcvec_from_conc(xi_, nc=self._nc)
-        if xi_.shape != (self._tf, self._nc):
+        xi = sp.asarray(xi, dtype=self.dtype)
+        if xi.ndim != 2 or xi.shape != (self._tf, self._nc):
             raise FilterBankError('template does not match the filter banks '
-                                  'filter shape of %s' % str(
-                (self._tf, self._nc)))
+                                  'filter shape of %s' %
+                                  str((self._tf, self._nc)))
 
         # build filter and add to filterbank
         new_f = self._filter_cls(self._tf,
@@ -280,7 +276,7 @@ class FilterBankSortingNode(SortingNode):
                                  rb_cap=self._rb_cap,
                                  chan_set=self._chan_set,
                                  dtype=self.dtype)
-        new_f.fill_xi_buf(xi_)
+        new_f.fill_xi_buf(xi)
         self.bank.append(new_f)
 
         # return and check internals
@@ -289,68 +285,21 @@ class FilterBankSortingNode(SortingNode):
             rval = self._check_internals()
         return rval
 
-    def _check_internals_par(self):
-        """check internals trigger function"""
-
-        if self.debug:
-            print 'Starting check_internals_par!'
-        self._check_internals_q = Queue()
-        self._check_internals_t = Thread(
-            target=self._check_internals_par_kernel,
-            args=(self._check_internals_q,))
-        self._check_internals_t.start()
-
-    def _check_internals_par_kernel(self, q):
-        """check_internals kernel for the background thread"""
-
-        # for windowz: reduce the priority of the current thread to idle
-        if platform.system() == 'Windows':
-            THREAD_PRIORITY_IDLE = -15
-            THREAD_SET_INFORMATION = 0x20
-            w32 = ctypes.windll.kernel32
-            handle = w32.OpenThread(THREAD_SET_INFORMATION, False,
-                                    w32.GetCurrentThreadId())
-            result = w32.SetThreadPriority(handle, THREAD_PRIORITY_IDLE)
-            w32.CloseHandle(handle)
-            if not result:
-                print 'Failed to set priority of thread', w32.GetLastError()
-        self._check_internals()
-        q.put((self.bank, self._xcorrs))
-        q.join()
-
-    def _check_internals_par_collect(self):
-        """returns true if collect was good"""
-
-        if self._check_internals_q.empty():
-            return False
-        else:
-            self.bank, self._xcorrs = self._check_internals_q.get()
-            self._check_internals_q.task_done()
-            self._check_internals_q = None
-            return True
-
     def _check_internals(self):
         """internal bookkeeping that assures the filter bank is up to date"""
 
+        # check
         if self.debug:
             print '_check_internals'
-            # skip criteria
         if len(self.bank) == 0:
             return
 
-        # checks filter instances
+        # build filters from templates and the cross-correlation tensor
         for filt in self.bank:
             filt.calc_filter()
-
-        # build the xcorr tensor
-        units = sp.zeros((len(self.bank), self._tf * self._nc))
-        filts = sp.zeros((len(self.bank), self._tf * self._nc))
-        for i in xrange(len(self.bank)):
-            units[i] = mcvec_to_conc(self.bank[i].xi)
-            filts[i] = mcvec_to_conc(self.bank[i].f)
-
-        # build xcorrs tensor
-        self._xcorrs = xi_vs_f(units, filts, nc=self._nc)
+        self._xcorrs = xi_vs_f(self.template_set_conc,
+                               self.filter_set_conc,
+                               nc=self._nc)
 
     def _adaption(self):
         """adapt using non overlapping spikes"""
@@ -394,7 +343,9 @@ class FilterBankSortingNode(SortingNode):
     def is_trainable(self):
         return False
 
-    def _execute(self, x, *args, **kwargs):
+    ## SortingNode interface
+
+    def _sorting(self, x, *args, **kwargs):
         # inits
         self._data = sp.ascontiguousarray(x, dtype=self._dtype)
         dlen = self._data.shape[0]
@@ -414,10 +365,10 @@ class FilterBankSortingNode(SortingNode):
             chunk = self._data[c_start:c_stopp]
             self._fout = sp.empty((chunk.shape[0], self.nfilter))
             self._pre_filter()
-            for i in xrange(self.nfilter):
+            for i in xrange(len(self.bank)):
                 self._fout[:, i] = self.bank[i](chunk)
             self._post_filter()
-            self._sorting(c_start)
+            self._sort_chunk(c_start)
 
             # iteration
             curr_chunk += 1
@@ -440,48 +391,95 @@ class FilterBankSortingNode(SortingNode):
     def _post_filter(self):
         return
 
-    ## SortingNode interface - abstract
-
-    def _sorting(self):
-        pass
-
     def _combine_results(self):
         self.rval = dict_list_to_ndarray(self.rval)
         correct = int(self._tf / 2)
         for k in self.rval:
             self.rval[k] -= correct
 
+    def _sort_chunk(self, offset):
+        return
+
     ## plotting methods
 
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
 
-        # imports
         from spikeplot import xvf_tensor
 
-        # build concatenated templates and filters
-        temps = sp.zeros((len(self.bank), self._tf * self._nc))
-        filts = sp.zeros((len(self.bank), self._tf * self._nc))
-        for i in xrange(len(self.bank)):
-            temps[i] = mcvec_to_conc(self.bank[i].xi)
-            filts[i] = mcvec_to_conc(self.bank[i].f)
-
-        # plot xvf_tensor
-        xvf_tensor([temps, filts, self._xcorrs],
-                                               nc=self._nc, plot_handle=ph,
-                                               show=show)
+        xvf_tensor([self.template_set_conc, self.filter_set_conc,
+                    self._xcorrs], nc=self._nc, plot_handle=ph, show=show)
 
     def plot_template_set(self, ph=None, show=False):
         """plot the template set in a waveform plot"""
 
-        # imports
         from spikeplot import waveforms
 
-        # plot waveforms
-        data = dict(zip(xrange(len(self.bank)),
-            [sp.array([mcvec_to_conc(wf)]) for wf in self.template_set]))
-        waveforms(data, tf=self._tf, plot_separate=True, plot_handle=ph,
-                  show=show)
+        waveforms(self.template_set_conc, tf=self._tf, plot_separate=True,
+                  plot_handle=ph, show=show)
+
+
+class ParallelAdaptionMixIn(object):
+    """mixin class to send the check internals into a separate thread
+
+    Provides old behavior under same name and adds the methods for paralell
+    execution.
+    """
+
+    def _check_internals(self):
+        """internal bookkeeping that assures the filter bank is up to date"""
+
+        # check
+        if self.debug:
+            print '_check_internals (paralell)'
+        if len(self.bank) == 0:
+            return
+
+        # parallel execution
+        self._check_internals_par()
+        self._check_internals_t.join()
+        good = False
+        while not good:
+            good = self._check_internals_par_collect()
+
+    def _check_internals_par(self):
+        """check internals trigger function"""
+
+        if self.debug:
+            print 'Starting check_internals_par!'
+        self._check_internals_q = Queue()
+        self._check_internals_t = Thread(
+            target=self._check_internals_par_kernel,
+            args=(self._check_internals_q,))
+        self._check_internals_t.start()
+
+    def _check_internals_par_kernel(self, q):
+        """check_internals kernel for the background thread"""
+
+        # for windows: reduce the priority of the current thread to idle
+        if platform.system() == 'Windows':
+            THREAD_PRIORITY_IDLE = -15
+            THREAD_SET_INFORMATION = 0x20
+            w32 = ctypes.windll.kernel32
+            handle = w32.OpenThread(THREAD_SET_INFORMATION, False,
+                                    w32.GetCurrentThreadId())
+            result = w32.SetThreadPriority(handle, THREAD_PRIORITY_IDLE)
+            w32.CloseHandle(handle)
+            if not result:
+                print 'Failed to set priority of thread', w32.GetLastError()
+        self._check_internals()
+        q.put((self.bank, self._xcorrs))
+
+    def _check_internals_par_collect(self):
+        """returns true if collect was good"""
+
+        if self._check_internals_q.empty():
+            return False
+        else:
+            self.bank, self._xcorrs = self._check_internals_q.get()
+            self._check_internals_q.task_done()
+            self._check_internals_q = None
+            return True
 
 
 class BOTMNode(FilterBankSortingNode):
@@ -499,25 +497,19 @@ class BOTMNode(FilterBankSortingNode):
 
     def __init__(self, **kwargs):
         """
-        :Parameters:
-            see FilterBankSortingNode
-            ovlp_taus : list
-                None or list of tau values. If list of tau values is given,
-                discriminant-functions for all pair-wise template overlap
-                cases with the given tau values will be created and
-                evaluated. If None a greedy subtractive interference
-                cancellation (SIC) approach will be used.
-                Default=None
-            spk_pr : float
-                Spike prior value
-                Default=1e-6
-            noi_pr : float
-                Noise prior value
-                Default=1e1
-            ovpl_method : str
-                Either 'och' for explicit overlap channels or 'sic' for
-                subtractive interference cancellation.
-                Default='och'
+        :type ovlp_taus: list
+        :keyword ovlp_taus: None or list of tau values. If list of tau
+            values is given, discriminant-functions for all pair-wise
+            template overlap cases with the given tau values will be created
+            and evaluated. If None a greedy subtractive interference
+            cancellation (SIC) approach will be used.
+            Default=None
+        :type spk_pr: float
+        :keyword spk_pr: spike prior value
+            Default=1e-6
+        :type noi_pr: float
+        :keyword noi_pr: noise prior value
+            Default=1e0
         """
 
         # super
@@ -527,9 +519,11 @@ class BOTMNode(FilterBankSortingNode):
         self._ovlp_taus = kwargs.get('ovlp_taus', None)
         if self._ovlp_taus is not None:
             self._ovlp_taus = list(self._ovlp_taus)
-            print 'using "och"'
+            if self.debug is True:
+                print 'using overlap channels'
         else:
-            print 'using "sic"'
+            if self.debug is True:
+                print 'using subtractive interference cancelation'
         self._disc = None
         self._pr_n = None
         self._lpr_n = None
@@ -537,7 +531,7 @@ class BOTMNode(FilterBankSortingNode):
         self._lpr_s = None
         self._oc_idx = None
         self._debug_res = None
-        self.noise_prior = kwargs.get('noi_pr', 1.0)
+        self.noise_prior = kwargs.get('noi_pr', 1e0)
         self.spike_prior = kwargs.get('spk_pr', 1e-6)
 
     ## properties
@@ -580,7 +574,7 @@ class BOTMNode(FilterBankSortingNode):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
                                 .5 * self._xcorrs[i, i, self._tf - 1])
 
-        # build overlap channels from filter outputs for method "och"
+        # build overlap channels from filter outputs for overlap channels
         if self._ovlp_taus is not None:
             self._oc_idx = {}
             oc_idx = self.nfilter
@@ -596,8 +590,8 @@ class BOTMNode(FilterBankSortingNode):
                             self._xcorrs[f0, f1, self._tf + tau - 1])
                         oc_idx += 1
 
-    def _sorting(self, off):
-        """sorting on the discriminant functions
+    def _sort_chunk(self, offset):
+        """sort this chunk on the calculated discriminant functions
 
         method: "och"
             Examples for overlap samples
@@ -610,7 +604,7 @@ class BOTMNode(FilterBankSortingNode):
         """
 
         # inits
-        off = int(off)
+        offset = int(offset)
         spk_ep = epochs_from_binvec(
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
@@ -627,6 +621,9 @@ class BOTMNode(FilterBankSortingNode):
             mcdata(self._data, other=self._disc, epochs=spk_ep, show=True)
 
         for i in xrange(n_ep):
+            #
+            # method: overlap channels
+            #
             if self._ovlp_taus is not None:
                 # get event time and channel
                 t_ep, c_ep = matrix_argmax(
@@ -636,12 +633,17 @@ class BOTMNode(FilterBankSortingNode):
                 # lets fill in the results
                 if c_ep < self.nfilter:
                     # was single unit
-                    self.rval[c_ep].append(t_ep + off)
+                    self.rval[c_ep].append(t_ep + offset)
                 else:
                     # was overlap
                     my_oc_idx = self._oc_idx[c_ep]
-                    self.rval[my_oc_idx[0]].append(t_ep + off)
-                    self.rval[my_oc_idx[1]].append(t_ep + my_oc_idx[2] + off)
+                    self.rval[my_oc_idx[0]].append(t_ep + offset)
+                    self.rval[my_oc_idx[1]].append(
+                        t_ep + my_oc_idx[2] + offset)
+
+            #
+            # method: subtractive interference cancelation
+            #
             else:
                 ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
                 ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
@@ -664,8 +666,7 @@ class BOTMNode(FilterBankSortingNode):
                     sub = shifted_matrix_sub(
                         sp.zeros_like(ep_disc),
                         self._xcorrs[c_ep].T,
-                        t_ep - self._tf
-                    )
+                        t_ep - self._tf)
 
                     # apply subtractor
                     ep_fout_norm_pre = sp_la.norm(ep_fout)
@@ -673,7 +674,7 @@ class BOTMNode(FilterBankSortingNode):
                     ep_fout_norm_post = sp_la.norm(ep_fout)
                     if ep_fout_norm_pre > ep_fout_norm_post:
                         ep_disc += sub + self._lpr_s
-                        self.rval[c_ep].append(spk_ep[i, 0] + t_ep + off)
+                        self.rval[c_ep].append(spk_ep[i, 0] + t_ep + offset)
                     else:
                         break
 

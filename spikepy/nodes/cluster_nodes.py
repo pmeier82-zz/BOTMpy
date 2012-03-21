@@ -43,11 +43,10 @@
 #_____________________________________________________________________________
 #
 
-
 """initialization - clustering of spikes in feature space"""
 
 __docformat__ = 'restructuredtext'
-__all__ = ['ClusteringNode','HomoscedasticClusteringNode']
+__all__ = ['ClusteringNode', 'HomoscedasticClusteringNode']
 
 ##---IMPORTS
 
@@ -59,15 +58,14 @@ from .base_nodes import ResetNode
 ##---CLASSES
 
 class ClusteringNode(ResetNode):
-    """clustering node interface class"""
+    """interface for clustering algorithms"""
 
     ## constructor
 
     def __init__(self, dtype=sp.float32):
         """
-        :Parameters:
-            dtype : scipy.dtype
-                dtype for internal calculations
+        :type dtype: dtype resolvable
+        :param dtype: will be passed to :py:class:`mdp.Node`
         """
 
         # super
@@ -88,88 +86,26 @@ class ClusteringNode(ResetNode):
         return False
 
     def _reset(self):
-        # reset members
         self.labels = None
         self._labels = None
         self.parameters = None
         self._parameters = None
 
-    def _execute(self, x, *args, **kwargs):
-        # start clustering
-        self._clustering(x, *args, **kwargs)
-
-        # return
-        return x
-
-    def _clustering(self, data, **kwargs):
-        """abstract clustering method - should be implemented in subclass"""
-
-        raise NotImplementedError
-
-#class GMMwithGOF(GMM):
-#    """GMM implementing a bayesian information criterion"""
-#
-##    def bic(self, data):
-##        """calculate the models goodness of fit given data
-##
-##        This evaluates the Bayesian Information Criterion (BIC) of Schwarz
-# for
-##        the data, given the current model parameters.
-##
-##        IC := -n * LL(data) +
-##
-##        :Parameters:
-##            data : ndarray
-##                observation, one obs per row
-##        """
-##
-##        return 5 * self.n_states * sp.log(data.shape[0]) - \
-##            data.shape[0] * self.score(data).sum()
-#
-#    def gof(self, data, mode):
-#        """calculate goodness of fit"""
-#
-#        if not hasattr(self, str(mode)):
-#            raise ValueError('no such gof-criterion: %s' % str(mode))
-#        return getattr(self, str(mode))(data)
-#
-#    def df(self):
-#        """return the degrees of freedom of the model"""
-#
-#        return {
-#            'full' : self.n_states * (self.n_features + 1 + self.n_features
-# ** 2 / 2) - 1,
-#            'diag' : self.n_states * (self.n_features * 2 + 1) - 1,
-#            'spherical' : self.n_states * (self.n_features + 2) - 1,
-#            'tied' : self.n_states * (self.n_features + 1) - 1,
-#        }[self._cvtype]
-#
-#    def bic(self, data):
-#        """calculate the models goodness of fit given data using the BIC"""
-#
-#        return self.df() * sp.log(data.shape[0]) - 2 * self.score(data).sum()
-#
-#    def aic(self, data):
-#        """calculate the models goodness of fit given data using the AIC"""
-#
-#        return self.df() * 2 - 2 * self.score(data).sum()
-
 
 class HomoscedasticClusteringNode(ClusteringNode):
-    """clustering with model oder selection to come up with a component model
+    """clustering with model order selection to learn a mixture model
 
     Assuming the data are prewhitened spikes, possibly in some condensed
     representation e.g. PCA, the problem is to find the correct number of
     components and their corresponding means. The covariance matrix of all
     components is assumed to be the same, as the variation in the data is
-    produced by the additive noise process. Further the covariance matrix can
+    produced by an additive noise process. Further the covariance matrix can
     be assumed be the identity matrix (or a scaled version due to estimation
     errors, thus a spherical covariance),
 
-    To increase performance, it is assumed all necessary preprocessing
-    measures
-    have been taken, to assure an optimal clustering performance (like:
-    alignment, resampling, (noise)whitening, etc.)
+    To increase performance, it is assumed all necessary pre-processing has
+    been taken care of already, to assure an optimal clustering performance
+    (e.g.: alignment, resampling, (noise)whitening, etc.)
 
     So we have to find the number of components and their means in a
     homoscedastic clustering problem. The 'goodness of fit' will be evaluated
@@ -180,36 +116,36 @@ class HomoscedasticClusteringNode(ClusteringNode):
 
     def __init__(self, clus_type='kmeans', crange=range(1, 16), maxiter=32,
                  repeats=4, conv_th=1e-4, sigma_factor=4.0,
-                 weights_uniform=False, dtype=sp.float32, debug=False):
+                 uprior=False, dtype=sp.float32, debug=False):
         """
-        :Parameters:
-            clus_type : str
-                str giving the clustering algorithm to use. Must be one of:
-                'kmeans', 'gmm'
-                Default='kmeans'
-            crange : list
-                cluster count to test for
-                Default=range(1,16)
-            maxiter : int
-                upper bound for the iterations
-                Default=32
-            repeats : int
-                repeat this many times per cluster count
-                Default=4
-            conv_th : float
-                Convergence threshold.
-                Default=1e-4
-            sigma_factor : float
-                variance factor for the spherical covariance
-                Default=4.0
-            weights_uniform : bool
-                If True, use uniform weight when evaluating the goodness of
-                fit.
-            dtype : scipy.dtype
-                dtype for internal calculations
-                Default=scipy.float32
-            debug : bool
-                If True, announce progress to stdout.
+        :type clus_type: str
+        :param cluls_type: clustering algorithm to use. Must be one of:
+            'kmeans', 'gmm'
+            Default='kmeans'
+        :type crange: list
+        :param crange: cluster count to test for
+            Default=range(1,16)
+        :type maxiter: int
+        :param maxiter: upper bound for the iterations per run
+            Default=32
+        :type repeats: int
+        :param repeats: repeat this many times per cluster count
+            Default=4
+        :type conv_th: float
+        :param conv_th: convergence threshold.
+            Default=1e-4
+        :type sigma_factor: float
+        :param sigma_factor: variance factor for the spherical covariance
+            Default=4.0
+        :type uprior: bool
+        :param uprior: if True, do not learn the mixture component
+            prior used for evaluation of the goodness of fit and use a
+            uniform prior instead.
+        :type dtype: dtype resolvable
+        :param dtype: dtype for internal calculations
+            Default=scipy.float32
+        :type debug: bool
+        :param debug: if True, announce progress to stdout.
         """
 
         # super
@@ -228,38 +164,31 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._gof = None
         self._winner = None
         self.debug = bool(debug)
-        self.weigths_uniform = bool(weights_uniform)
+        self.uprior = bool(uprior)
 
     def _reset(self):
+        super(HomoscedasticClusteringNode, self)._reset()
         self._gof = None
         self._winner = None
 
-        # super
-        super(HomoscedasticClusteringNode, self)._reset()
+    def _execute(self, x, *args, **kwargs):
+        """run the clustering on a set of observations"""
 
-    def _clustering(self, x, *args, **kwargs):
         # inits
-        self._labels = sp.zeros(
-            (len(self.crange) * self.repeats, x.shape[0]),
-            dtype=self.dtype
-        ) - 1
-        self._gof = sp.zeros(
-            len(self.crange) * self.repeats,
-            dtype=self.dtype
-        )
+        self._labels = sp.zeros((len(self.crange) * self.repeats,
+                                 x.shape[0]), dtype=sp.integer) - 1
+        self._gof = sp.zeros(len(self.crange) * self.repeats,
+                             dtype=self.dtype)
         self._parameters = [None] * len(self.crange) * self.repeats
 
-        # cluster range
+        # clustering
         for c in xrange(len(self.crange)):
-            # repeat range
+            k = self.crange[c]
             for r in xrange(self.repeats):
-                # debug
+                # inits
                 if self.debug is True:
                     print '\t[c:%d][r:%d]' % (self.crange[c], r + 1),
-
-                # parameters for this run
                 idx = c * self.repeats + r
-                k = self.crange[c]
 
                 # evaluate model for this run
                 if self.clus_type == 'kmeans':
@@ -275,22 +204,20 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     model.covars = sp.ones(model.n_states) * self.sigma_factor
                     model.fit(x, n_iter=0, init_params='wm')
                     params = 'm'
-                    if not self.weigths_uniform:
+                    if self.uprior is False:
                         params += 'w'
                     model.fit(x,
                               n_iter=self.maxiter,
                               thresh=self.conv_th,
                               init_params='',
                               params=params)
-                    self._labels[idx, :] = model.predict(x)
+                    self._labels[idx] = model.predict(x)
                     self._parameters[idx] = model.means
                     del model
 
                 # evaluate goodness of fit for this run
-                self._gof[idx] = self.gof(x,
-                                          self._labels[idx, :],
-                                          weights_uniform=self
-                                          .weigths_uniform)
+                self._gof[idx] = self.gof(x, self._labels[idx],
+                                          uprior=self.uprior)
 
                 # debug
                 if self.debug is True:
@@ -298,49 +225,47 @@ class HomoscedasticClusteringNode(ClusteringNode):
 
         self._winner = sp.nanargmin(self._gof)
         self.parameters = self._parameters[self._winner]
-        self.labels = self._labels[self._winner, :]
+        self.labels = self._labels[self._winner]
 
-    def gof(self, data, labels, weights_uniform=False):
+    def gof(self, data, labels, uprior=False):
         """evaluate the goodness of fit given the data and labels
 
-        :Parameters:
-            data : ndarray
-                The dataset with observations in the rows shape(sp,D)
-            labels : ndarray
-                The labels for the data shape(sp,)
-            weights_uniform : bool
-                If true, use uniform weights for the evaluation.
+        :type data: ndarray
+        :param data: observations [n,D]
+        :type labels: ndarray
+        :param labels: labels for observations [n]
+        :type uprior: bool
+        :param uprior: if true, use uniform component prior.
         """
 
         # inits
         ncmp = int(labels.max() + 1)
-        mean = sp.vstack([data[labels == c, :].mean(axis=0)
+        mean = sp.vstack([data[labels == c].mean(axis=0)
                           for c in xrange(ncmp)])
-        ll = lmvnpdf(data,
-                     mean,
-                     sp.ones(ncmp) * self.sigma_factor,
+        ll = lmvnpdf(data, mean, sp.ones(ncmp) * self.sigma_factor,
                      'spherical')
-        w = sp.log(sp.ones(ncmp) / ncmp)
-        if not weights_uniform:
-            w = sp.array([data[labels == c, :].shape[0] / float(data.shape[0])
+        if uprior is True:
+            w = sp.log(sp.ones(ncmp) / ncmp)
+        else:
+            w = sp.array([(labels == c).sum() / float(data.shape[0])
                           for c in xrange(ncmp)])
 
         # components
         ll = logsum(ll + sp.log(w), axis=1).sum()
         N, Nk = map(sp.float64, data.shape)
         Np = ncmp * Nk
-        if not weights_uniform:
+        if uprior is False:
             Np += ncmp - 1
 
-        #=======================================================================
+        #=============================================================
         # # calculate BIC value (Xu & Wunsch, 2005)
         # return - ll + Np * 0.5 * sp.log(sp)
-        #=======================================================================
+        #=============================================================
 
-        #=======================================================================
+        #=============================================================
         # # calculate AIC value (Xu & Wunsch, 2005)
         # return - 2 * (sp - 1 - Nk - ncmp * 0.5) * ll / sp + 3 * Np
-        #=======================================================================
+        #=============================================================
 
         return - ll + Np * 0.5 * sp.log(N)
 
@@ -389,17 +314,4 @@ class HomoscedasticClusteringNode(ClusteringNode):
 ##--- MAIN
 
 if __name__ == '__main__':
-    mul = 2.0
-    dim = 6
-    data = sp.vstack(
-        [sp.randn(50 * (i + 1), dim) + [5 * i * (-1) ** i] * dim for i in
-         xrange(5)]) * mul
-    HCN = HomoscedasticClusteringNode(clus_type='gmm',
-                                      crange=[1, 2, 3, 4, 5, 6, 7, 8, 9],
-                                      maxiter=128,
-                                      repeats=4,
-                                      sigma_factor=mul * mul,
-                                      weights_uniform=False,
-                                      debug=True)
-    HCN(data)
-    HCN.plot(data, views=3, show=True)
+    pass

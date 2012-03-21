@@ -43,7 +43,6 @@
 #_____________________________________________________________________________
 #
 
-
 """abstract base classes derived from MDP nodes"""
 __docformat__ = 'restructuredtext'
 __all__ = ['TrainingResetMixin', 'ResetNode']
@@ -55,32 +54,30 @@ from mdp import Node, IsNotTrainableException, TrainingFinishedException
 ##---CLASSES
 
 class TrainingResetMixin(object):
-    """mixin class to allow mdp nodes to reset to training state after
-    execution
+    """allows :py:class:`mdp.Node` to reset to training state
 
-    This is a mixin for subclasses of mdp.Node. Instance the class and put the
+    This is a mixin class for subclasses of :py:class:`mdp.Node`. To use it
+    inherit from :py:class:`mdp.Node` and put this mixin as the first
+    superclass
 
     node is a mdp.signal_node.Cumulator that can have its training phase
     reinitialised once a batch of cumulated data has been processed on. This
-     is
-    useful for online algorithms that derive parameters from the batch of data
-    currently under consideration (Ex.: stochastic thresholding).
+    is useful for online algorithms that derive parameters from the batch of
+    data currently under consideration (Ex.: stochastic thresholding).
     """
 
     ## additional interface
 
     def reset(self):
-        """reset handler, calling the reset hook and reseting to training
-        phase"""
+        """reset handler, calls the reset hook and resets to training phase"""
 
         # reset training capability
         self._train_phase = 0
         self._train_phase_started = False
         self._training = True
+        self._reset()
 
     def _reset(self):
-        """reset hook, this is called each time a new training cycle begins"""
-
         pass
 
     ## mdp interface
@@ -129,9 +126,11 @@ class TrainingResetMixin(object):
             raise TrainingFinishedException(err_str)
 
         # BEGIN - TRAINING RESET MIXIN ADDITION
+
         if self._train_phase_started is False:
-            self._reset()
-            # END - TRAINING RESET MIXIN ADDITION
+            self.reset()
+
+        # END - TRAINING RESET MIXIN ADDITION
 
         self._check_input(x)
         self._check_train_args(x, *args, **kwargs)

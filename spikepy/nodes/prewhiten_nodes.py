@@ -43,18 +43,17 @@
 #_____________________________________________________________________________
 #
 
-
 """spike noise prewhitening algorithm"""
 
 __docformat__ = 'restructuredtext'
-__all__ = ['PrewhiteningNode', ]
+__all__ = ['PrewhiteningNode', 'PrewhiteningNode2']
 
 ##--- IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
 from mdp import Node
-from spikepy.common import coloured_loading
+from ..common import coloured_loading, TimeSeriesCovE
 
 ##--- CLASSES
 
@@ -135,6 +134,45 @@ class PrewhiteningNode(Node):
 
         # return prewhitened data
         return sp.dot(x, self._inv_chol_ncov).astype(self.dtype)
+
+
+class PrewhiteningNode2(Node):
+    """pre-whitens data with respect to a noise covariance matrix"""
+
+    ## constructor
+
+    def __init__(self, covest):
+        """
+        :type covest: TimeSeriesCovE
+        :param covest: noise covariance estimator
+        """
+
+        # checks
+        if not isinstance(covest, TimeSeriesCovE):
+            raise TypeError('expecting instance of TimeSeriesCovE!')
+
+        # super
+        super(PrewhiteningNode2, self).__init__(dtype=covest.dtype)
+
+        # members
+        self._covest = covest
+
+    ## node implementation
+
+    def is_invertable(self):
+        return True
+
+    def is_trainable(self):
+        return False
+
+    def _execute(self, x):
+        if self._covest.is_initializes is False:
+            raise RuntimeError('Node not initialised yet!')
+
+        # return prewhitened data
+        rval = sp.dot(x,
+                      self._covest.get_whitening_op(tf=self.input_dim))
+        return rval.astype(self.dtype)
 
 ##--- MAIN
 

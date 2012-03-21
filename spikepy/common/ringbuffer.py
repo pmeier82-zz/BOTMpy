@@ -91,7 +91,7 @@ class MxRingBuffer(object):
         self._capacity = int(capacity)
         self._dimension = dimension
         self._dtype = sp.dtype(dtype or sp.float32)
-        self._data = sp.zeros((self._capacity,) + self._dimension,
+        self._data = sp.empty((self._capacity,) + self._dimension,
                               dtype=self._dtype)
         self._next = 0
         self._full = False
@@ -240,7 +240,7 @@ class MxRingBuffer(object):
                              (self._dimension, datum.shape))
 
         # append
-        self._data = sp.ones_like(self._data)
+        self._data[:] = 1.0
         self._data *= datum
 
         # index and capacity status bookkeeping

@@ -57,6 +57,7 @@ __all__ = ['xi_vs_f', 'kteo', 'mteo']
 
 import scipy as sp
 from .funcs_general import mcvec_from_conc
+from .funcs_spike import get_cut
 from .mcfilter import mcfilter
 
 ##---FUNCTIONS
@@ -80,26 +81,29 @@ def xi_vs_f(xi, f, nc=4):
     """
 
     # inits and checks
-    xi_ = sp.asarray(xi)
-    f_ = sp.asarray(f)
-    if xi_.shape[0] != f_.shape[0]:
+    xi = sp.asarray(xi)
+    f = sp.asarray(f)
+    if xi.shape[0] != f.shape[0]:
         raise ValueError('count of xi an f does not match: xi(%s), f(%s)'
-        % (xi_.shape[0], f_.shape[0]))
-    if xi_.shape[1] != f_.shape[1]:
+        % (xi.shape[0], f.shape[0]))
+    if xi.shape[1] != f.shape[1]:
         raise ValueError('sample count mismatch: xi(%s), f(%s)'
-        % (xi_.shape[1], f_.shape[1]))
-    n = xi_.shape[0]
-    tf = int(xi_.shape[1] / nc)
-    if tf != round(xi_.shape[1] / nc):
-        raise ValueError('sample count does not match to nc: xi(%s), nc(%s)'
-        % (xi_.shape[1], nc))
+        % (xi.shape[1], f.shape[1]))
+    n = xi.shape[0]
+    tf = int(xi.shape[1] / nc)
+    if tf != round(float(xi.shape[1]) / float(nc)):
+        raise ValueError('sample count does not match to nc: xi(%s), nc(%s)' %
+                         (xi.shape[1], nc))
+    t_pad = get_cut(tf)[0]
+    pad = sp.zeros((t_pad, nc))
     rval = sp.zeros((n, n, 2 * tf - 1))
+
     # calc xcorrs
     for i in xrange(n):
-        xi_i = mcvec_from_conc(xi_[i], nc=nc)
+        xi_i = sp.vstack((pad, mcvec_from_conc(xi[i], nc=nc), pad))
         for j in xrange(n):
-            f_j = mcvec_from_conc(f_[j], nc=nc)
-            rval[i, j] = mcfilter(xi_i, f_j, 'full')
+            f_j = sp.vstack((pad, mcvec_from_conc(f[j], nc=nc), pad))
+            rval[i, j] = mcfilter(xi_i, f_j)
 
     # return
     return rval
@@ -109,15 +113,14 @@ def xi_vs_f(xi, f, nc=4):
 def mteo(X, kvalues=[1, 3, 5], condense=True):
     """multiresolution teager energy operator using given k-values [MTEO]
 
-    The multiresolution teager energy operator (MTEO) applies TEO operators of
-    varying k-values and returns the maximum response TEO for each input
-    sample.
+    The multi-resolution teager energy operator (MTEO) applies TEO operators
+    of varying k-values and returns the reduced maximum response TEO for each
+    input sample.
 
     To assure a constant noise power over all kteo channels, we convolve the
     individual kteo responses with a window:
     h_k(i) = hamming(4k+1) / sqrt(3sum(hamming(4k+1)^2) + sum(hamming(4k+1))
-    ^2),
-    as suggested in Choi et al., 2006.
+    ^2), as suggested in Choi et al., 2006.
 
     :type X: ndarray
     :param X: The signal to operate on. ndim=1

@@ -43,23 +43,23 @@
 #_____________________________________________________________________________
 #
 
-
 """abstract sorting node interface
 
 All sorting algorithm implementations should derive from this interface. The
 interface assumes to operate on multichanneled input data that is presented as
 numpy.ndarray with samples in the rows and channels in the columns.
 
-The sorter provides for the structure and abstract methods to implement generic
+The sorter provides for the structure and abstract methods to implement
+generic
 sorting algorithms. To account for a range of different sorting algorithms, as
 less assumption as possible are made to the data flow during sorting. The
 operation mode of the sorting is assumed to be online in the sense that
 arbitrarily small batches of data can be sorted in a sorting step. The sorting
-results are presented in a python dictionary with one entry per identified unit,
+results are presented in a python dictionary with one entry per identified
+unit,
 holding the spiketrain in samples relative to the start of the current data
 batch.
 """
-
 __docformat__ = 'restructuredtext'
 __all__ = ['SortingNode']
 
@@ -77,9 +77,12 @@ class SortingNode(ResetNode):
     interface for such algorithms and their results. Individual algorithms
     should be implemented as a subclass of SortingNode.
 
-    The interface assumes to get data (usually multichanneled timeseries) and a
-    set of parameters. It should return a python dictionary, with one entry per
-    unit, where the entry is a python dictionary as well. The entry should hold
+    The interface assumes to get data (usually multichanneled timeseries)
+    and a
+    set of parameters. It should return a python dictionary,
+    with one entry per
+    unit, where the entry is a python dictionary as well. The entry should
+    hold
     the spiketrain of that unit and any parameters learned or updated from the
     spike sorting process. The results should be saved under the self.fout
     member variable, which should hold the sorting of the last data that was
@@ -98,8 +101,8 @@ class SortingNode(ResetNode):
 
         # super
         super(SortingNode, self).__init__(input_dim=input_dim,
-            output_dim=output_dim,
-            dtype=dtype)
+                                          output_dim=output_dim,
+                                          dtype=dtype)
 
         # interface members
         self.rval = {}
@@ -107,8 +110,6 @@ class SortingNode(ResetNode):
     ## privates methods
 
     def _sorting(self, x, *args, **kwargs):
-        """to be implemented in subclass"""
-
         raise NotImplementedError
 
     ## node implementation
@@ -131,7 +132,6 @@ class SortingNode(ResetNode):
 
         self._sorting(x, *args, **kwargs)
         return x
-
 
 ##---MAIN
 

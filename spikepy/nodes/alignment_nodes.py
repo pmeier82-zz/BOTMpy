@@ -43,7 +43,6 @@
 #_____________________________________________________________________________
 #
 
-
 """initialization - alignment of spike waveform sets"""
 __docformat__ = 'restructuredtext'
 __all__ = ['AlignmentNode']

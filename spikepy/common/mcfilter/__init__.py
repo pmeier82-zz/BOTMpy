@@ -136,43 +136,12 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     :returns: filter output [data_samples], history item [hist_samples,
         channels]
     """
-    """filter a multichanneled signal with a multichanneled filter
-
-    We dont need to account for zero padding, as we are only interested in the
-    'same' size vector of the xcorr.
-
-    :Parameters:
-        mc_data : ndarray
-            Data for one channel per columsp.
-        mc_filt : ndarray
-            A multichanneled finite impulse response filter with either:
-            channels concatenate or the filter for each channel on one column.
-        hist_item : ndarray
-            data history to prepend to the data for filter
-    :Returns:
-        ndarray
-            filtered signal (same shape as data)
-        ndarray
-            new history item for next filter step
-    """
 
     if mc_hist is None:
         mc_hist = sp.zeros((mc_filt.shape[0] - 1, mc_data.shape[0]))
-    if mc_hist.shape[0] - 1 != mc_filt.shape[0]:
-        raise ValueError
-
-    th = mc_hist.shape[0]
-    if th + 1 != tf:
-        raise ValueError(
-            'len(history)+1[%d] != len(filter)[%d]' % (th + 1, tf))
-    mc_data = sp.vstack((mc_hist, mc_data))
-    rval = sp.zeros(td, dtype=mc_data.dtype)
-
-    # filter the signal
-    for t in xrange(td):
-        for c in xrange(nc):
-            rval[t] += sp.dot(mc_data[t:t + tf, c], mc_filt[:, c])
-
+    if mc_hist.shape[0] + 1 != mc_filt.shape[0]:
+        raise ValueError('len(history)+1[%d] != len(filter)[%d]' %
+                         ( mc_hist.shape[0] + 1, mc_filt.shape[0]))
     if USE_CYTHON is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:

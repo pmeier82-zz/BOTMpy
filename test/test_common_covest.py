@@ -1,55 +1,53 @@
 # tests for covariance estimation
 
+##---IMPORTS
+
+try:
+    import unittest2 as ut
+except ImportError:
+    import unittest as ut
+
+from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 from spikepy.common import TimeSeriesCovE
 
+##---TESTS
+
+class TestCovarianceEstimator(ut.TestCase):
+    def setUp(self):
+        self.dlen = 250000
+        self.tf = 65
+        self.nc = 4
+        self.white_noise = sp.randn(self.dlen, self.nc)
+        self.CE = TimeSeriesCovE(tf_max=self.tf, nc=self.nc)
+        self.CE.new_chan_set((1, 2))
+        self.CE.update(self.white_noise)
+
+    def testTrivial(self):
+        p_4_20 = {'tf':20, 'chan_set':(0, 1, 2, 3)}
+        C_4_20 = self.CE.get_cmx(**p_4_20)
+        self.assertTupleEqual(C_4_20.shape, (4 * 20, 4 * 20 ))
+        assert_equal(C_4_20, C_4_20.T)
+
+        p_2_10 = {'tf':10, 'chan_set':(0, 1)}
+        C_2_10 = self.CE.get_cmx(**p_2_10)
+        self.assertTupleEqual(C_2_10.shape, (2 * 10, 2 * 10 ))
+        assert_equal(C_2_10, C_2_10.T)
+
+    def testInverse(self):
+        p_4_20 = {'tf':20, 'chan_set':(0, 1, 2, 3)}
+        C_4_20 = self.CE.get_cmx(**p_4_20)
+        iC_4_20 = self.CE.get_icmx(**p_4_20)
+        should_be_eye80 = sp.dot(C_4_20, iC_4_20)
+        assert_almost_equal(should_be_eye80, sp.eye(80), decimal=5)
+
+        p_2_10 = {'tf':10, 'chan_set':(0, 1)}
+        C_2_10 = self.CE.get_cmx(**p_2_10)
+        iC_2_10 = self.CE.get_icmx(**p_2_10)
+        should_be_eye20 = sp.dot(C_2_10, iC_2_10)
+        assert_almost_equal(should_be_eye20, sp.eye(20), decimal=5)
+
+##---MAIN
+
 if __name__ == '__main__':
-    dlen = 10000
-    tf_max = 67
-    nc = 4
-
-    my_data = [sp.randn(dlen, nc) * (sp.arange(4) + 1),
-               sp.randn(dlen, nc) * (sp.arange(4) + 5),
-               sp.randn(dlen, nc) * (sp.arange(4) + 9)]
-
-    E = TimeSeriesCovE(tf_max=tf_max, nc=4)
-    E.new_chan_set((0, 1, 2, 3))
-    E.new_chan_set((1, 2))
-    E.update(my_data[0])
-    E.update(my_data[1])
-    E.update(my_data[1], epochs=[[0, 100], [1000, 5000], [9500, 9745]])
-    print E
-
-    Calltf67_params = {'tf':67, 'chan_set':(0, 1, 2, 3)}
-    Calltf67 = E.get_cmx(**Calltf67_params)
-    print Calltf67
-    print Calltf67.shape
-    print E.get_svd(**Calltf67_params)
-    print E.get_cond(**Calltf67_params)
-
-    C12tf67_params = {'tf':20, 'chan_set':(1, 2)}
-    C12tf67 = E.get_cmx(**C12tf67_params)
-    print C12tf67
-    print C12tf67.shape
-    print E.get_svd(**C12tf67_params)
-    print E.get_cond(**C12tf67_params)
-
-    iC12tf67 = E.get_cmx(**C12tf67_params)
-    print iC12tf67
-    print iC12tf67.shape
-
-    whiC12tf67 = E.get_whitening_op(**C12tf67_params)
-    print whiC12tf67
-    print whiC12tf67.shape
-
-    from spikeplot import plt
-
-    plt.matshow(Calltf67)
-    plt.colorbar(ticks=range(16))
-    plt.matshow(C12tf67)
-    plt.colorbar(ticks=range(16))
-    plt.matshow(iC12tf67)
-    plt.colorbar(ticks=range(16))
-    plt.matshow(whiC12tf67)
-    plt.colorbar(ticks=range(16))
-    plt.show()
+    ut.main()

@@ -57,73 +57,28 @@ import scipy as sp
 ##---FUNCTIONS
 
 def _mcfilter_py(mc_data, mc_filt):
-    """filter a multichanneled signal with a multichanneled filter
-
-    This is the Python implementation for batch mode filtering. The signal
-    will be zeros on both ends to overcome filter artifacts.
-
-    This function will not do any consistency checks!!
-
-    :type mc_data: ndarray
-    :param mc_data: signal data [data_samples, channels]
-    :type mc_filt: ndarray
-    :param mc_filt: FIR filter [filter_samples, channels]
-    :rtype: ndarray
-    :returns: filtered signal [data_samples]
-    """
-
-    return sp.sum(
-        [sp.correlate(mc_data[:, c], mc_filt[:, c], mode=correlate_mode)
-         for c in xrange(mc_data.shape[1])], axis=0)
-
-
-def _mcfilter_hist_py(mc_data, mc_filt, mc_hist=None):
-    """filter a multichanneled signal with a multichanneled fir filter
-
-    This is the Python implementation for online mode filtering with a
-    chunk-wise history item, holding the last samples of tha preceding chunk.
-
-    This function will not do any consistency checks!
-
-    :type mc_data: ndarray
-    :param mc_data: signal data [data_samples, channels]
-    :type mc_filt: ndarray
-    :param mc_filt: FIR filter [filter_samples, channels]
-    :type mc_hist:
-    :param mc_hist: history [hist_samples, channels]. the history is of size
-        ´filter_samples - 1´. If None, this will be substituted with zeros.
-    :rtype: tuple(ndarray,ndarray)
-    :returns: filter output [data_samples], history item [hist_samples,
-        channels]
-    """
-
-    # checks and inits
     if mc_data.ndim != mc_filt.ndim > 2:
         raise ValueError('wrong dimensions: %s, %s' %
                          (mc_data.shape, mc_filt.shape))
-    if mc_data.ndim == 1:
-        mc_data = sp.atleast_2d(mc_data).T
-    td, nc = mc_data.shape
-    if mc_filt.ndim == 1:
-        mc_filt = mcvec_from_conc(mc_filt, nc=nc)
     if mc_data.shape[1] != mc_filt.shape[1]:
         raise ValueError('channel count does not match')
-    tf = mc_filt.shape[0]
-    if mc_hist is None:
-        mc_hist = sp.zeros((tf - 1, nc))
-    th = mc_hist.shape[0]
-    if th + 1 != tf:
-        raise ValueError(
-            'len(history)+1[%d] != len(filter)[%d]' % (th + 1, tf))
-    mc_data = sp.vstack((mc_hist, mc_data))
-    rval = sp.zeros(td, dtype=mc_data.dtype)
+    return sp.sum(
+        [sp.correlate(mc_data[:, c], mc_filt[:, c], mode='same')
+         for c in xrange(mc_data.shape[1])], axis=0)
 
-    # filter the signal (by hand)
-    for t in xrange(mc_data.shape[0] + mc_hist.shape[0]):
-        for c in xrange(mc_data.shape[1]):
-            rval[t] += sp.dot(mc_data[t:t + tf, c], mc_filt[:, c])
 
-    # return
+def _mcfilter_hist_py(mc_data, mc_filt, mc_hist):
+    if mc_data.ndim != mc_filt.ndim > 2:
+        raise ValueError('wrong dimensions: %s, %s' %
+                         (mc_data.shape, mc_filt.shape))
+    if mc_data.shape[1] != mc_filt.shape[1]:
+        raise ValueError('channel count does not match')
+    mc_hist_and_data = sp.vstack((mc_hist, mc_data))
+    rval = sp.zeros(mc_data.shape[0], dtype=mc_data.dtype)
+    for t in xrange(mc_data.shape[0]):
+        for c in xrange(mc_hist_and_data.shape[1]):
+            rval[t] += sp.dot(mc_hist_and_data[t:t + mc_filt.shape[0], c],
+                              mc_filt[:, c])
     return rval, mc_data[t + 1:, :].copy()
 
 if __name__ == '__main__':

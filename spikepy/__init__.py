@@ -47,7 +47,7 @@
 """spike sorter package from SpikePy"""
 
 __docformat__ = 'restructuredtext'
-__version__ = '0.2b'
+__version__ = '0.2.1'
 
 ##--- MAIN
 

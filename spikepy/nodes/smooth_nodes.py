@@ -43,7 +43,6 @@
 #_____________________________________________________________________________
 #
 
-
 """smoothing algorithms for multichanneled data"""
 
 __docformat__ = 'restructuredtext'
