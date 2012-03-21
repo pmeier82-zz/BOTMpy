@@ -113,7 +113,7 @@ class FilterNode(Node):
                                     dtype=self.dtype)
         self._ce = None
         self._f = None
-        self._hist = sp.empty((tf - 1, nc), dtype=self.dtype)
+        self._hist = sp.zeros((tf - 1, nc), dtype=self.dtype)
         self._chan_set = tuple(sorted(chan_set))
 
         # set covariance estimator

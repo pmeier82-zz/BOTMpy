@@ -613,6 +613,13 @@ class BOTMNode(FilterBankSortingNode):
         if spk_ep.size == 0:
             return
         min_dist = int(self._tf / 2)
+        min_size = int(self._tf * 1.2)
+        for i in xrange(spk_ep.shape[0]):
+            s = spk_ep[i, 1] - spk_ep[i, 0]
+            if s < min_size:
+                l, r = get_cut(min_size - s)
+                spk_ep[i, 0] -= l
+                spk_ep[i, 1] += r
 
         # check epochs
         spk_ep = merge_epochs(spk_ep, min_dist=min_dist)
@@ -629,30 +636,31 @@ class BOTMNode(FilterBankSortingNode):
             #
             if self._ovlp_taus is not None:
                 # get event time and channel
-                t_ep, c_ep = matrix_argmax(
+                ep_t, ep_c = matrix_argmax(
                     self._disc[spk_ep[i, 0]:spk_ep[i, 1]])
-                t_ep += spk_ep[i, 0]
+                ep_t += spk_ep[i, 0]
 
                 # lets fill in the results
-                if c_ep < self.nfilter:
+                if ep_c < self.nfilter:
                     # was single unit
-                    self.rval[c_ep].append(t_ep + offset)
+                    self.rval[ep_c].append(ep_t + offset)
                 else:
                     # was overlap
-                    my_oc_idx = self._oc_idx[c_ep]
-                    self.rval[my_oc_idx[0]].append(t_ep + offset)
+                    my_oc_idx = self._oc_idx[ep_c]
+                    self.rval[my_oc_idx[0]].append(ep_t + offset)
                     self.rval[my_oc_idx[1]].append(
-                        t_ep + my_oc_idx[2] + offset)
+                        ep_t + my_oc_idx[2] + offset)
 
             #
             # method: subtractive interference cancelation
             #
             else:
                 ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
+                ep_fout_norm = sp_la.norm(ep_fout)
                 ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
 
                 niter = 0
-                while (ep_disc > self._lpr_n).any():
+                while sp.nanmax(ep_disc) > self._lpr_n:
                     # fail on spike overflow
                     niter += 1
                     if niter > self.nfilter:
@@ -665,24 +673,38 @@ class BOTMNode(FilterBankSortingNode):
                             break
 
                     # find spike classes
-                    t_ep = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
-                    c_ep = sp.nanargmax(ep_disc, axis=1)[t_ep]
+                    ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
+                    ep_c = sp.nanargmax(ep_disc[ep_t])
 
                     # build subtractor
                     sub = shifted_matrix_sub(
                         sp.zeros_like(ep_disc),
-                        self._xcorrs[c_ep].T,
-                        t_ep - self._tf)
+                        self._xcorrs[ep_c, :, :].T,
+                        ep_t - self._tf + 1)
 
                     # apply subtractor
-                    ep_fout_norm_pre = sp_la.norm(ep_fout)
-                    ep_fout += sub
-                    ep_fout_norm_post = sp_la.norm(ep_fout)
-                    if ep_fout_norm_pre > ep_fout_norm_post:
+                    if ep_fout_norm > sp_la.norm(ep_fout + sub):
+                        if self.debug is True:
+                            from spikeplot import plt, COLOURS
+
+                            x_range = sp.arange(spk_ep[i, 0], spk_ep[i, 1])
+                            f = plt.figure()
+                            f.suptitle('spike epoch [%d:%d] #%d' %
+                                       (spk_ep[i, 0], spk_ep[i, 1], niter))
+                            ax1 = f.add_subplot(211)
+                            ax1.plot(x_range, sp.zeros_like(x_range), 'k--')
+                            ax1.plot(x_range, ep_disc)
+                            ax1.axvline(spk_ep[i, 0] + ep_t)
+                            ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
+                            ax2.plot(x_range, sub)
+                            ax2.axvline(spk_ep[i, 0] + ep_t)
                         ep_disc += sub + self._lpr_s
-                        self.rval[c_ep].append(spk_ep[i, 0] + t_ep + offset)
+                        if self.debug is True:
+                            ax1.plot(x_range, ep_disc, ls=':', lw=2)
+                        self.rval[ep_c].append(spk_ep[i, 0] + ep_t + offset)
                     else:
                         break
+                del ep_fout, ep_disc, sub
 
     ## output methods
 

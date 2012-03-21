@@ -23,28 +23,31 @@ class TestSortingNodes(ut.TestCase):
         import time
 
         # test setup
-        C_SIZE = 410
         TF = 21
         NC = 2
-        xi1 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 2
-        xi2 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 5
+        spike_proto_sc = sp.cos(sp.linspace(-sp.pi, 3 * sp.pi, TF))
+        spike_proto_sc *= sp.hanning(TF)
+        scale = sp.linspace(0, 2, TF)
+        xi1 = sp.vstack((spike_proto_sc * 5 * scale,
+                         spike_proto_sc * 4 * scale)).T
+        xi2 = sp.vstack((spike_proto_sc * .5 * scale[::-1],
+                         spike_proto_sc * 9 * scale[::-1])).T
         templates = sp.asarray([xi1, xi2])
-        LEN = 200000
+        LEN = 2000
         noise = sp.randn(LEN, NC)
         ce = TimeSeriesCovE(tf_max=TF, nc=NC)
         ce.update(noise)
         FB = BOTMNode(templates=templates,
                       ce=ce,
-                      adapt_templates=15,
+                      adapt_templates=10,
                       learn_noise=False,
                       debug=False,
-                      spk_pr=1e-6,
                       ovlp_taus=None)
         signal = sp.zeros_like(noise)
         NPOS = 4
         POS = [(int(i * LEN / (NPOS + 1)), 100) for i in xrange(1, NPOS + 1)]
         POS.append((100, 2))
-        POS.append((120, 2))
+        POS.append((150, 2))
         print POS
         for pos, tau in POS:
             signal[pos:pos + TF] += xi1

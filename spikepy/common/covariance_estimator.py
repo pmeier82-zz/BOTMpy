@@ -464,14 +464,13 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         super(TimeSeriesCovE, self)._reset()
 
     @staticmethod
-    def std_white_noise_init(tf_max, nc):
+    def white_noise_init(tf_max, nc, std=1.0, dtype=None):
         chan_set = tuple(range(nc))
         rval = TimeSeriesCovE(tf_max=tf_max, nc=nc)
-        rval.new_chan_set(chan_set)
         for m, n in build_idx_set(chan_set):
-            xc = sp.zeros(2 * tf_max - 1)
+            xc = sp.zeros(2 * tf_max - 1, dtype=dtype or sp.float32)
             if m == n:
-                xc[tf_max - 1] = 1
+                xc[tf_max - 1] = float(std * std)
             rval._store[m, n] = xc
         rval._is_initialised = True
         return rval
