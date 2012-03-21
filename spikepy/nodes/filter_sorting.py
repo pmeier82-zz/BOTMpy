@@ -49,7 +49,7 @@ See:
 [1] F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
 spike detection and spike classification algorithm capable of instantaneous
 resolution of overlapping spikes. Journal of Computational Neuroscience, 2009
-[2] F. Franke, P. Meier, ... , Klaus Obermayer, 2012,
+[2] F. Franke, ... , Klaus Obermayer, 2012,
 The revolutionary BOTM Paper
 """
 
@@ -64,7 +64,8 @@ from .sorting_nodes import SortingNode
 from .filter_nodes import FilterNode, MatchedFilterNode
 from ..common import (TimeSeriesCovE, xi_vs_f, mcvec_to_conc, overlaps,
                       epochs_from_spiketrain_set, shifted_matrix_sub,
-                      epochs_from_binvec, merge_epochs, matrix_argmax)
+                      epochs_from_binvec, merge_epochs, matrix_argmax,
+                      dict_list_to_ndarray, get_cut, get_aligned_spikes)
 
 # for paralell mixin
 from Queue import Queue
@@ -96,7 +97,7 @@ class FilterBankSortingNode(SortingNode):
         :type chan_set: tuple
         :keyword chan_set: tuple of int designating the subset of channels
             this filter bank operates on.
-            Default=(0,1,2,3)
+            Default=tuple(range(nc))
         :type filter_cls: FilterNode
         :keyword filter_cls: the class of filter node to use for the filter
             bank, this must be a subclass of 'FilterNode'.
@@ -135,7 +136,7 @@ class FilterBankSortingNode(SortingNode):
         if 'ce' not in kwargs:
             raise FilterBankError('\'ce\' is required!')
         ce = kwargs.get('ce')
-        chan_set = kwargs.get('chan_set', (0, 1, 2, 3))
+        chan_set = kwargs.get('chan_set')
         filter_cls = kwargs.get('filter_cls', MatchedFilterNode)
         rb_cap = kwargs.get('rb_cap', 350)
         adapt_templates = kwargs.get('adapt_templates', -1)
@@ -150,6 +151,8 @@ class FilterBankSortingNode(SortingNode):
         if templates.ndim != 3:
             raise FilterBankError('templates have to be provided in a tensor '
                                   'like [ntemps][tf][nc]!')
+        if chan_set is None:
+            chan_set = tuple(range(templates.shape[2]))
         if not issubclass(filter_cls, FilterNode):
             raise TypeError('filter_cls has to be a subclass of FilterNode!')
         if ce is None:
@@ -307,7 +310,7 @@ class FilterBankSortingNode(SortingNode):
         # checks and inits
         if self._data is None or self.rval is None:
             return
-        ovlp_info = overlaps(self.rval, self._tf)['O']
+        ovlp_info = overlaps(self.rval, self._tf)[0]
         cut = get_cut(self._tf)
 
         # adapt filters with found waveforms
@@ -653,10 +656,13 @@ class BOTMNode(FilterBankSortingNode):
                     # fail on spike overflow
                     niter += 1
                     if niter > self.nfilter:
-                        warnings.warn('more spikes than filters found! '
-                                      'epoch: [%d:%d] %d' % (spk_ep[i][0],
-                                                             spk_ep[i][1],
-                                                             niter))
+                        warnings.warn(
+                            'more spikes than filters found! '
+                            'epoch: [%d:%d] %d' % (spk_ep[i][0] + offset,
+                                                   spk_ep[i][1] + offset,
+                                                   niter))
+                        if niter > 2 * self.nfilter:
+                            break
 
                     # find spike classes
                     t_ep = sp.nanargmax(sp.nanmax(ep_disc, axis=1))

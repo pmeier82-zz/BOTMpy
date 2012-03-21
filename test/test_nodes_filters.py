@@ -27,7 +27,7 @@ class TestFilterNodes(ut.TestCase):
         self.ce = TimeSeriesCovE(tf_max=self.tf, nc=self.nc)
         self.ce.update(self.noise)
 
-    def testFilters(self):
+    def testFilterTrivial(self):
         mf_h = MatchedFilterNode(self.tf, self.nc, self.ce)
         mf_h.append_xi_buf(self.xi, recalc=True)
         nmf_h = NormalisedMatchedFilterNode(self.tf, self.nc, self.ce)
@@ -38,28 +38,28 @@ class TestFilterNodes(ut.TestCase):
         assert_equal(mf_h.f, f)
         assert_equal(nmf_h.f, f / nf)
 
-        """
-        # build signals
-        signal = sp.zeros_like(noise)
-        for i in xrange(3):
-            signal[POS[i]:POS[i] + TF] = xi
-        x = signal + noise
-        late = int(TF / 2 - 1)
-        pad = sp.zeros(late)
-        y_h_out = mf_h(x)
-        y_h = sp.concatenate([y_h_out[late:], pad])
+    """
+    # build signals
+    signal = sp.zeros_like(noise)
+    for i in xrange(3):
+        signal[POS[i]:POS[i] + TF] = xi
+    x = signal + noise
+    late = int(TF / 2 - 1)
+    pad = sp.zeros(late)
+    y_h_out = mf_h(x)
+    y_h = sp.concatenate([y_h_out[late:], pad])
 
-        #  plot
-        from spikeplot import plt
+    #  plot
+    from spikeplot import plt
 
-        plt.plot(mcfilter(x, mf_h.f), label='mcfilter (scipy.correlate)',
-                 color='r')
-        plt.plot(y_h + .02, label='mcfilter_hist (py/c)', color='g')
-        plt.plot(signal + 5)
-        plt.plot(x + 15)
-        plt.legend()
-        plt.show()
-        """
+    plt.plot(mcfilter(x, mf_h.f), label='mcfilter (scipy.correlate)',
+             color='r')
+    plt.plot(y_h + .02, label='mcfilter_hist (py/c)', color='g')
+    plt.plot(signal + 5)
+    plt.plot(x + 15)
+    plt.legend()
+    plt.show()
+    """
 
 if __name__ == '__main__':
     ut.main()

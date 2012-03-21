@@ -29,7 +29,7 @@ class TestSortingNodes(ut.TestCase):
         xi1 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 2
         xi2 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 5
         templates = sp.asarray([xi1, xi2])
-        LEN = 2000
+        LEN = 200000
         noise = sp.randn(LEN, NC)
         ce = TimeSeriesCovE(tf_max=TF, nc=NC)
         ce.update(noise)
