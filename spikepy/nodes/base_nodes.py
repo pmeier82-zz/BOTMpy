@@ -82,26 +82,6 @@ class TrainingResetMixin(object):
 
     ## mdp interface
 
-    def execute(self, x, *args, **kwargs):
-        """Process the data contained in 'x'.
-
-        If the object is still in the training phase, the function
-        'stop_training' will be called.
-        'x' is a matrix having different variables on different columns
-        and observations on the rows.
-
-        By default, subclasses should overwrite _execute to implement
-        their execution phase. The docstring of the '_execute' method
-        overwrites this docstring.
-        """
-
-        try:
-            self._pre_execution_checks(x)
-            return self._execute(self._refcast(x), *args, **kwargs)
-        finally:
-            if self.is_trainable() is True:
-                self.reset()
-
     def train(self, x, *args, **kwargs):
         """Update the internal structures according to the input data 'x'.
 

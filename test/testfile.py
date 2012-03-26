@@ -2,11 +2,10 @@
 
 from numpy.testing import assert_equal
 import scipy as sp
-import matplotlib
 from spikepy.common import xcorr, overlaps
+from spikeplot import plt
 
-matplotlib.use('GtkAgg')
-from matplotlib import pyplot
+plt.interactive(False)
 
 class DictDiffer(object):
     """
@@ -44,12 +43,12 @@ def main1():
     a = sp.sin(two_pi_ls)
     #    x = xc(a, b)
     xc_spikepy = xcorr(a)
-    xc_pylab = pyplot.xcorr(a, a, maxlags=n - 1, normed=False)[1]
+    xc_pylab = plt.xcorr(a, a, maxlags=n - 1, normed=False)[1]
     xc_xrange = xrange(-n + 1, n)
 
     pyplot.ion()
 
-    f = pyplot.figure()
+    f = plt.figure()
     ax = f.add_subplot(411)
     ax.plot(xrange(n), a)
     ax = f.add_subplot(412)
@@ -81,6 +80,41 @@ def main2():
     print DD.unchanged()
     print DD.removed()
 
+
+def main3():
+    from spikepy.nodes import ArtifactDetectorNode
+
+    data = sp.randn(1000, 1)
+    ADN = ArtifactDetectorNode()
+    ADN(data)
+    ADN.get_nonartefact_epochs()
+
+
+def main4():
+    from spikedb import MunkSession
+
+    db = MunkSession()
+    data = db.get_tetrode_data(13013, 119)
+    from spikepy.nodes import SDMteoNode
+
+    kv = sp.array([3, 5, 7])
+
+    SD1 = SDMteoNode(kvalues=[6, 9, 13, 18], threshold_factor=1.0,
+                     min_dist=65, tf=65)
+    SD1(data)
+    SD1.plot()
+    plt.figure(1).suptitle("MTEO %s @ %s" % (str(SD1.kvalues), SD1.th_fac))
+
+    #    SD2 = SDMteoNode(kvalues=sp.around(kv * 3.2), threshold_factor=1.0)
+    #    SD2(data)
+    #    SD2.plot()
+    #    plt.figure(2).suptitle("MTEO %s @ %s" % (str(SD2.kvalues),
+    # SD2.th_fac))
+
+    plt.show()
+
 if __name__ == '__main__':
     # main1()
-    main2()
+    # main2()
+    # main3()
+    main4()

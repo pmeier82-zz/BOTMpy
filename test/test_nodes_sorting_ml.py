@@ -7,6 +7,9 @@ import scipy as sp
 from scipy.io import loadmat
 from spikepy.common import TimeSeriesCovE, mcvec_from_conc
 from spikepy.nodes import BOTMNode
+from spikeplot import plt
+
+plt.interactive(False)
 
 ##---TESTS
 
@@ -60,12 +63,16 @@ def test(debug=True):
                   adapt_templates=10,
                   learn_noise=False,
                   debug=debug,
-                  ovlp_taus=None)
+                  ovlp_taus=None,
+                  chunk_size=500)
     x = sp.ascontiguousarray(signal + noise, dtype=sp.float32)
 
     # sort
+    FB.plot_xvft()
     FB(x)
+    FB.plot_sorting()
     print FB.rval
+    plt.show()
 
 if __name__ == '__main__':
     test()

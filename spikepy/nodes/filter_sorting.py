@@ -180,6 +180,7 @@ class FilterBankSortingNode(SortingNode):
         self._fout = None
         self._ce = None
         self._data = None
+        self._chunk = None
         self.debug = bool(debug)
         self.bank = []
         self.ce = ce
@@ -365,11 +366,11 @@ class FilterBankSortingNode(SortingNode):
             c_stopp = min(dlen, (curr_chunk + 1) * self._chunk_size)
 
             # generate chunked data and sorting for this chunk
-            chunk = self._data[c_start:c_stopp]
-            self._fout = sp.empty((chunk.shape[0], self.nfilter))
+            self._chunk = self._data[c_start:c_stopp]
+            self._fout = sp.empty((self._chunk.shape[0], self.nfilter))
             self._pre_filter()
             for i in xrange(len(self.bank)):
-                self._fout[:, i] = self.bank[i](chunk)
+                self._fout[:, i] = self.bank[i](self._chunk)
             self._post_filter()
             self._sort_chunk(c_start)
 
@@ -418,7 +419,15 @@ class FilterBankSortingNode(SortingNode):
 
         from spikeplot import waveforms
 
-        waveforms(self.template_set_conc, tf=self._tf, plot_separate=True,
+        units = {}
+        for i in xrange(len(self.bank)):
+            units[i] = self.bank[i]._xi_buf[:]
+
+        waveforms(units,
+                  tf=self._tf,
+                  plot_separate=True,
+                  plot_mean=True,
+                  plot_single_waveforms=True,
                   plot_handle=ph, show=show)
 
 
@@ -612,7 +621,7 @@ class BOTMNode(FilterBankSortingNode):
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
             return
-        min_dist = int(self._tf / 2)
+        min_dist = self._tf
         min_size = int(self._tf * 1.2)
         for i in xrange(spk_ep.shape[0]):
             s = spk_ep[i, 1] - spk_ep[i, 0]
@@ -628,7 +637,9 @@ class BOTMNode(FilterBankSortingNode):
         if self.debug:
             from spikeplot import mcdata
 
-            mcdata(self._data, other=self._disc, epochs=spk_ep, show=True)
+            mcdata(self._chunk, other=self._disc,
+                   epochs=spk_ep - int(self._tf / 2),
+                   show=False)
 
         for i in xrange(n_ep):
             #
@@ -655,7 +666,7 @@ class BOTMNode(FilterBankSortingNode):
             # method: subtractive interference cancelation
             #
             else:
-                ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
+                ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :]
                 ep_fout_norm = sp_la.norm(ep_fout)
                 ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
 
@@ -728,34 +739,15 @@ class BOTMNode(FilterBankSortingNode):
                 ev[u] = (self.bank[u].xi, self.rval[u])
 
         # create colours
-        cols = COLOURS[:self.nfilter] +\
-               ([COLOURS[self.nfilter]] * self._oc_fout.shape[1] + ['b'])
+        cols = COLOURS[:self.nfilter]
 
         # calc discriminants for single units
-        n_disc = self.nfilter
-        if debug is True:
-            n_disc += self.nfilter * (self.nfilter - 1) / 2 * len(
-                self._ovlp_taus)
-        other = sp.empty((self._data.shape[0], n_disc))
+        other = sp.empty((self._data.shape[0], self.nfilter))
         other[:] = sp.nan
         for i in xrange(self.nfilter):
             other[:, i] = self.bank[i](self._data) -\
                           0.5 * self._xcorrs[i, i, self._tf - 1] +\
-                          sp.log(self._pr_s)
-        if debug is True:
-            oc_idx = self.nfilter
-            ns = self._data.shape[0]
-            for f0 in xrange(self.nfilter):
-                for f1 in xrange(f0 + 1, self.nfilter):
-                    for t in xrange(len(self._ovlp_taus)):
-                        tau = self._ovlp_taus[t]
-                        f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
-                        f1_lim = [max(0, 0 + tau), min(ns, ns + tau)]
-                        other[f0_lim[0]:f0_lim[1], oc_idx] =\
-                        other[f0_lim[0]:f0_lim[1], f0] +\
-                        other[f1_lim[0]:f1_lim[1], f1] -\
-                        self._xcorrs[f0, f1, self._tf + tau - 1]
-                        oc_idx += 1
+                          self._lpr_s
 
         # plot mcdata
         mcdata(self._data, other=other, events=ev,

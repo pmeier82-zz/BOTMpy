@@ -63,7 +63,7 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 import scipy as sp
 from .base_nodes import ResetNode
 from ..common import (threshold_detection, extract_spikes, merge_epochs,
-                      get_cut, kteo, mteo, INDEX_DTYPE)
+                      get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
 
 ##--- CLASSES
 
@@ -106,74 +106,69 @@ class ThresholdDetectorNode(ResetNode):
                  threshold_base='energy', threshold_factor=1.0, tf=47,
                  min_dist=1, find_max=True):
         """
-        :Parameters:
-            see mdp.Node
-
-            energy_func: function
-                Optional function handle to calculate the energy of the input
-                signal. If this parameter is specified, self._energy_func will
-                be replaced with the function passed. The energy operator
-                should
-                take the input signal as the only input argument.
-                Default=None
-            threshold_func: function
-                Optional function handle to calculate the thresholds for
-                feature
-                epoch detection. The threshold function has to return a scalar
-                value and will be applied to each channel or  to apply to
-                the energy of the signal. If this parameter is specified,
-                self._threshold_func will be replaced with the function
-                passed.
-                Default=None
-            threshold_mode : 'gt' or 'lt'
-                Defines wether the threshold is applied with the 'gt' (greater
-                than) or 'lt' (less than) mode.
-                Default='gt'
-            threshold_base : 'signal' or 'energy'
-                Determines what quantity is taken to derive the treshold from.
-                If 'signal', the current input signal will be taken to derive
-                the trheshold from. If 'energy', the energy representation of
-                current input signal will be taken to derive the threshold
-                from.
-                Default='energy'
-            threshold_factor : float
-                Scalar to adjust the threshold linearly. Threshold will be
-                set at
-                threshold_factor * threshold_func(threhold_base).
-            tf : int
-                The width/length in samples ot the features to be detected.
-                Used
-                for extraction and self.get_epochs.
-                Default=47
-            min_dist : int
-                Minimum distance in samples that has to lie in between two
-                detected feature epochs, so they will be detected as two
-                distinct
-                feature epochs. Feature epochs closer than min_dist will be
-                merged into one feature epoch.
-                Default=1
-            find_max : bool
-                If True, will find feature as the maxima in the feature epoch.
-                Else, the onset of feature epoch will be taken as the event.
+        see mdp.Node
+        :type energy_func: function
+        :param energy_func: function handle to calculate the energy of the
+            input signal. If this parameter is specified, self._energy_func
+            will be replaced with the function passed. The energy operator
+            should take the input signal as the only input argument.
+            Default=None
+        :type threshold_func: function
+        :param threshold_func: function handle to calculate the thresholds for
+            feature epoch detection. The threshold function has to return a
+            scalar value and will be used as the threshold. If this parameter
+            is specified, self._threshold_func will be replaced with the
+            function passed.
+            Default=None
+        :type threshold_mode: str
+        :param threshold_mode: one of 'gt' or 'lt'. Defines wether the
+            threshold is applied with the 'gt' (greater than) or 'lt' (less
+            than) mode.
+            Default='gt'
+        :type threshold_base: str
+        :param threshold_base: one of 'signal' or 'energy'. Determines what
+            quantity is taken to derive the threshold from. If 'signal', the
+            current input signal will be taken to derive the threshold from.
+            If 'energy', the energy representation of current input signal
+            will be taken to derive the threshold from.
+            Default='energy'
+        :type threshold_factor: float
+        :param threshold_factor: Scalar to adjust the threshold linearly.
+            Threshold will be set at threshold_factor * threshold_func
+            (threhold_base).
+        :type tf: int
+        :param tf: The width/length in samples ot the features to be detected.
+            Used for extraction and self.get_epochs.
+            Default=47
+        :type min_dist: int
+        :param min:dist: Minimum distance in samples that has to lie in
+            between two detected feature epochs, so they will be detected as
+            two distinct feature epochs. Feature epochs closer than min_dist
+            will be merged into one feature epoch.
+            Default=1
+        :type find_max: bool
+        :param find_max: If True, will find feature as the maxima in the
+            feature epoch. Else, the onset of feature epoch will be taken as
+            the event.
+            Default=True
         """
 
         # super
         super(ThresholdDetectorNode, self).__init__(
             input_dim=input_dim,
             output_dim=output_dim,
-            dtype=dtype
-        )
+            dtype=dtype)
 
         # members
         self.tf = int(tf)
         self.min_dist = int(min_dist)
         self.find_max = bool(find_max)
         if threshold_mode not in ['gt', 'lt']:
-            raise ValueError('threshold mode must be eiter \'gt\' or \'lt\'')
+            raise ValueError('threshold mode must be either "gt" or "lt"')
         self.th_mode = threshold_mode
         if threshold_base not in ['signal', 'energy']:
             raise ValueError(
-                'threshold base must be eiter \'signal\' or \'energy\'')
+                'threshold base must be either "signal" or "energy"')
         self.th_base = threshold_base
         self.th_fac = float(threshold_factor)
         self.data = []
@@ -196,6 +191,9 @@ class ThresholdDetectorNode(ResetNode):
 
     def is_invertible(self):
         return False
+
+    def is_trainable(self):
+        return True
 
     def _reset(self):
         self.data = []
@@ -293,6 +291,38 @@ class ThresholdDetectorNode(ResetNode):
             rval = rval.astype(INDEX_DTYPE)
         return rval
 
+    def get_extracted_events_aligned(self, sample=0.25, kind='min'):
+        """aligns the events at the sample given
+
+        :type sample: float ot int
+        :param sample: if a float from (0.0,1.0], determine the align_sample
+            according to that weight. If a positive integer from (0,
+            self.tf-1] use that sample as the align_sample.
+            Default=0.25
+        :type kind: str
+        :param kind: one of "min", "max" or "energy". method to use for
+            alignment, will be passed to the alignment function.
+        """
+
+        if isinstance(sample, float):
+            if not 0.0 <= sample < self.tf:
+                raise ValueError('"sample" is float and not from (0.0,1.0]')
+            at = int((self.tf - 1) * sample)
+        elif isinstance(sample, int):
+            if not 0 <= sample < self.tf:
+                raise ValueError('"sample" is int and not from (0,self.tf-1]')
+            at = sample
+        else:
+            raise ValueError('sample is not float or int')
+        if kind not in ['min', 'max', 'energy']:
+            raise ValueError('"kind" is not a valid alignment kind')
+        spks = self.get_extracted_events()
+        print self.events
+        spks, st = get_aligned_spikes(self.data, self.events, self.tf, at,
+                                      mc=False, kind=kind)
+        print st
+        return spks
+
     def get_extracted_events(self):
         """yields the extracted spikes"""
 
@@ -346,8 +376,7 @@ class ThresholdDetectorNode(ResetNode):
         }[self.th_base]
         self.threshold = sp.asarray(
             [self._threshold_func(base[:, c])
-             for c in xrange(base.shape[1])],
-                                            dtype=self.dtype)
+             for c in xrange(base.shape[1])], dtype=self.dtype)
         self.threshold *= self.th_fac
 
     def plot(self, show=False):
