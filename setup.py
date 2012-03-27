@@ -49,7 +49,11 @@ __docformat__ = 'restructuredtext'
 
 from distutils.core import setup
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
+
+try:
+    from Cython.Distutils import build_ext
+except ImportError:
+    build_ext = None
 import numpy
 
 ##--HELPERS
@@ -76,13 +80,13 @@ DESC_TITLE = 'SpikePy : online spike sorting with linear fitlers'
 DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
 
 ##---USE_CYTHON
-
-ext_mod_list = [
-    Extension(
-        'spikepy.common.mcfilter.mcfilter_cy',
-        ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
-        include_dirs=[numpy.get_include()])
-]
+ext_mod_list = []
+if build_ext is not None:
+    ext_mod_list.append(
+        Extension(
+            'spikepy.common.mcfilter.mcfilter_cy',
+            ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
+            include_dirs=[numpy.get_include()]))
 
 ##---MAIN
 
@@ -94,7 +98,7 @@ if __name__ == "__main__":
         packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
                   'spikepy.ntrode', 'spikepy.common.datafile',
                   'spikepy.common.mcfilter'],
-        requires=['scipy', 'scikits.learn', 'mdp', 'tables'],
+        requires=['scipy', 'sklearn', 'mdp', 'tables'],
 
         # metadata
         author="Philipp Meier",
@@ -116,5 +120,4 @@ if __name__ == "__main__":
 
         # cython
         cmdclass={'build_ext':build_ext},
-        ext_modules=ext_mod_list,
-    )
+        ext_modules=ext_mod_list)

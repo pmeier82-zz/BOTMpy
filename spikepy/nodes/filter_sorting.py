@@ -621,8 +621,8 @@ class BOTMNode(FilterBankSortingNode):
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
             return
-        min_dist = self._tf
-        min_size = int(self._tf * 1.2)
+        min_dist = self._tf / 2
+        min_size = self._tf
         for i in xrange(spk_ep.shape[0]):
             s = spk_ep[i, 1] - spk_ep[i, 0]
             if s < min_size:
@@ -698,10 +698,12 @@ class BOTMNode(FilterBankSortingNode):
                         if self.debug is True:
                             from spikeplot import plt, COLOURS
 
-                            x_range = sp.arange(spk_ep[i, 0], spk_ep[i, 1])
+                            x_range = sp.arange(spk_ep[i, 0] + offset,
+                                                spk_ep[i, 1] + offset)
                             f = plt.figure()
                             f.suptitle('spike epoch [%d:%d] #%d' %
-                                       (spk_ep[i, 0], spk_ep[i, 1], niter))
+                                       (spk_ep[i, 0] + offset,
+                                        spk_ep[i, 1] + offset, niter))
                             ax1 = f.add_subplot(211)
                             ax1.plot(x_range, sp.zeros_like(x_range), 'k--')
                             ax1.plot(x_range, ep_disc)

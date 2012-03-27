@@ -133,7 +133,7 @@ def pre_processing(spks, ndet, tf, pca_dim=4):
 def cluster_kmeans(obs, crange=range(1, 21)):
     rval = None
     winner = sp.inf
-    print 'starting multiple kmeans runs'
+    print 'starting multiple runs of: kmeans'
     for i in crange:
         clus = sklearn.cluster.KMeans(k=i)
         clus.fit(obs)
@@ -149,9 +149,27 @@ def cluster_kmeans(obs, crange=range(1, 21)):
 def cluster_gmm(obs, crange=range(1, 21)):
     rval = None
     winner = sp.inf
-    print 'starting multiple gmm runs'
+    print 'starting multiple runs of: GMM'
     for i in crange:
         clus = sklearn.mixture.GMM(n_components=i, cvtype='spherical')
+        clus.fit(obs, n_iter=0, init_params='wm', params='')
+        clus.covars = [4.0] * i
+        clus.fit(obs, init_params='', params='wm')
+        x = gof(clus.score(obs).sum(), obs, i)
+        print i, x
+        if x < winner:
+            winner = x
+            rval = clus.predict(obs)
+    print 'done.'
+    return rval
+
+
+def cluster_ward(obs, crange=range(1, 21)):
+    rval = None
+    winner = sp.inf
+    print 'starting multiple runs of: hirachial clustering'
+    for i in crange:
+        clus = sklearn.cluster.Ward(n_clusters=i)
         clus.fit(obs, n_iter=0, init_params='wm', params='')
         clus.covars = [4.0] * i
         clus.fit(obs, init_params='', params='wm')
@@ -203,7 +221,7 @@ def cluster_spectral(obs):
 
 def main():
     TF, SNR, PCADIM = 65, 0.5, 8
-    NTRL = 2
+    NTRL = 10
     LOAD = True
     if LOAD is True:
         spks, spks_info, ndet = load_data()
@@ -218,17 +236,33 @@ def main():
 
     # kmeans
     labels_km = cluster_kmeans(input_obs)
-    data_km = {}
+    obs_km = {}
+    wf_km = {}
     for i in xrange(labels_km.max() + 1):
-        data_km[i] = input_obs[labels_km == i]
-    plot.cluster(data_km, title='kmeans', show=False)
+        obs_km[i] = input_obs[labels_km == i]
+        wf_km[i] = spks[labels_km == i]
+    plot.cluster(obs_km, title='kmeans', show=False)
+    plot.waveforms(obs_km, tf=TF, title='kmeans', show=False)
 
     # gmm
     labels_gmm = cluster_gmm(input_obs)
-    data_gmm = {}
+    obs_gmm = {}
+    wf_gmm = {}
     for i in xrange(labels_km.max() + 1):
-        data_gmm[i] = input_obs[labels_gmm == i]
-    plot.cluster(data_gmm, title='gmm', show=False)
+        obs_gmm[i] = input_obs[labels_gmm == i]
+        wf_gmm[i] = spks[labels_gmm == i]
+    plot.cluster(obs_gmm, title='gmm', show=False)
+    plot.waveforms(wf_gmm, tf=TF, title='gmm', show=False)
+
+    # ward
+    labels_ward = cluster_ward(input_obs)
+    obs_ward = {}
+    wf_ward = {}
+    for i in xrange(labels_km.max() + 1):
+        obs_ward[i] = input_obs[labels_ward == i]
+        wf_ward[i] = spks[labels_ward == i]
+    plot.cluster(obs_ward, title='ward', show=False)
+    plot.waveforms(wf_ward, tf=TF, title='ward', show=False)
 
 
 
