@@ -51,8 +51,8 @@ __all__ = ['ClusteringNode', 'HomoscedasticClusteringNode']
 ##---IMPORTS
 
 import scipy as sp
-from scikits.learn.mixture import GMM, lmvnpdf, logsum
-from scikits.learn.cluster import KMeans
+from sklearn.mixture import GMM
+from sklearn.cluster import KMeans
 from .base_nodes import ResetNode
 
 ##---CLASSES
@@ -115,8 +115,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
     """
 
     def __init__(self, clus_type='kmeans', crange=range(1, 16), maxiter=32,
-                 repeats=4, conv_th=1e-4, sigma_factor=4.0,
-                 uprior=False, dtype=sp.float32, debug=False):
+                 repeats=4, conv_th=1e-4, sigma_factor=4.0, dtype=sp.float32,
+                 debug=False):
         """
         :type clus_type: str
         :param cluls_type: clustering algorithm to use. Must be one of:
@@ -137,10 +137,6 @@ class HomoscedasticClusteringNode(ClusteringNode):
         :type sigma_factor: float
         :param sigma_factor: variance factor for the spherical covariance
             Default=4.0
-        :type uprior: bool
-        :param uprior: if True, do not learn the mixture component
-            prior used for evaluation of the goodness of fit and use a
-            uniform prior instead.
         :type dtype: dtype resolvable
         :param dtype: dtype for internal calculations
             Default=scipy.float32
@@ -161,10 +157,10 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self.repeats = int(repeats)
         self.conv_th = float(conv_th)
         self.sigma_factor = float(sigma_factor)
+        self._ll = None
         self._gof = None
         self._winner = None
         self.debug = bool(debug)
-        self.uprior = bool(uprior)
 
     def _reset(self):
         super(HomoscedasticClusteringNode, self)._reset()
@@ -179,6 +175,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                                  x.shape[0]), dtype=sp.integer) - 1
         self._gof = sp.zeros(len(self.crange) * self.repeats,
                              dtype=self.dtype)
+        self._ll = sp.zeros(len(self.crange) * self.repeats,
+                            dtype=self.dtype)
         self._parameters = [None] * len(self.crange) * self.repeats
 
         # clustering
@@ -197,27 +195,26 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     model.fit(x)
                     self._labels[idx] = model.labels_
                     self._parameters[idx] = model.cluster_centers_
+                    self._ll[idx] = model.score(x)
                     del model
                 if self.clus_type == 'gmm':
-                    model = GMM(n_states=k, cvtype='spherical')
+                    model = GMM(n_components=k, cvtype='spherical')
+                    #model = GMM(n_states=k, cvtype='spherical')
                     model.n_features = self.input_dim
-                    model.covars = sp.ones(model.n_states) * self.sigma_factor
+                    model.covars = sp.ones(k) * self.sigma_factor
                     model.fit(x, n_iter=0, init_params='wm')
-                    params = 'm'
-                    if self.uprior is False:
-                        params += 'w'
                     model.fit(x,
                               n_iter=self.maxiter,
                               thresh=self.conv_th,
                               init_params='',
-                              params=params)
+                              params='wm')
                     self._labels[idx] = model.predict(x)
                     self._parameters[idx] = model.means
+                    self._ll[idx] = model.score(x).sum()
                     del model
 
                 # evaluate goodness of fit for this run
-                self._gof[idx] = self.gof(x, self._labels[idx],
-                                          uprior=self.uprior)
+                self._gof[idx] = self.gof(x, self._ll[idx], k)
 
                 # debug
                 if self.debug is True:
@@ -227,35 +224,20 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self.parameters = self._parameters[self._winner]
         self.labels = self._labels[self._winner]
 
-    def gof(self, data, labels, uprior=False):
+    def gof(self, obs, LL, k):
         """evaluate the goodness of fit given the data and labels
 
-        :type data: ndarray
-        :param data: observations [n,D]
-        :type labels: ndarray
-        :param labels: labels for observations [n]
-        :type uprior: bool
-        :param uprior: if true, use uniform component prior.
+        :type obs: ndarray
+        :param obs: the observations
+        :type LL: float
+        :param LL: model log likelihood
+        :type k: int
+        :param k: number of mixture components
         """
 
-        # inits
-        ncmp = int(labels.max() + 1)
-        mean = sp.vstack([data[labels == c].mean(axis=0)
-                          for c in xrange(ncmp)])
-        ll = lmvnpdf(data, mean, sp.ones(ncmp) * self.sigma_factor,
-                     'spherical')
-        if uprior is True:
-            w = sp.log(sp.ones(ncmp) / ncmp)
-        else:
-            w = sp.array([(labels == c).sum() / float(data.shape[0])
-                          for c in xrange(ncmp)])
-
         # components
-        ll = logsum(ll + sp.log(w), axis=1).sum()
-        N, Nk = map(sp.float64, data.shape)
-        Np = ncmp * Nk
-        if uprior is False:
-            Np += ncmp - 1
+        N, Nk = map(sp.float64, obs.shape)
+        Np = k * (Nk + 1) - 1
 
         #=============================================================
         # # calculate BIC value (Xu & Wunsch, 2005)
@@ -267,7 +249,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         # return - 2 * (sp - 1 - Nk - ncmp * 0.5) * ll / sp + 3 * Np
         #=============================================================
 
-        return - ll + Np * 0.5 * sp.log(N)
+        return - LL + Np * 0.5 * sp.log(N)
 
     def plot(self, data, views=2, show=False):
         """plot clustering"""
