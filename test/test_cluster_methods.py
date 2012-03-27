@@ -203,8 +203,8 @@ def cluster_spectral(obs):
 
 def main():
     TF, SNR, PCADIM = 65, 0.5, 8
-    NTRL = 2
-    LOAD = True
+    NTRL = 10
+    LOAD = False
     if LOAD is True:
         spks, spks_info, ndet = load_data()
     else:
