@@ -87,6 +87,7 @@ class BaseTimeSeriesCovarianceEstimator(object):
         self._weight = weight
         self._cond = float(cond)
         self._is_initialised = False
+        self._n_obs_smpl = 0
 
     ## getter and setter methods
 
@@ -160,6 +161,8 @@ class BaseTimeSeriesCovarianceEstimator(object):
     def reset(self):
         """reset the internal buffers to None"""
 
+        self._is_initialised = False
+        self._n_obs_smpl = 0
         self._reset()
 
     def update(self, data, **kwargs):
@@ -179,6 +182,14 @@ class BaseTimeSeriesCovarianceEstimator(object):
         rval = self._update(data, **kwargs)
         if self._is_initialised is False:
             self._is_initialised = bool(rval)
+        if rval is True:
+            epochs = kwargs.get('epochs', None)
+            if epochs is None:
+                self._n_obs_smpl += data.shape[0]
+            else:
+                epochs = sp.asarray(epochs)
+                len_epoch = epochs[:, 1] - epochs[:, 0]
+                self._n_obs_smpl += len_epoch.sum()
 
     ## private methods
 
@@ -186,7 +197,7 @@ class BaseTimeSeriesCovarianceEstimator(object):
         raise NotImplementedError
 
     def _reset(self):
-        self._is_initialised = False
+        pass
 
     ## special methods
 
@@ -461,7 +472,6 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         self._clear_buf()
         # self._chan_set = [] # setting to default chan_set
         self._chan_set = [tuple(range(self._nc))]
-        super(TimeSeriesCovE, self)._reset()
 
     @staticmethod
     def white_noise_init(tf_max, nc, std=1.0, dtype=None):
