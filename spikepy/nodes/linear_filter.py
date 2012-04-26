@@ -90,7 +90,7 @@ class FilterNode(Node):
         :type rb_cap: int
         :param rb_cap: capacity of the xi buffer
             Default=350
-        :type dtype : dtype resolvable
+        :type dtype: dtype resolvable
         :param dtype: determines the internal dtype
             Default=float32
         """
@@ -104,22 +104,17 @@ class FilterNode(Node):
             chan_set = tuple(range(nc))
 
         # super
-        super(FilterNode, self).__init__(output_dim=1,
-                                         dtype=dtype or sp.float32)
+        super(FilterNode, self).__init__(
+            output_dim=1, dtype=dtype or sp.float32)
 
         # members
-        self._xi_buf = MxRingBuffer(capacity=rb_cap,
-                                    dimension=(tf, nc),
-                                    dtype=self.dtype)
+        self._xi_buf = MxRingBuffer(
+            capacity=rb_cap, dimension=(tf, nc), dtype=self.dtype)
         self._ce = None
         self._f = None
         self._hist = sp.zeros((tf - 1, nc), dtype=self.dtype)
         self._chan_set = tuple(sorted(chan_set))
-
-        # set covariance estimator
         self.ce = ce
-
-        # status
         self.active = True
 
     ## properties
@@ -181,9 +176,11 @@ class FilterNode(Node):
 
     ## mdp.Node interface
 
-    def _execute(self, x, *args, **kwargs):
+    def _execute(self, x):
         """apply the filter to data"""
 
+        # DOC: ascontiguousarray is here for ctypes/cython purposes
+        x = sp.ascontiguousarray(x, dtype=self.dtype)
         rval, self._hist = mcfilter_hist(x, self._f, self._hist)
         return rval
 

@@ -61,13 +61,14 @@ __all__ = ['BOTMNode', 'BayesOptimalTemplateMatchingNode',
 
 import scipy as sp
 from scipy import linalg as sp_la
+from spikeplot import COLOURS, mcdata, plt
 from .base_nodes import Node
-from .linear_filter import FilterNode, MatchedFilterNode
 from .filter_bank import FilterBankError, FilterBankNode
-from ..common import (TimeSeriesCovE, xi_vs_f, mcvec_to_conc, overlaps,
-                      epochs_from_spiketrain_set, shifted_matrix_sub,
+from .spike_detector import SDMteoNode, ThresholdDetectorNode
+from ..common import (overlaps, epochs_from_spiketrain_set, shifted_matrix_sub,
                       epochs_from_binvec, merge_epochs, matrix_argmax,
-                      dict_list_to_ndarray, get_cut, get_aligned_spikes)
+                      dict_list_to_ndarray, get_cut, get_aligned_spikes,
+                      GdfFile)
 
 # for parallel mixin
 from Queue import Queue
@@ -78,7 +79,7 @@ import warnings
 
 ##---CLASSES
 
-class FilterBankSortingMatchingNode(Node):
+class FilterBankSortingNode(Node):
     """abstract class that handles filter instances and their outputs"""
 
     def __init__(self, **kwargs):
@@ -116,7 +117,16 @@ class FilterBankSortingMatchingNode(Node):
         :type chunk_size: int
         :keyword chunk_size: if input data will be longer than chunk_size, the
             input will be processed chunk per chunk to overcome memory sinks
-            Default=32000
+            Default=100000
+        :type det_cls: ThresholdDetectorNode
+        :keyword det_Cls: the class of detector node to use for the spike
+            detection running in parallel to the sorting,
+            this must be a subclass of 'ThresholdDetectorNode'.
+            Default=SDMteoNode
+        :type det_params: dict
+        :keyword det_params: parameters for the spike detector that will be
+            run in parallel on the data.
+            Default=((,),{}) - null args and kwargs
         :type debug: bool
         :keyword debug: if True, store intermediate results and generate
             verbose output
@@ -127,182 +137,113 @@ class FilterBankSortingMatchingNode(Node):
             Default=None
         """
 
-        # process kwargs
-        if 'templates' not in kwargs:
+        # kwargs
+        templates = kwargs.pop('templates', None)
+        if templates is None:
             raise FilterBankError('\'templates\' are required!')
-        templates = kwargs.get('templates')
-        if 'ce' not in kwargs:
-            raise FilterBankError('\'ce\' is required!')
-        ce = kwargs.get('ce')
-        chan_set = kwargs.get('chan_set')
-        filter_cls = kwargs.get('filter_cls', MatchedFilterNode)
-        rb_cap = kwargs.get('rb_cap', 350)
-        adapt_templates = kwargs.get('adapt_templates', -1)
-        learn_noise = kwargs.get('learn_noise', True)
-        chunk_size = kwargs.get('chunk_size', 32000)
-        debug = kwargs.get('debug', False)
-        dtype = kwargs.get('dtype', None)
+        adapt_templates = kwargs.pop('adapt_templates', -1)
+        learn_noise = kwargs.pop('learn_noise', True)
+        chunk_size = kwargs.pop('chunk_size', 100000)
+        det_cls = kwargs.pop('det_cls', SDMteoNode)
+        det_params = kwargs.pop('det_params', (tuple(), dict()))
+        # everything not popped goes to FilterBankNode after that
+        # to mdp.Node.__init__ via super
 
-        # checks
+        # build filter bank
+        bank = FilterBankNode(**kwargs)
+
+        # check templates
         if templates.size == 0:
-            raise FilterBankError('provide at least one template!')
+            # TODO: remove this requirement
+            raise FilterBankError('provide at least one initial template!')
         if templates.ndim != 3:
-            raise FilterBankError('templates have to be provided in a tensor '
-                                  'like [ntemps][tf][nc]!')
-        if chan_set is None:
-            chan_set = tuple(range(templates.shape[2]))
-        if not issubclass(filter_cls, FilterNode):
-            raise TypeError('filter_cls has to be a subclass of FilterNode!')
-        if ce is None:
-            ce = TimeSeriesCovE.std_white_noise_init(*templates.shape[1:])
-        if not isinstance(ce, TimeSeriesCovE):
-            raise TypeError('ce has to be an instance of TimeSeriesCovE '
-                            'or None!')
+            raise FilterBankError(
+                'templates have to be provided in a tensor of shape '
+                '[ntemps][tf][nc]!')
+        if not issubclass(det_cls, ThresholdDetectorNode):
+            raise TypeError(
+                '\'det_cls\' of type ThresholdDetectorNode is required!')
 
         # super
-        super(FilterBankSortingNode, self).__init__(
-            input_dim=templates.shape[2],
-            output_dim=templates.shape[2],
-            dtype=dtype)
+        super(FilterBankSortingNode, self).__init__(**kwargs)
 
         # members
-        self._tf = templates.shape[1]
-        self._nc = templates.shape[2]
-        self._chan_set = tuple(sorted(chan_set))
-        self._filter_cls = filter_cls
-        self._rb_cap = int(rb_cap)
+        self._bank = bank
         self._chunk_size = int(chunk_size)
         self._adapt_templates = int(adapt_templates)
         self._learn_noise = bool(learn_noise)
-        self._xcorrs = None
         self._fout = None
-        self._ce = None
         self._data = None
         self._chunk = None
-        self.debug = bool(debug)
-        self.bank = []
+        self._det_cls = det_cls
+        self._det_params = det_params
+        self.det = self._det_cls(*self.det_params[0], **self.det_params[1])
+        self.debug = self._bank.debug
         self.rval = {}
-        self.ce = ce
 
         # add filters for templates
         for temp in templates:
-            self.add_filter(temp, check=False)
+            self.create_filter(temp, check=False)
         self._check_internals()
 
     ## properties
 
     def get_tf(self):
-        return self._tf
+        return self._bank.tf
 
     tf = property(get_tf)
 
     def get_nc(self):
-        return self._nc
+        return self._bank.nc
 
     nc = property(get_nc)
 
     def get_chan_set(self):
-        return self._chan_set
+        return self._bank.cs
 
     cs = property(get_chan_set)
 
     def get_ce(self):
-        return self._ce
+        return self._bank.ce
 
     def set_ce(self, value):
-        if not isinstance(value, TimeSeriesCovE):
-            raise TypeError('Has to be of type %s' % TimeSeriesCovE)
-        if value.get_tf_max() < self._tf:
-            raise ValueError('tf_max of cov_est is < than filter bank tf')
-        if value.get_nc() < self._nc:
-            raise ValueError('nc of cov_est is < than the filter bank nc')
-        self._ce = value
-        self._check_internals()
+        self._bank.ce = value
 
     ce = property(get_ce, set_ce)
 
+    def get_filter_idx(self):
+        return self._bank._idx_active_set
+
+    filter_idx = property(get_filter_idx)
+
     def get_nfilter(self):
-        return len(self.bank)
+        return len(self.filter_idx)
 
     nfilter = property(get_nfilter)
 
-    def get_template_set(self):
-        if len(self.bank) == 0:
-            return None
-        return sp.array([f.xi for f in self.bank])
+    def get_template_set(self, **kwargs):
+        return self._bank.get_template_set(**kwargs)
 
     template_set = property(get_template_set)
 
-    def get_template_set_conc(self):
-        if len(self.bank) == 0:
-            return None
-        return sp.array([mcvec_to_conc(f.xi) for f in self.bank])
-
-    template_set_conc = property(get_template_set_conc)
-
-    def get_filter_set(self):
-        if self.nfilter == 0:
-            return None
-        return sp.array([f.f for f in self.bank])
+    def get_filter_set(self, **kwargs):
+        return self._bank.get_filter_set(**kwargs)
 
     filter_set = property(get_filter_set)
-
-    def get_filter_set_conc(self):
-        if self.nfilter == 0:
-            return None
-        return sp.array([mcvec_to_conc(f.f) for f in self.bank])
-
-    filter_set_conc = property(get_filter_set_conc)
 
     ## filter bank interface
 
     def reset_history(self):
         """sets the history to all zeros for all filters"""
 
-        for f in self.bank:
-            f.reset_history()
+        self._bank.reset_history()
 
-    def add_filter(self, xi, check=True):
+    def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank"""
 
-        # check input
-        xi = sp.asarray(xi, dtype=self.dtype)
-        if xi.ndim != 2 or xi.shape != (self._tf, self._nc):
-            raise FilterBankError('template does not match the filter banks '
-                                  'filter shape of %s' %
-                                  str((self._tf, self._nc)))
+        return self._bank.add_filter(xi, check=check)
 
-        # build filter and add to filterbank
-        new_f = self._filter_cls(self._tf,
-                                 self._nc,
-                                 self._ce,
-                                 rb_cap=self._rb_cap,
-                                 chan_set=self._chan_set,
-                                 dtype=self.dtype)
-        new_f.fill_xi_buf(xi)
-        self.bank.append(new_f)
-
-        # return and check internals
-        rval = True
-        if check is True:
-            rval = self._check_internals()
-        return rval
-
-    def _check_internals(self):
-        """internal bookkeeping that assures the filter bank is up to date"""
-
-        # check
-        if self.debug:
-            print '_check_internals'
-        if len(self.bank) == 0:
-            return
-
-        # build filters from templates and the cross-correlation tensor
-        for filt in self.bank:
-            filt.calc_filter()
-        self._xcorrs = xi_vs_f(self.template_set_conc,
-                               self.filter_set_conc,
-                               nc=self._nc)
+    ## sorting node interface
 
     def _adaption(self):
         """adapt using non overlapping spikes"""
@@ -340,20 +281,17 @@ class FilterBankSortingMatchingNode(Node):
     def is_invertible(self):
         return False
 
-    def is_resetable(self):
-        return False
-
     def is_trainable(self):
         return False
 
     ## SortingNode interface
 
-    def _sorting(self, x, *args, **kwargs):
+    def _execute(self, x):
         # inits
-        self._data = sp.ascontiguousarray(x, dtype=self._dtype)
+        self._data = x[:, self._bank.cs]
         dlen = self._data.shape[0]
         self.rval.clear()
-        for i in xrange(self.nfilter):
+        for i in self.filter_idx:
             self.rval[i] = []
         curr_chunk = 0
         has_next_chunk = True
@@ -363,13 +301,14 @@ class FilterBankSortingMatchingNode(Node):
             # get chunk limits
             c_start = curr_chunk * self._chunk_size
             c_stopp = min(dlen, (curr_chunk + 1) * self._chunk_size)
+            clen = c_stopp - c_start
 
-            # generate chunked data and sorting for this chunk
+            # generate data chunk and process
             self._chunk = self._data[c_start:c_stopp]
-            self._fout = sp.empty((self._chunk.shape[0], self.nfilter))
+            self._fout = sp.empty((clen, self.nfilter))
+            self.det(self._chunk)
             self._pre_filter()
-            for i in xrange(len(self.bank)):
-                self._fout[:, i] = self.bank[i](self._chunk)
+            self._fout = self._bank(self._chunk)
             self._post_filter()
             self._sort_chunk(c_start)
 
@@ -379,7 +318,7 @@ class FilterBankSortingMatchingNode(Node):
                 has_next_chunk = False
         self._combine_results()
 
-        # adaption ?
+        # adaption
         if self._adapt_templates >= 0:
             self._adaption()
 
@@ -408,26 +347,12 @@ class FilterBankSortingMatchingNode(Node):
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
 
-        from spikeplot import xvf_tensor
-
-        xvf_tensor([self.template_set_conc, self.filter_set_conc,
-                    self._xcorrs], nc=self._nc, plot_handle=ph, show=show)
+        return self._bank.plot_xvft(ph=ph, show=show)
 
     def plot_template_set(self, ph=None, show=False):
         """plot the template set in a waveform plot"""
 
-        from spikeplot import waveforms
-
-        units = {}
-        for i in xrange(len(self.bank)):
-            units[i] = self.bank[i]._xi_buf[:]
-
-        waveforms(units,
-                  tf=self._tf,
-                  plot_separate=True,
-                  plot_mean=True,
-                  plot_single_waveforms=True,
-                  plot_handle=ph, show=show)
+        return self._bank.plot_template_set(ph=ph, show=show)
 
 
 class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
@@ -460,11 +385,16 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             Default=1e0
         """
 
+        #kwargs
+        ovlp_taus = kwargs.pop('ovlp_taus', None)
+        noi_pr = kwargs.pop('noi_pr', 1e0)
+        spk_pr = kwargs.pop('spk_pr', 1e-6)
+
         # super
-        super(BOTMNode, self).__init__(**kwargs)
+        super(BayesOptimalTemplateMatchingNode, self).__init__(**kwargs)
 
         # members
-        self._ovlp_taus = kwargs.get('ovlp_taus', None)
+        self._ovlp_taus = ovlp_taus
         if self._ovlp_taus is not None:
             self._ovlp_taus = list(self._ovlp_taus)
             if self.debug is True:
@@ -479,8 +409,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._lpr_s = None
         self._oc_idx = None
         self._debug_res = None
-        self.noise_prior = kwargs.get('noi_pr', 1e0)
-        self.spike_prior = kwargs.get('spk_pr', 1e-6)
+        self.noise_prior = noi_pr
+        self.spike_prior = spk_pr
 
     ## properties
 
@@ -520,7 +450,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._disc[:] = sp.nan
         for i in xrange(self.nfilter):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
-                                .5 * self._xcorrs[i, i, self._tf - 1])
+                                .5 * self._bank.get_xcorrs_at(i))
 
         # build overlap channels from filter outputs for overlap channels
         if self._ovlp_taus is not None:
@@ -535,7 +465,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         self._disc[f0_lim[0]:f0_lim[1], oc_idx] = (
                             self._disc[f0_lim[0]:f0_lim[1], f0] +
                             self._disc[f1_lim[0]:f1_lim[1], f1] -
-                            self._xcorrs[f0, f1, self._tf + tau - 1])
+                            self._bank.get_xcorrs_at(f0, f1, tau))
                         oc_idx += 1
 
     def _sort_chunk(self, offset):
@@ -557,8 +487,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
             return
-        min_dist = self._tf / 2
-        min_size = self._tf
+        min_dist = self.tf / 2
+        min_size = int(self.tf * 1.2)
         for i in xrange(spk_ep.shape[0]):
             s = spk_ep[i, 1] - spk_ep[i, 0]
             if s < min_size:
@@ -569,13 +499,6 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         # check epochs
         spk_ep = merge_epochs(spk_ep, min_dist=min_dist)
         n_ep = spk_ep.shape[0]
-
-        if self.debug:
-            from spikeplot import mcdata
-
-            mcdata(self._chunk, other=self._disc,
-                   epochs=spk_ep - int(self._tf / 2),
-                   show=False)
 
         for i in xrange(n_ep):
             #
@@ -590,12 +513,15 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 # lets fill in the results
                 if ep_c < self.nfilter:
                     # was single unit
-                    self.rval[ep_c].append(ep_t + offset)
+                    fid = self._bank.get_fid_for(ep_c)
+                    self.rval[fid].append(ep_t + offset)
                 else:
                     # was overlap
                     my_oc_idx = self._oc_idx[ep_c]
-                    self.rval[my_oc_idx[0]].append(ep_t + offset)
-                    self.rval[my_oc_idx[1]].append(
+                    fid0 = self._bank.get_fid_for(my_oc_idx[0])
+                    self.rval[fid0].append(ep_t + offset)
+                    fid1 = self._bank.get_fid_for(my_oc_idx[1])
+                    self.rval[fid1].append(
                         ep_t + my_oc_idx[2] + offset)
 
             #
@@ -626,14 +552,12 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     # build subtractor
                     sub = shifted_matrix_sub(
                         sp.zeros_like(ep_disc),
-                        self._xcorrs[ep_c, :, :].T,
-                        ep_t - self._tf + 1)
+                        self._bank.xcorrs[ep_c, :, :].T,
+                        ep_t - self.tf + 1)
 
                     # apply subtractor
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
                         if self.debug is True:
-                            from spikeplot import plt, COLOURS
-
                             x_range = sp.arange(spk_ep[i, 0] + offset,
                                                 spk_ep[i, 1] + offset)
                             f = plt.figure()
@@ -650,7 +574,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         ep_disc += sub + self._lpr_s
                         if self.debug is True:
                             ax1.plot(x_range, ep_disc, ls=':', lw=2)
-                        self.rval[ep_c].append(spk_ep[i, 0] + ep_t + offset)
+                        fid = self._bank.get_fid_for(ep_c)
+                        self.rval[fid].append(spk_ep[i, 0] + ep_t + offset)
                     else:
                         break
                 del ep_fout, ep_disc, sub
@@ -660,36 +585,33 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
     def sorting2gdf(self, fname):
         """yield the gdf representing the current sorting"""
 
-        from spikepy.common import GdfFile
-
         GdfFile.write_gdf(fname, self.rval)
 
     def plot_sorting(self, ph=None, show=False, debug=False):
         """plot the sorting of the last data chunk"""
 
-        # imports
-        from spikeplot import mcdata, COLOURS
-
         # create events
         ev = {}
         if self.rval is not None:
-            for u in self.rval:
-                ev[u] = (self.bank[u].xi, self.rval[u])
+            temps = self.template_set
+            for i, k in enumerate(self.filter_idx):
+                if self.rval[k]:
+                    ev[k] = (temps[i], self.rval[k])
 
         # create colours
         cols = COLOURS[:self.nfilter]
 
         # calc discriminants for single units
-        other = sp.empty((self._data.shape[0], self.nfilter))
-        other[:] = sp.nan
-        for i in xrange(self.nfilter):
-            other[:, i] = self.bank[i](self._data) -\
-                          0.5 * self._xcorrs[i, i, self._tf - 1] +\
-                          self._lpr_s
+        other = None
+        if self.nfilter > 0:
+            other = self._bank(self._data)
+            other += self._lpr_s
+            other -= [.5 * self._bank.get_xcorrs_at(i)
+                      for i in xrange(self.nfilter)]
 
         # plot mcdata
-        mcdata(self._data, other=other, events=ev,
-               plot_handle=ph, colours=cols, show=show)
+        return mcdata(self._data, other=other, events=ev,
+                      plot_handle=ph, colours=cols, show=show)
 
 BOTMNode = BayesOptimalTemplateMatchingNode
 

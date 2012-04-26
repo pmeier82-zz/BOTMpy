@@ -53,7 +53,7 @@ __all__ = ['FilterBankError', 'FilterBankNode']
 import scipy as sp
 from spikeplot import waveforms, xvf_tensor
 from .base_nodes import Node
-from .linear_filter import FilterNode
+from .linear_filter import FilterNode, MatchedFilterNode
 from ..common import (TimeSeriesCovE, xi_vs_f)
 
 ##---CLASSES
@@ -104,16 +104,16 @@ class FilterBankNode(Node):
         # kwargs
         ce = kwargs.pop('ce', None)
         chan_set = kwargs.pop('chan_set', None)
-        filter_cls = kwargs.pop('filter_cls', None)
+        filter_cls = kwargs.pop('filter_cls', MatchedFilterNode)
         rb_cap = kwargs.pop('rb_cap', 350)
         tf = kwargs.pop('tf', 47)
         debug = kwargs.pop('debug', False)
-        # everything else in kwargs goes to mdp.Node.__init__ via super
+        # everything not popped goes to mdp.Node.__init__ via super
 
         # checks
         if not issubclass(ce.__class__, TimeSeriesCovE):
             raise TypeError('\'ce\' of type TimeSeriesCovE is required!')
-        if not issubclass(filter_cls.__class__, FilterNode):
+        if not issubclass(filter_cls, FilterNode):
             raise TypeError('\'filter_cls\' of type FilterNode is required!')
         if chan_set is None:
             chan_set = tuple(range(ce.get_nc()))
@@ -178,7 +178,7 @@ class FilterBankNode(Node):
 
     nfilter = property(get_nfilter)
 
-    def _get_filter_set(self, key_set):
+    def _get_key_set(self, key_set):
         return [self.bank[k] for k in key_set]
 
     def get_template_set(self, active=True, mc=True):
@@ -186,7 +186,7 @@ class FilterBankNode(Node):
         if not key_set:
             shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
             return sp.zeros(shape, dtype=self.dtype)
-        f_list = self._get_filter_set(key_set)
+        f_list = self._get_key_set(key_set)
         return sp.asarray([f.xi if mc else f.xi_conc for f in f_list])
 
     template_set = property(get_template_set)
@@ -196,10 +196,23 @@ class FilterBankNode(Node):
         if not key_set:
             shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
             return sp.zeros(shape, dtype=self.dtype)
-        f_list = self._get_filter_set(key_set)
+        f_list = self._get_key_set(key_set)
         return sp.asarray([f.f if mc else f.f_conc for f in f_list])
 
     filter_set = property(get_filter_set)
+
+    def get_xcorrs(self):
+        return self._xcorrs
+
+    xcorrs = property(get_xcorrs)
+
+    def get_xcorrs_at(self, idx0, idx1=None, shift=0):
+        if not self._xcorrs:
+            return None
+        return self._xcorrs[idx0, idx1 or idx0, self._tf - 1 + shift]
+
+    def get_fid_for(self, idx):
+        return list(self._idx_active_set)[idx]
 
     ## filter bank interface
 
@@ -240,14 +253,30 @@ class FilterBankNode(Node):
     def deactivate_filter(self, idx):
         """deactivates a filter in the filter bank
 
-        filters are never deleted, but can be deactivated and will
-        subsequently not be respected for the filter output of the filter bank.
+        Filters are never deleted, but can be de-/reactivated and will be used
+        respecting there activation state for the filter output of the
+        filter bank.
+
+        No effect if idx not in self.bank.
         """
 
         if idx in self.bank:
             self.bank[idx].active = False
-            if idx in self._idx_active_set:
-                self._idx_active_set.remove(idx)
+            self._idx_active_set.discard(idx)
+
+    def reactivate_filter(self, idx):
+        """reactivates a filter in the filter bank
+
+        Filters are never deleted, but can be de-/reactivated and will be used
+        respecting there activation state for the filter output of the
+        filter bank.
+
+        No effect if idx not in self.bank.
+        """
+
+        if idx in self.bank:
+            self.bank[idx].active = True
+            self._idx_active_set.add(idx)
 
     def _check_internals(self):
         """triggers filter recalculation and rebuild xcorr tensor"""
@@ -279,8 +308,8 @@ class FilterBankNode(Node):
         if not self._idx_active_set:
             return sp.zeros((x.shape[0], 0), dtype=self.dtype)
         rval = sp.empty((x.shape[0], self.nfilter))
-        for k in self._idx_active_set:
-            rval[:, k] = self.bank[k](x)
+        for i, k in enumerate(self._idx_active_set):
+            rval[:, i] = self.bank[k](x)
         return rval
 
     ## plotting methods
