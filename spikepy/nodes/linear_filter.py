@@ -129,6 +129,11 @@ class FilterNode(Node):
 
     xi = property(get_xi)
 
+    def get_xi_conc(self):
+        return mcvec_to_conc(self._xi_buf.mean())
+
+    xi_conc = property(get_xi_conc)
+
     def get_tf(self):
         return self._xi_buf.dimension[0]
 
@@ -143,6 +148,11 @@ class FilterNode(Node):
         return self._f
 
     f = property(get_f)
+
+    def get_f_conc(self):
+        return mcvec_to_conc(self._f)
+
+    f_conc = property(get_f_conc)
 
     def get_ce(self):
         return self._ce
