@@ -49,12 +49,13 @@ See:
 [1] F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
 spike detection and spike classification algorithm capable of instantaneous
 resolution of overlapping spikes. Journal of Computational Neuroscience, 2009
-[2] F. Franke, ... , Klaus Obermayer, 2012,
+[2] F. Franke, ... , K. Obermayer, 2012,
 The revolutionary BOTM Paper
 """
 
 __docformat__ = 'restructuredtext'
-__all__ = ['FilterBankError', 'FilterBankSortingNode', 'BOTMNode']
+__all__ = ['BOTMNode', 'BayesOptimalTemplateMatchingNode',
+           'FilterBankSortingNode']
 
 ##---IMPORTS
 
@@ -62,6 +63,7 @@ import scipy as sp
 from scipy import linalg as sp_la
 from .base_nodes import Node
 from .linear_filter import FilterNode, MatchedFilterNode
+from .filter_bank import FilterBankError, FilterBankNode
 from ..common import (TimeSeriesCovE, xi_vs_f, mcvec_to_conc, overlaps,
                       epochs_from_spiketrain_set, shifted_matrix_sub,
                       epochs_from_binvec, merge_epochs, matrix_argmax,
@@ -76,11 +78,7 @@ import warnings
 
 ##---CLASSES
 
-class FilterBankError(Exception):
-    pass
-
-
-class FilterBankSortingNode(Node):
+class FilterBankSortingMatchingNode(Node):
     """abstract class that handles filter instances and their outputs"""
 
     def __init__(self, **kwargs):
@@ -183,6 +181,7 @@ class FilterBankSortingNode(Node):
         self._chunk = None
         self.debug = bool(debug)
         self.bank = []
+        self.rval = {}
         self.ce = ce
 
         # add filters for templates
@@ -431,70 +430,7 @@ class FilterBankSortingNode(Node):
                   plot_handle=ph, show=show)
 
 
-class ParallelAdaptionMixIn(object):
-    """mixin class to send the check internals into a separate thread
-
-    Provides old behavior under same name and adds the methods for paralell
-    execution.
-    """
-
-    def _check_internals(self):
-        """internal bookkeeping that assures the filter bank is up to date"""
-
-        # check
-        if self.debug:
-            print '_check_internals (paralell)'
-        if len(self.bank) == 0:
-            return
-
-        # parallel execution
-        self._check_internals_par()
-        self._check_internals_t.join()
-        good = False
-        while not good:
-            good = self._check_internals_par_collect()
-
-    def _check_internals_par(self):
-        """check internals trigger function"""
-
-        if self.debug:
-            print 'Starting check_internals_par!'
-        self._check_internals_q = Queue()
-        self._check_internals_t = Thread(
-            target=self._check_internals_par_kernel,
-            args=(self._check_internals_q,))
-        self._check_internals_t.start()
-
-    def _check_internals_par_kernel(self, q):
-        """check_internals kernel for the background thread"""
-
-        # for windows: reduce the priority of the current thread to idle
-        if platform.system() == 'Windows':
-            THREAD_PRIORITY_IDLE = -15
-            THREAD_SET_INFORMATION = 0x20
-            w32 = ctypes.windll.kernel32
-            handle = w32.OpenThread(THREAD_SET_INFORMATION, False,
-                                    w32.GetCurrentThreadId())
-            result = w32.SetThreadPriority(handle, THREAD_PRIORITY_IDLE)
-            w32.CloseHandle(handle)
-            if not result:
-                print 'Failed to set priority of thread', w32.GetLastError()
-        self._check_internals()
-        q.put((self.bank, self._xcorrs))
-
-    def _check_internals_par_collect(self):
-        """returns true if collect was good"""
-
-        if self._check_internals_q.empty():
-            return False
-        else:
-            self.bank, self._xcorrs = self._check_internals_q.get()
-            self._check_internals_q.task_done()
-            self._check_internals_q = None
-            return True
-
-
-class BOTMNode(FilterBankSortingNode):
+class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
     """FilterBanksSortingNode derivative for the BOTM algorithm
 
     Can use two implementations of the Bayes Optimal Template-Matching (BOTM)
@@ -755,153 +691,71 @@ class BOTMNode(FilterBankSortingNode):
         mcdata(self._data, other=other, events=ev,
                plot_handle=ph, colours=cols, show=show)
 
+BOTMNode = BayesOptimalTemplateMatchingNode
+
+class ParallelAdaptionMixIn(object):
+    """mixin class to send the check internals into a separate thread
+
+    Provides old behavior under same name and adds the methods for parallel
+    execution.
+    """
+
+    def _check_internals(self):
+        """internal bookkeeping that assures the filter bank is up to date"""
+
+        # check
+        if self.debug:
+            print '_check_internals (paralell)'
+        if len(self.bank) == 0:
+            return
+
+        # parallel execution
+        self._check_internals_par()
+        self._check_internals_t.join()
+        good = False
+        while not good:
+            good = self._check_internals_par_collect()
+
+    def _check_internals_par(self):
+        """check internals trigger function"""
+
+        if self.debug:
+            print 'Starting check_internals_par!'
+        self._check_internals_q = Queue()
+        self._check_internals_t = Thread(
+            target=self._check_internals_par_kernel,
+            args=(self._check_internals_q,))
+        self._check_internals_t.start()
+
+    def _check_internals_par_kernel(self, q):
+        """check_internals kernel for the background thread"""
+
+        # for windows: reduce the priority of the current thread to idle
+        if platform.system() == 'Windows':
+            THREAD_PRIORITY_IDLE = -15
+            THREAD_SET_INFORMATION = 0x20
+            w32 = ctypes.windll.kernel32
+            handle = w32.OpenThread(THREAD_SET_INFORMATION, False,
+                                    w32.GetCurrentThreadId())
+            result = w32.SetThreadPriority(handle, THREAD_PRIORITY_IDLE)
+            w32.CloseHandle(handle)
+            if not result:
+                print 'Failed to set priority of thread', w32.GetLastError()
+        self._check_internals()
+        q.put((self.bank, self._xcorrs))
+
+    def _check_internals_par_collect(self):
+        """returns true if collect was good"""
+
+        if self._check_internals_q.empty():
+            return False
+        else:
+            self.bank, self._xcorrs = self._check_internals_q.get()
+            self._check_internals_q.task_done()
+            self._check_internals_q = None
+            return True
+
 ##---MAIN
 
-def main_single(do_plot=True):
-    from spikeplot import plt, mcdata
-    import time
-
-    # test setup
-    C_SIZE = 410
-    TF = 21
-    NC = 2
-    CS = tuple(range(NC))
-    xi1 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 2
-    xi2 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 5
-    templates = sp.asarray([xi1, xi2])
-    LEN = 2000
-    noise = sp.randn(LEN, NC)
-    ce = TimeSeriesCovE(tf_max=TF, nc=NC)
-    ce.new_chan_set(CS)
-    ce.update(noise)
-    FB = BOTMNode(templates=templates,
-                  chan_set=CS,
-                  ce=ce,
-                  adapt_templates=15,
-                  learn_noise=False,
-                  debug=False,
-                  spk_pr=1e-6,
-                  ovlp_taus=None)
-    signal = sp.zeros_like(noise)
-    NPOS = 4
-    POS = [(int(i * LEN / (NPOS + 1)), 100) for i in xrange(1, NPOS + 1)]
-    POS.append((100, 2))
-    POS.append((120, 2))
-    print POS
-    for pos, tau in POS:
-        signal[pos:pos + TF] += xi1
-        signal[pos + tau:pos + tau + TF] += xi2
-    x = sp.ascontiguousarray(signal + noise, dtype=sp.float32)
-
-    # sort
-    tic_o = time.clock()
-    FB(x)
-    toc_o = time.clock()
-    print 'duration:', toc_o - tic_o
-
-    # plotting
-    if do_plot:
-        ev = {}
-        for u in xrange(FB.nfilter):
-            ev[u] = (FB.bank[u].xi, FB.rval[u])
-        fouts = FB._disc
-        print ev
-        ovlp_meth = 'sic'
-        if FB._ovlp_taus is not None:
-            ovlp_meth = 'och'
-        print 'overlap method:', ovlp_meth
-        mcdata(x, events=ev, other=fouts,
-               title='overlap method: %s' % ovlp_meth)
-        FB.plot_xvft()
-        plt.show()
-
-
-def main_double(do_plot=True):
-    from spikeplot import mcdata, plt
-    import time
-
-    # test setup
-    C_SIZE = 410
-    TF = 21
-    NC = 2
-    CS = tuple(range(NC))
-    xi1 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 2
-    xi2 = sp.vstack([sp.sin(sp.linspace(0, 2 * sp.pi, TF))] * NC).T * 5
-    templates = sp.asarray([xi1, xi2])
-    LEN = 2000
-    noise = sp.randn(LEN, NC)
-    ce = TimeSeriesCovE(tf_max=TF, nc=NC)
-    ce.new_chan_set(CS)
-    ce.update(noise)
-    FB_online = BOTMNode(templates=templates,
-                         chan_set=CS,
-                         ce=ce,
-                         adapt_templates=15,
-                         learn_noise=False,
-                         debug=False)
-    FB_chunked = BOTMNode(templates=templates,
-                          chan_set=CS,
-                          ce=ce,
-                          adapt_templates=15,
-                          learn_noise=False,
-                          chunk_size=C_SIZE,
-                          debug=False)
-    signal = sp.zeros_like(noise)
-    NPOS = 4
-    POS = [(int(i * LEN / (NPOS + 1)), 100) for i in xrange(1, NPOS + 1)]
-    POS.append((100, 2))
-    print POS
-    for pos, tau in POS:
-        signal[pos:pos + TF] += xi1
-        signal[pos + tau:pos + tau + TF] += xi2
-    x = sp.ascontiguousarray(signal + noise, dtype=sp.float32)
-
-    #    # sort chunked
-    #    tic_c = time.clock()
-    #    FB_chunked(x)
-    #    toc_c = time.clock()
-    #    print 'duration:', toc_c - tic_c
-    #    if do_plot:
-    #        FB_chunked.plot_sorting(show=False, debug=False)
-
-    # sort online
-    fouts = []
-    rval = []
-    tic_o = time.clock()
-    off = 0
-    while off < x.shape[0]:
-        FB_online(x[off:off + C_SIZE])
-        fouts.append(FB_online._disc.copy())
-        rval.append((FB_online.rval.copy(), off))
-        off += C_SIZE
-    toc_o = time.clock()
-    print 'duration:', toc_o - tic_o
-    ev = {}
-    for c_res, off in rval:
-        for k in c_res:
-            if k not in ev:
-                ev[k] = []
-            for t in c_res[k]:
-                ev[k].append(t + off)
-    dict_list_to_ndarray(ev)
-    for u in ev:
-        ev[u] = (FB_online.bank[u].xi, ev[u])
-    fouts = sp.vstack(fouts)
-    print ev
-    mcdata(x, events=ev, other=fouts, title='overlap method: %s' % ovlp_meth)
-    print 'overlap method:', ovlp_meth
-    plt.show()
-
 if __name__ == '__main__':
-    from sys import argv
-    import cProfile
-
-    DO_PROFILE = False
-
-    if len(argv) > 1:
-        DO_PROFILE = str(argv[2]).lower() == 'true'
-
-    if DO_PROFILE:
-        cProfile.run('main_single(False)', sort=2)
-    else:
-        main_single(True)
+    pass

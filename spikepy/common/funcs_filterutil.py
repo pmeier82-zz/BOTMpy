@@ -84,7 +84,7 @@ def xi_vs_f(xi, f, nc=4):
     xi = sp.asarray(xi)
     f = sp.asarray(f)
     if xi.shape[0] != f.shape[0]:
-        raise ValueError('count of xi an f does not match: xi(%s), f(%s)'
+        raise ValueError('count of xi and f does not match: xi(%s), f(%s)'
         % (xi.shape[0], f.shape[0]))
     if xi.shape[1] != f.shape[1]:
         raise ValueError('sample count mismatch: xi(%s), f(%s)'

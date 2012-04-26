@@ -54,8 +54,7 @@ import scipy as sp
 from spikeplot import waveforms, xvf_tensor
 from .base_nodes import Node
 from .linear_filter import FilterNode
-from ..common import (TimeSeriesCovE, xi_vs_f, overlaps, dict_list_to_ndarray,
-                      epochs_from_spiketrain_set, get_cut, get_aligned_spikes)
+from ..common import (TimeSeriesCovE, xi_vs_f)
 
 ##---CLASSES
 
@@ -130,9 +129,9 @@ class FilterBankNode(Node):
         self._rb_cap = int(rb_cap)
         self._xcorrs = None
         self._ce = None
-        self._is_initialised = False
+        self._idx_active_set = set()
         self.debug = bool(debug)
-        self.bank = []
+        self.bank = {}
         self.ce = ce
 
     ## properties
@@ -160,6 +159,8 @@ class FilterBankNode(Node):
             raise TypeError('Has to be of type %s' % TimeSeriesCovE)
         if value.tf_max < self._tf:
             raise ValueError('tf_max of cov_est is < than filter bank tf')
+        if self._chan_set not in value.get_chan_set():
+            raise FilterBankError('\'chan_set\' not present at \'ce\'!')
 
         # TODO: not sure how to solve this
         #if value.get_nc() < self._nc:
@@ -169,38 +170,36 @@ class FilterBankNode(Node):
 
     ce = property(get_ce, set_ce)
 
-    def get_nfilter(self):
-        return len(self.bank)
+    def get_nfilter(self, active=True):
+        if active:
+            return len(self._idx_active_set)
+        else:
+            return len(self.bank)
 
     nfilter = property(get_nfilter)
 
-    def get_template_set(self):
-        if not self.bank:
-            return sp.zeros((0, self._tf, self._nc), dtype=self.dtype)
-        return sp.asarray([f.xi for f in self.bank])
+    def _get_filter_set(self, key_set):
+        return [self.bank[k] for k in key_set]
+
+    def get_template_set(self, active=True, mc=True):
+        key_set = self._idx_active_set if active else set(self.bank.keys())
+        if not key_set:
+            shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
+            return sp.zeros(shape, dtype=self.dtype)
+        f_list = self._get_filter_set(key_set)
+        return sp.asarray([f.xi if mc else f.xi_conc for f in f_list])
 
     template_set = property(get_template_set)
 
-    def get_template_set_conc(self):
-        if not self.bank:
-            return sp.zeros((0, self._tf, self._nc), dtype=self.dtype)
-        return sp.asarray([f.xi_conc for f in self.bank])
-
-    template_set_conc = property(get_template_set_conc)
-
-    def get_filter_set(self):
-        if not self.bank:
-            return sp.zeros((0, self._tf, self._nc), dtype=self.dtype)
-        return sp.asarray([f.f for f in self.bank])
+    def get_filter_set(self, active=True, mc=True):
+        key_set = self._idx_active_set if active else set(self.bank.keys())
+        if not key_set:
+            shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
+            return sp.zeros(shape, dtype=self.dtype)
+        f_list = self._get_filter_set(key_set)
+        return sp.asarray([f.f if mc else f.f_conc for f in f_list])
 
     filter_set = property(get_filter_set)
-
-    def get_filter_set_conc(self):
-        if not self.bank:
-            return sp.zeros((0, self._tf * self._nc), dtype=self.dtype)
-        return sp.asarray([f.f_conc for f in self.bank])
-
-    filter_set_conc = property(get_filter_set_conc)
 
     ## filter bank interface
 
@@ -228,13 +227,27 @@ class FilterBankNode(Node):
                                  chan_set=self._chan_set,
                                  dtype=self.dtype)
         new_f.fill_xi_buf(xi)
-        self.bank.append(new_f)
+        idx = max(self.bank.keys()) + 1
+        self.bank[idx] = new_f
+        self._idx_active_set.add(idx)
 
         # return and check internals
         rval = True
         if check is True:
             rval = self._check_internals()
         return rval
+
+    def deactivate_filter(self, idx):
+        """deactivates a filter in the filter bank
+
+        filters are never deleted, but can be deactivated and will
+        subsequently not be respected for the filter output of the filter bank.
+        """
+
+        if idx in self.bank:
+            self.bank[idx].active = False
+            if idx in self._idx_active_set:
+                self._idx_active_set.remove(idx)
 
     def _check_internals(self):
         """triggers filter recalculation and rebuild xcorr tensor"""
@@ -246,12 +259,12 @@ class FilterBankNode(Node):
             return
 
         # build filters
-        for f in self.bank:
-            f.calc_filter()
+        for k in self._idx_active_set:
+            self.bank[k].calc_filter()
 
         # build cross-correlation tensor
-        self._xcorrs = xi_vs_f(self.template_set_conc,
-                               self.filter_set_conc,
+        self._xcorrs = xi_vs_f(self.template_set(mc=False),
+                               self.filter_set(mc=False),
                                nc=self._nc)
 
     ## mpd.Node interface
@@ -263,12 +276,11 @@ class FilterBankNode(Node):
         return False
 
     def _execute(self, x):
-        if not self.bank:
+        if not self._idx_active_set:
             return sp.zeros((x.shape[0], 0), dtype=self.dtype)
-        self._data = sp.ascontiguousarray(x, dtype=self._dtype)
         rval = sp.empty((x.shape[0], self.nfilter))
-        for i in xrange(self.nfilter):
-            rval[:, i] = self.bank[i](x)
+        for k in self._idx_active_set:
+            rval[:, k] = self.bank[k](x)
         return rval
 
     ## plotting methods
@@ -276,15 +288,16 @@ class FilterBankNode(Node):
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
 
-        inlist = [self.template_set_conc, self.filter_set_conc, self._xcorrs]
+        inlist = [self.template_set(mc=False), self.filter_set(mc=False),
+                  self._xcorrs]
         return xvf_tensor(inlist, nc=self._nc, plot_handle=ph, show=show)
 
     def plot_template_set(self, ph=None, show=False):
         """plot the template set in a waveform plot"""
 
         units = {}
-        for i in xrange(len(self.bank)):
-            units[i] = self.bank[i]._xi_buf[:]
+        for k in self._idx_active_set:
+            units[k] = self.bank[k]._xi_buf[:]
 
         return waveforms(units,
                          tf=self._tf,
