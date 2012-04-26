@@ -316,7 +316,6 @@ class ThresholdDetectorNode(ResetNode):
             raise ValueError('sample is not float or int')
         if kind not in ['min', 'max', 'energy']:
             raise ValueError('"kind" is not a valid alignment kind')
-        print self.events
         spks, st = get_aligned_spikes(self.data, self.events, self.tf, at,
                                       mc=False, kind=kind)
         self.events = st
