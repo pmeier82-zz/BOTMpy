@@ -45,13 +45,17 @@
 
 """abstract base classes derived from MDP nodes"""
 __docformat__ = 'restructuredtext'
-__all__ = ['TrainingResetMixin', 'ResetNode']
+__all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'TimeSeriesNode']
 
 ##---IMPORTS
 
 from mdp import Node, IsNotTrainableException, TrainingFinishedException
 
 ##---CLASSES
+
+class TimeSeriesNode(Node):
+    pass
+
 
 class TrainingResetMixin(object):
     """allows :py:class:`mdp.Node` to reset to training state

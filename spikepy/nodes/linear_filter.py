@@ -62,7 +62,7 @@ class FilterError(Exception):
 
 
 class FilterNode(Node):
-    """linear filter in the timedomain
+    """linear filter in the time domain
 
     This node applies a linear filter to the data and returns the filtered
     data. The derivation of the filter (f) from the pattern (xi) is

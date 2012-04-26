@@ -445,9 +445,8 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
                 else:
                     continue
                 for e in xrange(n_epoch):
-                    chunk = data[epochs[e, 0]:epochs[e, 1]]
-                    xc = xcorr(chunk[:, m],
-                               chunk[:, n],
+                    xc = xcorr(data[epochs[e, 0]:epochs[e, 1], m],
+                               data[epochs[e, 0]:epochs[e, 1], n],
                                lag=self._tf_max - 1,
                                normalise=True)
                     processed[m, n].append(xc * len_epoch[e])
