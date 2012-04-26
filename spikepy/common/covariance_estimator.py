@@ -371,8 +371,12 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         self.reset()
         # TODO: reset tf_max for self._store
 
+    tf_max = property(get_tf_max)
+
     def get_nc(self):
         return self._nc
+
+    nc = property(get_nc)
 
     def get_chan_set(self):
         return self._chan_set

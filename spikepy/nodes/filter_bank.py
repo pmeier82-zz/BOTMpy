@@ -100,10 +100,12 @@ class FilterBankNode(Node):
         """
 
         # checks and inits
-        if 'ce' not in kwargs:
+        ce = kwargs.pop('ce', None)
+        if ce is None:
             raise FilterBankError('\'ce\' is required!')
-        ce = kwargs.get('ce')
-        chan_set = kwargs.get('chan_set')
+        chan_set = kwargs.pop('chan_set', None)
+        if chan_set is None:
+            chan_set = tuple(range(ce.get_nc()))
         filter_cls = kwargs.get('filter_cls', None)
         if not filter_cls:
             raise FilterBankError('\'filter_cls\' is required!')
@@ -124,8 +126,7 @@ class FilterBankNode(Node):
         if templates.ndim != 3:
             raise FilterBankError('templates have to be provided in a tensor '
                                   'like [ntemps][tf][nc]!')
-        if chan_set is None:
-            chan_set = tuple(range(templates.shape[2]))
+
         if not issubclass(filter_cls, FilterNode):
             raise TypeError('filter_cls has to be a subclass of FilterNode!')
         if ce is None:
