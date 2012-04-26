@@ -45,11 +45,13 @@
 
 """abstract base classes derived from MDP nodes"""
 __docformat__ = 'restructuredtext'
-__all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'TimeSeriesNode']
+__all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'TimeSeriesNode',
+           'PCANode']
 
 ##---IMPORTS
 
 from mdp import Node, IsNotTrainableException, TrainingFinishedException
+from mdp.nodes import PCANode
 
 ##---CLASSES
 
