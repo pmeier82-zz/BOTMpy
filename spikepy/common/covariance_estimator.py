@@ -87,7 +87,8 @@ class BaseTimeSeriesCovarianceEstimator(object):
         self._weight = weight
         self._cond = float(cond)
         self._is_initialised = False
-        self._n_obs_smpl = 0
+        self._n_upd = 0
+        self._n_upd_smpl = 0
 
     ## getter and setter methods
 
@@ -162,7 +163,8 @@ class BaseTimeSeriesCovarianceEstimator(object):
         """reset the internal buffers to None"""
 
         self._is_initialised = False
-        self._n_obs_smpl = 0
+        self._n_upd = 0
+        self._n_upd_smpl = 0
         self._reset()
 
     def update(self, data, **kwargs):
@@ -179,21 +181,18 @@ class BaseTimeSeriesCovarianceEstimator(object):
             raise ValueError('data is not of rank 2')
 
         # relay
-        rval = self._update(data, **kwargs)
+        n_smpl = self._update(data, **kwargs)
         if self._is_initialised is False:
-            self._is_initialised = bool(rval)
-        if rval is True:
-            epochs = kwargs.get('epochs', None)
-            if epochs is None:
-                self._n_obs_smpl += data.shape[0]
-            else:
-                epochs = sp.asarray(epochs)
-                len_epoch = epochs[:, 1] - epochs[:, 0]
-                self._n_obs_smpl += len_epoch.sum()
+            self._is_initialised = n_smpl > 0
+        if n_smpl > 0:
+            self._n_upd += 1
+            self._n_upd_smpl += n_smpl
 
     ## private methods
 
     def _update(self, data, **kwargs):
+        # should return the number of samples that went into building the new
+        # observation
         raise NotImplementedError
 
     def _reset(self):
@@ -407,29 +406,31 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         :param data: the data to operate on [samples, channels]
         :type epochs: ndarray
         :keyword epochs: epochs delimiting the data to take the estimate over
-        :rtype: bool
-        :returns: True on successful estimate, False else
+        :type min_len: int
+        :keyword min_len: minimum length of epochs in samples
+        :rtype: int
+        :returns: number of samples that went into the sample
         """
+
+        # kwargs
+        epochs = kwargs.get('epochs', None)
+        min_len = kwargs.get('min_len', 3 * self._tf_max)
 
         # check data
         if data.shape[1] != self._nc:
             raise ValueError('channel count (columns) must be %d' % self._nc)
-        if data.shape[0] < self._tf_max:
-            raise ValueError(
-                'must give at least %d samples of data' % self._tf_max)
+        if data.shape[0] < min_len:
+            raise ValueError('must give at least %d samples of data' % min_len)
 
         # check epochs
-        epochs = kwargs.get('epochs', None)
         if epochs is None:
             epochs = sp.array([[0, data.shape[0]]], dtype=INDEX_DTYPE)
         else:
             epochs = sp.asarray(epochs)
         len_epoch = epochs[:, 1] - epochs[:, 0]
-        if epochs[len_epoch > self._tf_max, :].size == 0:
-            raise ValueError('epoch sum too small for update!')
-        if epochs[len_epoch > self._tf_max, :].sum() < self._tf_max * 2:
-            raise ValueError('epoch fragmentation too high for update')
-        epochs = epochs[len_epoch > self._tf_max]
+        if not any(len_epoch >= min_len):
+            raise ValueError('no epochs with len >= min_len!')
+        epochs = epochs[len_epoch > min_len]
         n_epoch = epochs.shape[0]
         len_epoch = epochs[:, 1] - epochs[:, 0]
         self._clear_buf()
@@ -459,7 +460,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
                 self._store[k] = processed[k]
 
         # return
-        return True
+        return len_epoch.sum()
 
     def _clear_buf(self):
         self._buf_cmx.clear()
