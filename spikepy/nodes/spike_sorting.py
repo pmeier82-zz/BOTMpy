@@ -139,8 +139,15 @@ class FilterBankSortingNode(Node):
 
         # kwargs
         templates = kwargs.pop('templates', None)
-        if templates is None:
-            raise FilterBankError('\'templates\' are required!')
+        tf = kwargs.get('tf', None)
+        if tf is None and templates is None:
+            raise FilterBankError('\'templates\' or \'tf\' are required!')
+        if tf is None:
+            if templates.ndim != 3:
+                raise FilterBankError(
+                    'templates have to be provided in a tensor of shape '
+                    '[ntemps][tf][nc]!')
+            kwargs['tf'] = templates.shape[1]
         adapt_templates = kwargs.pop('adapt_templates', -1)
         learn_noise = kwargs.pop('learn_noise', True)
         chunk_size = kwargs.pop('chunk_size', 100000)
@@ -151,15 +158,10 @@ class FilterBankSortingNode(Node):
 
         # build filter bank
         bank = FilterBankNode(**kwargs)
+        for key in ['ce', 'chan_set', 'filter_cls', 'rb_cap', 'tf', 'debug']:
+            kwargs.pop(key, None)
 
         # check templates
-        if templates.size == 0:
-            # TODO: remove this requirement
-            raise FilterBankError('provide at least one initial template!')
-        if templates.ndim != 3:
-            raise FilterBankError(
-                'templates have to be provided in a tensor of shape '
-                '[ntemps][tf][nc]!')
         if not issubclass(det_cls, ThresholdDetectorNode):
             raise TypeError(
                 '\'det_cls\' of type ThresholdDetectorNode is required!')
@@ -177,14 +179,13 @@ class FilterBankSortingNode(Node):
         self._chunk = None
         self._det_cls = det_cls
         self._det_params = det_params
-        self.det = self._det_cls(*self.det_params[0], **self.det_params[1])
+        self.det = self._det_cls(*self._det_params[0], **self._det_params[1])
         self.debug = self._bank.debug
         self.rval = {}
 
-        # add filters for templates
+        # create filters for templates
         for temp in templates:
-            self.create_filter(temp, check=False)
-        self._check_internals()
+            self.create_filter(temp)
 
     ## properties
 
@@ -241,7 +242,7 @@ class FilterBankSortingNode(Node):
     def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank"""
 
-        return self._bank.add_filter(xi, check=check)
+        return self._bank.create_filter(xi, check=check)
 
     ## sorting node interface
 
@@ -251,29 +252,25 @@ class FilterBankSortingNode(Node):
         # checks and inits
         if self._data is None or self.rval is None:
             return
-        ovlp_info = overlaps(self.rval, self._tf)[0]
-        cut = get_cut(self._tf)
+        ovlp_info = overlaps(self.rval, self.tf)[0]
+        cut = get_cut(self.tf)
 
         # adapt filters with found waveforms
         for u in self.rval:
             st = self.rval[u][ovlp_info[u] == False]
             if len(st) == 0:
                 continue
-            spks_u = get_aligned_spikes(self._data,
-                                        st,
-                                        cut,
-                                        self._adapt_templates,
-                                        mc=True,
-                                        kind='min')[0]
+            spks_u = get_aligned_spikes(
+                self._data, st, cut, self._adapt_templates, mc=True,
+                kind='min')[0]
             if spks_u.size == 0:
                 continue
-            self.bank[u].extend_xi_buf(spks_u)
+            self._bank.bank[u].extend_xi_buf(spks_u)
 
         # adapt noise covariance matrix
         if self._learn_noise:
-            nep = epochs_from_spiketrain_set(self.rval,
-                                             cut=cut,
-                                             end=self._data.shape[0])['noise']
+            nep = epochs_from_spiketrain_set(
+                self.rval, cut=cut, end=self._data.shape[0])['noise']
             self._ce.update(self._data, epochs=nep)
 
     ## mpd.Node interface
@@ -335,7 +332,7 @@ class FilterBankSortingNode(Node):
 
     def _combine_results(self):
         self.rval = dict_list_to_ndarray(self.rval)
-        correct = int(self._tf / 2)
+        correct = int(self.tf / 2)
         for k in self.rval:
             self.rval[k] -= correct
 
@@ -595,7 +592,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         if self.rval is not None:
             temps = self.template_set
             for i, k in enumerate(self.filter_idx):
-                if self.rval[k]:
+                if self.rval[k].any():
                     ev[k] = (temps[i], self.rval[k])
 
         # create colours

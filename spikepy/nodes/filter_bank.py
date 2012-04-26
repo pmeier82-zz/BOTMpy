@@ -207,7 +207,7 @@ class FilterBankNode(Node):
     xcorrs = property(get_xcorrs)
 
     def get_xcorrs_at(self, idx0, idx1=None, shift=0):
-        if not self._xcorrs:
+        if self._xcorrs is None:
             return None
         return self._xcorrs[idx0, idx1 or idx0, self._tf - 1 + shift]
 
@@ -222,7 +222,7 @@ class FilterBankNode(Node):
         for f in self.bank:
             f.reset_history()
 
-    def add_filter(self, xi, check=True):
+    def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank"""
 
         # check input
@@ -240,7 +240,9 @@ class FilterBankNode(Node):
                                  chan_set=self._chan_set,
                                  dtype=self.dtype)
         new_f.fill_xi_buf(xi)
-        idx = max(self.bank.keys()) + 1
+        idx = 0
+        if len(self.bank):
+            idx = max(self.bank.keys()) + 1
         self.bank[idx] = new_f
         self._idx_active_set.add(idx)
 
@@ -292,8 +294,8 @@ class FilterBankNode(Node):
             self.bank[k].calc_filter()
 
         # build cross-correlation tensor
-        self._xcorrs = xi_vs_f(self.template_set(mc=False),
-                               self.filter_set(mc=False),
+        self._xcorrs = xi_vs_f(self.get_template_set(mc=False),
+                               self.get_filter_set(mc=False),
                                nc=self._nc)
 
     ## mpd.Node interface
@@ -317,7 +319,8 @@ class FilterBankNode(Node):
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
 
-        inlist = [self.template_set(mc=False), self.filter_set(mc=False),
+        inlist = [self.get_template_set(mc=False),
+                  self.get_filter_set(mc=False),
                   self._xcorrs]
         return xvf_tensor(inlist, nc=self._nc, plot_handle=ph, show=show)
 

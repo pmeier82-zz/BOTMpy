@@ -62,15 +62,9 @@ class TestSortingNodes(ut.TestCase):
 
         # plotting
         if do_plot:
-            ev = {}
-            for u in xrange(FB.nfilter):
-                ev[u] = (FB.bank[u].xi, FB.rval[u])
-            fouts = FB._disc
-            print ev
+            f = FB.plot_sorting(show=True)
             ovlp_meth = 'sic' if FB._ovlp_taus is None else 'och'
-            print 'overlap method:', ovlp_meth
-            mcdata(x, events=ev, other=fouts,
-                   title='overlap method: %s' % ovlp_meth)
+            f.suptitle('overlap method: %s' % ovlp_meth)
             FB.plot_xvft()
             plt.show()
 
