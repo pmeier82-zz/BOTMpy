@@ -51,7 +51,7 @@ __all__ = ['FilterError', 'FilterNode', 'MatchedFilterNode',
 ##---IMPORTS
 
 import scipy as sp
-from mdp import Node
+from .base_nodes import Node
 from ..common import (mcfilter_hist, mcvec_from_conc, mcvec_to_conc,
                       TimeSeriesCovE, MxRingBuffer, snr_maha)
 

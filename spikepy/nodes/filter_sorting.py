@@ -60,8 +60,8 @@ __all__ = ['FilterBankError', 'FilterBankSortingNode', 'BOTMNode']
 
 import scipy as sp
 from scipy import linalg as sp_la
-from .sorting_nodes import SortingNode
-from .filter_nodes import FilterNode, MatchedFilterNode
+from .spike_sorting import SortingNode
+from .linear_filter import FilterNode, MatchedFilterNode
 from ..common import (TimeSeriesCovE, xi_vs_f, mcvec_to_conc, overlaps,
                       epochs_from_spiketrain_set, shifted_matrix_sub,
                       epochs_from_binvec, merge_epochs, matrix_argmax,
@@ -707,10 +707,10 @@ class BOTMNode(FilterBankSortingNode):
                             ax1 = f.add_subplot(211)
                             ax1.plot(x_range, sp.zeros_like(x_range), 'k--')
                             ax1.plot(x_range, ep_disc)
-                            ax1.axvline(spk_ep[i, 0] + ep_t)
+                            ax1.axvline(x_range[ep_t])
                             ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
                             ax2.plot(x_range, sub)
-                            ax2.axvline(spk_ep[i, 0] + ep_t)
+                            ax2.axvline(x_range[ep_t])
                         ep_disc += sub + self._lpr_s
                         if self.debug is True:
                             ax1.plot(x_range, ep_disc, ls=':', lw=2)

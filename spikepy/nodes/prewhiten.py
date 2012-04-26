@@ -52,7 +52,7 @@ __all__ = ['PrewhiteningNode', 'PrewhiteningNode2']
 
 import scipy as sp
 from scipy import linalg as sp_la
-from mdp import Node
+from .base_nodes import Node
 from ..common import coloured_loading, TimeSeriesCovE
 
 ##--- CLASSES
@@ -170,8 +170,7 @@ class PrewhiteningNode2(Node):
             raise RuntimeError('Node not initialised yet!')
 
         # return prewhitened data
-        rval = sp.dot(x,
-                      self._covest.get_whitening_op(tf=self.input_dim))
+        rval = sp.dot(x, self._covest.get_whitening_op(tf=self.input_dim))
         return rval.astype(self.dtype)
 
 ##--- MAIN
