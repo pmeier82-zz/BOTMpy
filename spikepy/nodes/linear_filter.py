@@ -62,14 +62,14 @@ class FilterError(Exception):
 
 
 class FilterNode(Node):
-    """abstract classifier for patterns in timeseries data
+    """linear filter in the timedomain
 
     This node applies a linear filter to the data and returns the filtered
-    data.
-    The derivation of the filter (f) from the pattern (xi) is specified in the
-    implementing subclass via the 'filter_calculation' classmethod.
-    The template will be averaged from a ringbuffer of observations. The
-    covariance matrix is supplied from an external covariance estimator.
+    data. The derivation of the filter (f) from the pattern (xi) is
+    specified in the implementing subclass via the 'filter_calculation'
+    classmethod. The template will be averaged from a ringbuffer of
+    observations. The covariance matrix is supplied from an external
+    covariance estimator.
     """
 
     ## constructor

@@ -43,7 +43,7 @@
 #_____________________________________________________________________________
 #
 
-"""implementation of spikesorting with optimal linear filters
+"""implementation of spike sorting with optimal linear filters
 
 See:
 [1] F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
