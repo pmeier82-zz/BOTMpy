@@ -67,7 +67,7 @@ from .base_nodes import Node
 from .filter_bank import FilterBankError, FilterBankNode
 from .spike_detector import SDMteoNode, ThresholdDetectorNode
 from ..common import (
-    overlaps, epochs_from_spiketrain_set, shifted_matrix_sub,
+    overlaps, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc,
     epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
     get_cut, get_aligned_spikes, GdfFile, MxRingBuffer)
 
@@ -262,6 +262,7 @@ class FilterBankSortingNode(Node):
             self._post_filter()
 
             # sorting
+            self._pre_sort()
             self._sort_chunk()
             self._post_sort()
 
@@ -277,13 +278,19 @@ class FilterBankSortingNode(Node):
     ## FilterBankSorting interface
 
     def _pre_filter(self):
-        return
+        pass
 
     def _post_filter(self):
-        return
+        pass
+
+    def _pre_sort(self):
+        pass
 
     def _post_sort(self):
-        return
+        pass
+
+    def _sort_chunk(self):
+        pass
 
     def _combine_results(self):
         self.rval = dict_list_to_ndarray(self.rval)
@@ -291,10 +298,7 @@ class FilterBankSortingNode(Node):
         for k in self.rval:
             self.rval[k] -= correct
 
-    def _sort_chunk(self):
-        return
-
-    ## plotting methods
+    ## output methods
 
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
@@ -305,6 +309,37 @@ class FilterBankSortingNode(Node):
         """plot the template set in a waveform plot"""
 
         return self._bank.plot_template_set(ph=ph, show=show)
+
+    def plot_sorting(self, ph=None, show=False, debug=False):
+        """plot the sorting of the last data chunk"""
+
+        # create events
+        ev = {}
+        if self.rval is not None:
+            temps = self.template_set
+            for i, k in enumerate(self.filter_idx):
+                if self.rval[k].any():
+                    ev[k] = (temps[i], self.rval[k])
+
+        # create colours
+        cols = COLOURS[:self.nfilter]
+
+        # calc discriminants for single units
+        other = None
+        if self.nfilter > 0:
+            other = self._bank(self._data)
+            other += self._lpr_s
+            other -= [.5 * self._bank.get_xcorrs_at(i)
+                      for i in xrange(self.nfilter)]
+
+        # plot mcdata
+        return mcdata(self._data, other=other, events=ev,
+                      plot_handle=ph, colours=cols, show=show)
+
+    def sorting2gdf(self, fname):
+        """yield the gdf representing the current sorting"""
+
+        GdfFile.write_gdf(fname, self.rval)
 
 
 class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
@@ -535,38 +570,19 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         break
                 del ep_fout, ep_disc, sub
 
-    ## output methods
+    ## BOTM implementation
 
-    def sorting2gdf(self, fname):
-        """yield the gdf representing the current sorting"""
+    def eval_prob(self, data):
+        """evaluate the probability of the data at a sample"""
 
-        GdfFile.write_gdf(fname, self.rval)
-
-    def plot_sorting(self, ph=None, show=False, debug=False):
-        """plot the sorting of the last data chunk"""
-
-        # create events
-        ev = {}
-        if self.rval is not None:
-            temps = self.template_set
-            for i, k in enumerate(self.filter_idx):
-                if self.rval[k].any():
-                    ev[k] = (temps[i], self.rval[k])
-
-        # create colours
-        cols = COLOURS[:self.nfilter]
-
-        # calc discriminants for single units
-        other = None
-        if self.nfilter > 0:
-            other = self._bank(self._data)
-            other += self._lpr_s
-            other -= [.5 * self._bank.get_xcorrs_at(i)
-                      for i in xrange(self.nfilter)]
-
-        # plot mcdata
-        return mcdata(self._data, other=other, events=ev,
-                      plot_handle=ph, colours=cols, show=show)
+        data = mcvec_to_conc(data)
+        resi = data - self.get_template_set(mc=False)
+        maha = sp.zeros(len(resi))
+        for i in xrange(len(resi)):
+            maha[i] = sp.dot(data[i],
+                             sp.dot(self.ce.get_icmx(tf=self.tf), data[i]))
+        lp = -.5 * maha + self._lpr_s
+        return lp / lp.sum()
 
 # for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
@@ -579,8 +595,8 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
 
     def __init__(self, **kwargs):
         """
-        :type adapt_templates: int
-        :keyword adapt_templates: if non-negative integer, adapt the filters
+        :type learn_templates: int
+        :keyword learn_templates: if non-negative integer, adapt the filters
             with the found events aligned at that sample. If negative,
             calculate the alignment samples as int(.25*self.tf)
             Default=-1
@@ -596,9 +612,9 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             this must be a subclass of 'ThresholdDetectorNode'.
             Default=MTEO_DET
         :type det_limit: int
-        :keyword det_limit: capacity of the ringbufferto hold the detection
+        :keyword det_limit: capacity of the ringbuffer to hold the detection
             spikes.
-            Default=500
+            Default=2000
         :type det_params: dict
         :keyword det_params: parameters for the spike detector that will be
             run in parallel on the data.
@@ -606,10 +622,10 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         """
 
         # kwargs
-        adapt_templates = kwargs.pop('adapt_templates', -1)
+        learn_templates = kwargs.pop('learn_templates', -1)
         learn_noise = kwargs.pop('learn_noise', 'sort')
         det_cls = kwargs.pop('det_cls', MTEO_DET)
-        det_limit = kwargs.pop('det_limit', 500)
+        det_limit = kwargs.pop('det_limit', 2000)
         det_params = kwargs.pop('det_params', MTEO_PARAMS)
 
         # check det_cls
@@ -623,11 +639,10 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         # super
         super(ABOTMNode, self).__init__(**kwargs)
 
-        if adapt_templates < 0:
-            adapt_templates = int(0.25 * self.tf)
+        if learn_templates < 0:
+            learn_templates = int(0.25 * self.tf)
 
         # members
-        self._adapt_templates = adapt_templates
         self._det = None
         self._det_cls = det_cls
         self._det_params = det_params
@@ -635,6 +650,7 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         self._det_buf = None
         self._det_unexplained_by_fb = None
         self._learn_noise = learn_noise
+        self._learn_templates = learn_templates
 
     ## properties
 
@@ -652,18 +668,21 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
     ## FilterBanksortingNode interface
 
     def _pre_filter(self):
+        pass
+
+    def _post_sort(self):
         self.det(self._chunk)
-        det_spks = self._det.get_extracted_events(
-            mc=True, align_kind='min', align_at=self._adapt_templates)
+        det_spks = self.det.get_extracted_events(
+            mc=False, align_kind='min', align_at=self._learn_templates)
 
     def _execute(self, x):
         # call super to get sorting
         rval = super(ABOTMNode, self)._execute(x)
-        # adapt current filters based on sorting
-        self._adapt_templates()
-        # try to leant new templates
+        # learn new templates from detection
         self._adapt_det_spks()
-        # learn the noise
+        # learn slow template changes
+        self._adapt_templates()
+        # learn slow noise statistic changes
         self._adapt_noise()
         return rval
 
@@ -677,10 +696,10 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             nep = None
             if self._learn_noise == 'sort':
                 nep = epochs_from_spiketrain_set(
-                    self.rval, cut=cut, end=self._data.shape[0])['noise']
+                    self.rval, cut=self.tf, end=self._data.shape[0])['noise']
             elif self._learn_noise == 'det':
                 nep = self.det.get_epochs(merge=True, invert=True)
-            self._ce.update(self._data, epochs=nep)
+            self.ce.update(self._data, epochs=nep)
 
     def _adapt_templates(self):
         """adapt templates/filters using non overlapping spikes"""
@@ -697,7 +716,7 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             if len(st) == 0:
                 continue
             spks_u = get_aligned_spikes(
-                self._data, st, cut, self._adapt_templates, mc=True,
+                self._data, st, cut, self._learn_templates, mc=True,
                 kind='min')[0]
             if spks_u.size == 0:
                 continue
