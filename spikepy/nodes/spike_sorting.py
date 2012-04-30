@@ -54,7 +54,7 @@ The revolutionary BOTM Paper
 """
 
 __docformat__ = 'restructuredtext'
-__all__ = ['BOTMNode', 'BayesOptimalTemplateMatchingNode',
+__all__ = ['ABOTMNode', 'BOTMNode', 'BayesOptimalTemplateMatchingNode',
            'FilterBankSortingNode']
 
 ##---IMPORTS
@@ -581,13 +581,15 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         """
         :type adapt_templates: int
         :keyword adapt_templates: if non-negative integer, adapt the filters
-            with the found events aligned at that sample.
+            with the found events aligned at that sample. If negative,
+            calculate the alignment samples as int(.25*self.tf)
             Default=-1
-        :type learn_noise: bool
-        :keyword learn_noise: if True, adapt the noise covariance matrix with
-            the noise epochs w.r.t. the found events. Else, do not learn the
-            noise.
-            Default=True
+        :type learn_noise: str or None
+        :keyword learn_noise: if not None, adapt the noise covariance matrix
+            with from the noise epochs. This has to be either 'sort' to
+            learn from the non overlapping sorting events,
+            or 'det' to lean from the detection. Else, do not learn the noise.
+            Default='sort'
         :type det_cls: ThresholdDetectorNode
         :keyword det_cls: the class of detector node to use for the spike
             detection running in parallel to the sorting,
@@ -605,7 +607,7 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
 
         # kwargs
         adapt_templates = kwargs.pop('adapt_templates', -1)
-        learn_noise = kwargs.pop('learn_noise', True)
+        learn_noise = kwargs.pop('learn_noise', 'sort')
         det_cls = kwargs.pop('det_cls', MTEO_DET)
         det_limit = kwargs.pop('det_limit', 500)
         det_params = kwargs.pop('det_params', MTEO_PARAMS)
@@ -614,20 +616,25 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         if not issubclass(det_cls, ThresholdDetectorNode):
             raise TypeError(
                 '\'det_cls\' of type ThresholdDetectorNode is required!')
+        if learn_noise is not None:
+            if learn_noise not in ['det', 'sort']:
+                learn_noise = None
 
         # super
         super(ABOTMNode, self).__init__(**kwargs)
 
+        if adapt_templates < 0:
+            adapt_templates = int(0.25 * self.tf)
+
         # members
-        self._adapt_templates = int(adapt_templates)
+        self._adapt_templates = adapt_templates
         self._det = None
         self._det_cls = det_cls
         self._det_params = det_params
         self._det_limit = int(det_limit)
-        self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                                     dimension=(self.tf, self.nc),
-                                     dtype=self.dtype)
-        self._learn_noise = bool(learn_noise)
+        self._det_buf = None
+        self._det_unexplained_by_fb = None
+        self._learn_noise = learn_noise
 
     ## properties
 
@@ -635,20 +642,48 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         if self._det is None:
             self._det = self._det_cls(*self._det_params[0],
                                       **self._det_params[1])
+            self._det_buf = MxRingBuffer(capacity=self._det_limit,
+                                         dimension=(self.tf, self.nc),
+                                         dtype=self.dtype)
         return self._det
+
+    det = property(get_det)
 
     ## FilterBanksortingNode interface
 
     def _pre_filter(self):
-        self._det(self._chunk)
+        self.det(self._chunk)
+        det_spks = self._det.get_extracted_events(
+            mc=True, align_kind='min', align_at=self._adapt_templates)
 
-    def _post_sort(self):
-        pass
+    def _execute(self, x):
+        # call super to get sorting
+        rval = super(ABOTMNode, self)._execute(x)
+        # adapt current filters based on sorting
+        self._adapt_templates()
+        # try to leant new templates
+        self._adapt_det_spks()
+        # learn the noise
+        self._adapt_noise()
+        return rval
 
     ## ABOTM interface
 
-    def _adaption(self):
-        """adapt using non overlapping spikes"""
+    def _adapt_det_spks(self):
+        pass
+
+    def _adapt_noise(self):
+        if self._learn_noise:
+            nep = None
+            if self._learn_noise == 'sort':
+                nep = epochs_from_spiketrain_set(
+                    self.rval, cut=cut, end=self._data.shape[0])['noise']
+            elif self._learn_noise == 'det':
+                nep = self.det.get_epochs(merge=True, invert=True)
+            self._ce.update(self._data, epochs=nep)
+
+    def _adapt_templates(self):
+        """adapt templates/filters using non overlapping spikes"""
 
         # checks and inits
         if self._data is None or self.rval is None:
@@ -667,12 +702,6 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             if spks_u.size == 0:
                 continue
             self._bank.bank[u].extend_xi_buf(spks_u)
-
-        # adapt noise covariance matrix
-        if self._learn_noise:
-            nep = epochs_from_spiketrain_set(
-                self.rval, cut=cut, end=self._data.shape[0])['noise']
-            self._ce.update(self._data, epochs=nep)
 
 ##---MAIN
 

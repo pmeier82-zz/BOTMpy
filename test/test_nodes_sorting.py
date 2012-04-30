@@ -52,7 +52,6 @@ class TestSortingNodes(ut.TestCase):
 
         print '### constructed spike times ###'
         print POS
-        print '###'
 
         # sort
         tic_o = time.clock()
@@ -60,6 +59,7 @@ class TestSortingNodes(ut.TestCase):
         toc_o = time.clock()
         print '### sorting spike times ###'
         print FB.rval
+
         print '###'
         print 'duration:', toc_o - tic_o
 

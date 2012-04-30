@@ -267,11 +267,7 @@ def epochs_from_spiketrain(st, cut, end=None, with_corrected_st=False):
 
     # checks
     st = sp.asarray(st)
-    if not isinstance(cut, (int, tuple)):
-        raise ValueError('cut has to be either a 2-tuple or an int')
-    else:
-        if isinstance(cut, int):
-            cut = get_cut(cut)
+    cut = get_cut(cut)
     if end is None:
         end = sp.iinfo(INDEX_DTYPE).max
     else:
@@ -339,7 +335,7 @@ def chunk_data(data, epochs=None):
     # checks
     data = sp.asarray(data)
     if data.ndim != 2:
-        raise ValueError('data has be ndim==2')
+        raise ValueError('data has to be ndim==2')
     if epochs is None or len(epochs) < 1:
         epochs = [[0, data.shape[0]]]
 
@@ -368,7 +364,9 @@ def extract_spikes(data, epochs, mc=False):
     # checks
     data = sp.asarray(data)
     if data.ndim != 2:
-        raise ValueError('data has be ndim==2')
+        raise ValueError('data has to be ndim==2')
+    if epochs.ndim != 2:
+        raise ValueError('epochs has to be ndim==2')
 
     # inits
     nspikes = epochs.shape[0]
@@ -412,8 +410,15 @@ def get_cut(tf, off=0):
     :param off: offset for epoch start/end
         Default=0
     """
-
-    return int(tf / 2.0) - int(off), int(tf / 2.0) + tf % 2 + int(off)
+    if isinstance(tf, tuple):
+        if len(tf) == 2:
+            return tf[0] - int(off), tf[1] + int(off)
+        else:
+            raise ValueError('tuples have to be of length==2 for get_cut')
+    elif isinstance(tf, int):
+        return int(tf / 2.0) - int(off), int(tf / 2.0) + tf % 2 + int(off)
+    else:
+        raise TypeError('only int or tuple are allowed for get_cut')
 
 ## SNR functions - added by Felix 10. aug 2009
 

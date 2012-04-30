@@ -94,8 +94,8 @@ def get_tau_align_energy(spikes, align_at):
     return get_tau_for_alignment(spikes * spikes, align_at)
 
 
-def get_aligned_spikes(data, spiketrain, cut, align_at, mc=True,
-                       kind='energy'):
+def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
+                       kind='none'):
     """return the set of aligned spikes waveforms and thei taus
 
     :type data: ndarray
@@ -116,8 +116,9 @@ def get_aligned_spikes(data, spiketrain, cut, align_at, mc=True,
             - "max"    - align on maximum of the waveform
             - "min"    - align on minimum of the waveform
             - "energy" - align on peak of energy
+            - "none"   - no alignment
 
-        Default='energy'
+        Default='none'
     :rtype: ndarray, ndarray
     :returns: stacked spike events, spike train with events corrected for
         alignment
@@ -127,16 +128,24 @@ def get_aligned_spikes(data, spiketrain, cut, align_at, mc=True,
                                     cut,
                                     end=data.shape[0],
                                     with_corrected_st=True)
-    spikes = extract_spikes(data, ep, mc=True)
-    tau_func = {'min':get_tau_align_min,
-                'max':get_tau_align_max,
-                'energy':get_tau_align_energy}[kind]
-    tau = tau_func(spikes, align_at)
-    ep, st = epochs_from_spiketrain(st - tau,
-                                    cut,
-                                    end=data.shape[0],
-                                    with_corrected_st=True)
-    spikes = extract_spikes(data, ep, mc=mc)
+    if ep.shape[0] > 0:
+        spikes = extract_spikes(data, ep, mc=mc)
+        if kind in ['min', 'max', 'energy']:
+            tau = {'min':get_tau_align_min,
+                   'max':get_tau_align_max,
+                   'energy':get_tau_align_energy}[kind](spikes, align_at)
+            ep, st = epochs_from_spiketrain(st - tau,
+                                            cut,
+                                            end=data.shape[0],
+                                            with_corrected_st=True)
+            spikes = extract_spikes(data, ep, mc=mc)
+    else:
+        cut = get_cut(cut)
+        if mc is True:
+            size = 0, sum(cut), data.shape[1]
+        else:
+            size = 0, sum(cut) * data.shape[1]
+        spikes = sp.zeros((0, size))
     return spikes, st
 
 ##--- MAIN

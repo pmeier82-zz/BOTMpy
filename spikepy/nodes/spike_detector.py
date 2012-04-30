@@ -265,10 +265,8 @@ class ThresholdDetectorNode(ResetNode):
             return sp.zeros((0, 2), dtype=INDEX_DTYPE)
         if cut is None:
             cut = get_cut(self.tf)
-        if isinstance(cut, int):
-            cut = (cut, cut)
-        if sum(cut) < 1:
-            raise ValueError('cut = %s,does not sum to value > 1' % str(cut))
+        else:
+            cut = get_cut(cut)
 
         # calc epochs
         if invert is True:
@@ -291,46 +289,33 @@ class ThresholdDetectorNode(ResetNode):
             rval = rval.astype(INDEX_DTYPE)
         return rval
 
-    def get_extracted_events_aligned(self, sample=0.25, kind='min'):
-        """aligns the events at the sample given
+    def get_extracted_events(self, mc=False, align_kind='none', align_at=None,
+                             buffer=False):
+        """yields the extracted spikes
 
-        :type sample: float ot int
-        :param sample: if a float from (0.0,1.0], determine the align_sample
+        :type mc: bool
+        :param mc: if True, return multichannel events, else return
+            concatenated events.
+            Default=False
+        :type align_kind: str
+        :param align_kind: one of "min", "max", "energy" or "none". method
+            to use for alignment, will be passed to the alignment function.
+            Default='none'
+        :type align_at: int or float
+        :param align_at: if a float from (0.0,1.0), determine the align_sample
             according to that weight. If a positive integer from (0,
             self.tf-1] use that sample as the align_sample.
             Default=0.25
-        :type kind: str
-        :param kind: one of "min", "max" or "energy". method to use for
-            alignment, will be passed to the alignment function.
+        :type buffer: bool
+        :param buffer: if True, write to buffer regardless of current buffer
+            state.
+            Default=False
         """
 
-        if isinstance(sample, float):
-            if not 0.0 <= sample < self.tf:
-                raise ValueError('"sample" is float and not from (0.0,1.0]')
-            at = int((self.tf - 1) * sample)
-        elif isinstance(sample, int):
-            if not 0 <= sample < self.tf:
-                raise ValueError('"sample" is int and not from (0,self.tf-1]')
-            at = sample
-        else:
-            raise ValueError('sample is not float or int')
-        if kind not in ['min', 'max', 'energy']:
-            raise ValueError('"kind" is not a valid alignment kind')
-        spks, st = get_aligned_spikes(self.data, self.events, self.tf, at,
-                                      mc=False, kind=kind)
-        self.events = st
-        return spks
-
-    def get_extracted_events(self):
-        """yields the extracted spikes"""
-
-        if self.extracted_events is None:
-            epochs = self.get_epochs(invert=False, merge=False)
-            if self.events is None or epochs.size == 0:
-                self.extracted_events = sp.zeros(
-                    (0, self.tf * self.nchan), dtype=self.dtype)
-            else:
-                self.extracted_events = extract_spikes(self.data, epochs)
+        if self.extracted_events is None or buffer:
+            self.extracted_events, self.events = get_aligned_spikes(
+                self.data, self.events, self.tf, align_at=align_at, mc=mc,
+                kind=align_kind)
 
         # return extracted events
         return self.extracted_events
