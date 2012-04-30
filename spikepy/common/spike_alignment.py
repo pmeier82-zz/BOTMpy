@@ -129,8 +129,8 @@ def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
                                     end=data.shape[0],
                                     with_corrected_st=True)
     if ep.shape[0] > 0:
-        spikes = extract_spikes(data, ep, mc=mc)
         if kind in ['min', 'max', 'energy']:
+            spikes = extract_spikes(data, ep, mc=True)
             tau = {'min':get_tau_align_min,
                    'max':get_tau_align_max,
                    'energy':get_tau_align_energy}[kind](spikes, align_at)
@@ -138,6 +138,8 @@ def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
                                             cut,
                                             end=data.shape[0],
                                             with_corrected_st=True)
+            spikes = extract_spikes(data, ep, mc=mc)
+        else:
             spikes = extract_spikes(data, ep, mc=mc)
     else:
         cut = get_cut(cut)

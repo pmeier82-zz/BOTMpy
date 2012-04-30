@@ -579,8 +579,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         resi = data - self.get_template_set(mc=False)
         maha = sp.zeros(len(resi))
         for i in xrange(len(resi)):
-            maha[i] = sp.dot(data[i],
-                             sp.dot(self.ce.get_icmx(tf=self.tf), data[i]))
+            maha[i] = sp.dot(resi[i],
+                             sp.dot(self.ce.get_icmx(tf=self.tf), resi[i]))
         lp = -.5 * maha + self._lpr_s
         return lp / lp.sum()
 
