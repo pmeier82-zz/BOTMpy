@@ -69,7 +69,7 @@ from .spike_detector import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain_set, shifted_matrix_sub,
     epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
-    get_cut, get_aligned_spikes, GdfFile )
+    get_cut, get_aligned_spikes, GdfFile, MxRingBuffer)
 
 ##---CONSTANTS
 
@@ -117,18 +117,6 @@ class FilterBankSortingNode(Node):
         :keyword chunk_size: if input data will be longer than chunk_size, the
             input will be processed chunk per chunk to overcome memory sinks
             Default=100000
-        :type det_cls: ThresholdDetectorNode
-        :keyword det_cls: the class of detector node to use for the spike
-            detection running in parallel to the sorting,
-            this must be a subclass of 'ThresholdDetectorNode'.
-            Default=MTEO_DET
-        :type det_params: dict
-        :keyword det_params: parameters for the spike detector that will be
-            run in parallel on the data.
-            Default=MTEO_PARAMS
-        :type det_spk_cap: int
-        :param det_spk_cap: capacity of the spike buffer.
-            Default=500
         :type debug: bool
         :keyword debug: if True, store intermediate results and generate
             verbose output
@@ -151,21 +139,15 @@ class FilterBankSortingNode(Node):
                     '[ntemps][tf][nc]!')
             kwargs['tf'] = templates.shape[1]
         chunk_size = kwargs.pop('chunk_size', 100000)
-        det_cls = kwargs.pop('det_cls', MTEO_DET)
-        det_params = kwargs.pop('det_params', MTEO_PARAMS)
         dtype = kwargs.pop('dtype', sp.float32)
-        # everything not popped goes to FilterBankNode after that
-        # to mdp.Node.__init__ via super
+        # everything not popped goes to FilterBankNode
 
         # build filter bank
         bank = FilterBankNode(dtype=dtype, **kwargs)
         for key in ['ce', 'chan_set', 'filter_cls', 'rb_cap', 'tf', 'debug']:
             kwargs.pop(key, None)
 
-        # check templates
-        if not issubclass(det_cls, ThresholdDetectorNode):
-            raise TypeError(
-                '\'det_cls\' of type ThresholdDetectorNode is required!')
+        # everything not popped goes to super
 
         # super
         super(FilterBankSortingNode, self).__init__(dtype=dtype, **kwargs)
@@ -177,9 +159,6 @@ class FilterBankSortingNode(Node):
         self._chunk = None
         self._chunk_offset = 0
         self._chunk_size = int(chunk_size)
-        self._det = None
-        self._det_cls = det_cls
-        self._det_params = det_params
         self.debug = bool(self._bank.debug)
         self.rval = {}
 
@@ -232,14 +211,6 @@ class FilterBankSortingNode(Node):
 
     filter_set = property(get_filter_set)
 
-    def get_det(self):
-        if self._det is None:
-            self._det = self._det_cls(*self._det_params[0],
-                                      **self._det_params[1])
-        return self._det
-
-    det = property(get_det)
-
     ## filter bank interface
 
     def reset_history(self):
@@ -284,9 +255,6 @@ class FilterBankSortingNode(Node):
             self._chunk = self._data[
                           self._chunk_offset:self._chunk_offset + clen]
             self._fout = sp.empty((clen, self.nfilter))
-
-            # spike detection
-            self.det(self._chunk)
 
             # filtering
             self._pre_filter()
@@ -615,31 +583,96 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         :keyword adapt_templates: if non-negative integer, adapt the filters
             with the found events aligned at that sample.
             Default=-1
-        :type det_limit: int
-        :keyword det_limit: capacity of the ringbufferto hold the detection
-            spikes.
-            Default=500
         :type learn_noise: bool
         :keyword learn_noise: if True, adapt the noise covariance matrix with
             the noise epochs w.r.t. the found events. Else, do not learn the
             noise.
             Default=True
+        :type det_cls: ThresholdDetectorNode
+        :keyword det_cls: the class of detector node to use for the spike
+            detection running in parallel to the sorting,
+            this must be a subclass of 'ThresholdDetectorNode'.
+            Default=MTEO_DET
+        :type det_limit: int
+        :keyword det_limit: capacity of the ringbufferto hold the detection
+            spikes.
+            Default=500
+        :type det_params: dict
+        :keyword det_params: parameters for the spike detector that will be
+            run in parallel on the data.
+            Default=MTEO_PARAMS
         """
 
         # kwargs
         adapt_templates = kwargs.pop('adapt_templates', -1)
-        det_limit = kwargs.pop('det_limit', 500)
         learn_noise = kwargs.pop('learn_noise', True)
+        det_cls = kwargs.pop('det_cls', MTEO_DET)
+        det_limit = kwargs.pop('det_limit', 500)
+        det_params = kwargs.pop('det_params', MTEO_PARAMS)
+
+        # check det_cls
+        if not issubclass(det_cls, ThresholdDetectorNode):
+            raise TypeError(
+                '\'det_cls\' of type ThresholdDetectorNode is required!')
 
         # super
         super(ABOTMNode, self).__init__(**kwargs)
 
         # members
-        self._adapt_templates = adapt_templates
-        self._det_limit = detection_limit
+        self._adapt_templates = int(adapt_templates)
+        self._det = None
+        self._det_cls = det_cls
+        self._det_params = det_params
+        self._det_limit = int(det_limit)
+        self._det_buf = MxRingBuffer(capacity=self._det_limit,
+                                     dimension=(self.tf, self.nc),
+                                     dtype=self.dtype)
+        self._learn_noise = bool(learn_noise)
+
+    ## properties
+
+    def get_det(self):
+        if self._det is None:
+            self._det = self._det_cls(*self._det_params[0],
+                                      **self._det_params[1])
+        return self._det
+
+    ## FilterBanksortingNode interface
+
+    def _pre_filter(self):
+        self._det(self._chunk)
 
     def _post_sort(self):
         pass
+
+    ## ABOTM interface
+
+    def _adaption(self):
+        """adapt using non overlapping spikes"""
+
+        # checks and inits
+        if self._data is None or self.rval is None:
+            return
+        ovlp_info = overlaps(self.rval, self.tf)[0]
+        cut = get_cut(self.tf)
+
+        # adapt filters with found waveforms
+        for u in self.rval:
+            st = self.rval[u][ovlp_info[u] == False]
+            if len(st) == 0:
+                continue
+            spks_u = get_aligned_spikes(
+                self._data, st, cut, self._adapt_templates, mc=True,
+                kind='min')[0]
+            if spks_u.size == 0:
+                continue
+            self._bank.bank[u].extend_xi_buf(spks_u)
+
+        # adapt noise covariance matrix
+        if self._learn_noise:
+            nep = epochs_from_spiketrain_set(
+                self.rval, cut=cut, end=self._data.shape[0])['noise']
+            self._ce.update(self._data, epochs=nep)
 
 ##---MAIN
 
