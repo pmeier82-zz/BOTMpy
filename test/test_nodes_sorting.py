@@ -18,8 +18,7 @@ class TestSortingNodes(ut.TestCase):
     def setUp(self):
         pass
 
-    def testMainSingle(self, do_plot=True):
-        from spikeplot import plt, mcdata
+    def testMainSingle(self, do_plot=False):
         import time
 
         # test setup
@@ -39,8 +38,6 @@ class TestSortingNodes(ut.TestCase):
         ce.update(noise)
         FB = BOTMNode(templates=templates,
                       ce=ce,
-                      adapt_templates=10,
-                      learn_noise=False,
                       debug=False,
                       ovlp_taus=None)
         signal = sp.zeros_like(noise)
@@ -48,25 +45,23 @@ class TestSortingNodes(ut.TestCase):
         POS = [(int(i * LEN / (NPOS + 1)), 100) for i in xrange(1, NPOS + 1)]
         POS.append((100, 2))
         POS.append((150, 2))
-        print POS
         for pos, tau in POS:
             signal[pos:pos + TF] += xi1
             signal[pos + tau:pos + tau + TF] += xi2
         x = sp.ascontiguousarray(signal + noise, dtype=sp.float32)
 
+        print '### constructed spike times ###'
+        print POS
+        print '###'
+
         # sort
         tic_o = time.clock()
         FB(x)
         toc_o = time.clock()
+        print '### sorting spike times ###'
+        print FB.rval
+        print '###'
         print 'duration:', toc_o - tic_o
-
-        # plotting
-        if do_plot:
-            f = FB.plot_sorting(show=True)
-            ovlp_meth = 'sic' if FB._ovlp_taus is None else 'och'
-            f.suptitle('overlap method: %s' % ovlp_meth)
-            FB.plot_xvft()
-            plt.show()
 
 if __name__ == '__main__':
     ut.main()

@@ -62,25 +62,33 @@ __all__ = ['BOTMNode', 'BayesOptimalTemplateMatchingNode',
 import scipy as sp
 from scipy import linalg as sp_la
 from spikeplot import COLOURS, mcdata, plt
+import warnings
 from .base_nodes import Node
 from .filter_bank import FilterBankError, FilterBankNode
 from .spike_detector import SDMteoNode, ThresholdDetectorNode
-from ..common import (overlaps, epochs_from_spiketrain_set, shifted_matrix_sub,
-                      epochs_from_binvec, merge_epochs, matrix_argmax,
-                      dict_list_to_ndarray, get_cut, get_aligned_spikes,
-                      GdfFile)
+from ..common import (
+    overlaps, epochs_from_spiketrain_set, shifted_matrix_sub,
+    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
+    get_cut, get_aligned_spikes, GdfFile )
 
-# for parallel mixin
-from Queue import Queue
-from threading import Thread
-import ctypes as ctypes
-import platform
-import warnings
+##---CONSTANTS
+
+MTEO_DET = SDMteoNode
+MTEO_PARAMS = tuple(), {'kvalues':[6, 9, 13, 18], 'threshold_factor':3.0, }
 
 ##---CLASSES
 
 class FilterBankSortingNode(Node):
-    """abstract class that handles filter instances and their outputs"""
+    """abstract class that handles filter instances and their outputs
+
+    This class provides a pipeline structure to implement spike sorting
+    algorithms that operate on a filter bank. The implementation is done by
+    implementing `self._pre_filter`, `self._post_filter`, `self._sort_chunk`
+    and `self._post_sort` methods with meaning full processing. After the
+    filter steps the filter output of the filters constituting the filter
+    bank is present and can be processed on. Input data can be partitioned
+    into chunks of smaller size.
+    """
 
     def __init__(self, **kwargs):
         """
@@ -105,28 +113,22 @@ class FilterBankSortingNode(Node):
         :keyword rb_cap: capacity of the ringbuffer that stored observations
             for the filters to calculate the mean template.
             Default=350
-        :type adapt_templates: int
-        :keyword adapt_templates: if non-negative integer, adapt the filters
-            with the found events aligned at that sample.
-            Default=-1
-        :type learn_noise: bool
-        :keyword learn_noise: if True, adapt the noise covariance matrix with
-            the noise epochs w.r.t. the found events. Else, do not learn the
-            noise.
-            Default=True
         :type chunk_size: int
         :keyword chunk_size: if input data will be longer than chunk_size, the
             input will be processed chunk per chunk to overcome memory sinks
             Default=100000
         :type det_cls: ThresholdDetectorNode
-        :keyword det_Cls: the class of detector node to use for the spike
+        :keyword det_cls: the class of detector node to use for the spike
             detection running in parallel to the sorting,
             this must be a subclass of 'ThresholdDetectorNode'.
-            Default=SDMteoNode
+            Default=MTEO_DET
         :type det_params: dict
         :keyword det_params: parameters for the spike detector that will be
             run in parallel on the data.
-            Default=((,),{}) - null args and kwargs
+            Default=MTEO_PARAMS
+        :type det_spk_cap: int
+        :param det_spk_cap: capacity of the spike buffer.
+            Default=500
         :type debug: bool
         :keyword debug: if True, store intermediate results and generate
             verbose output
@@ -148,16 +150,15 @@ class FilterBankSortingNode(Node):
                     'templates have to be provided in a tensor of shape '
                     '[ntemps][tf][nc]!')
             kwargs['tf'] = templates.shape[1]
-        adapt_templates = kwargs.pop('adapt_templates', -1)
-        learn_noise = kwargs.pop('learn_noise', True)
         chunk_size = kwargs.pop('chunk_size', 100000)
-        det_cls = kwargs.pop('det_cls', SDMteoNode)
-        det_params = kwargs.pop('det_params', (tuple(), dict()))
+        det_cls = kwargs.pop('det_cls', MTEO_DET)
+        det_params = kwargs.pop('det_params', MTEO_PARAMS)
+        dtype = kwargs.pop('dtype', sp.float32)
         # everything not popped goes to FilterBankNode after that
         # to mdp.Node.__init__ via super
 
         # build filter bank
-        bank = FilterBankNode(**kwargs)
+        bank = FilterBankNode(dtype=dtype, **kwargs)
         for key in ['ce', 'chan_set', 'filter_cls', 'rb_cap', 'tf', 'debug']:
             kwargs.pop(key, None)
 
@@ -167,20 +168,19 @@ class FilterBankSortingNode(Node):
                 '\'det_cls\' of type ThresholdDetectorNode is required!')
 
         # super
-        super(FilterBankSortingNode, self).__init__(**kwargs)
+        super(FilterBankSortingNode, self).__init__(dtype=dtype, **kwargs)
 
         # members
         self._bank = bank
-        self._chunk_size = int(chunk_size)
-        self._adapt_templates = int(adapt_templates)
-        self._learn_noise = bool(learn_noise)
         self._fout = None
         self._data = None
         self._chunk = None
+        self._chunk_offset = 0
+        self._chunk_size = int(chunk_size)
+        self._det = None
         self._det_cls = det_cls
         self._det_params = det_params
-        self.det = self._det_cls(*self._det_params[0], **self._det_params[1])
-        self.debug = self._bank.debug
+        self.debug = bool(self._bank.debug)
         self.rval = {}
 
         # create filters for templates
@@ -232,6 +232,14 @@ class FilterBankSortingNode(Node):
 
     filter_set = property(get_filter_set)
 
+    def get_det(self):
+        if self._det is None:
+            self._det = self._det_cls(*self._det_params[0],
+                                      **self._det_params[1])
+        return self._det
+
+    det = property(get_det)
+
     ## filter bank interface
 
     def reset_history(self):
@@ -243,35 +251,6 @@ class FilterBankSortingNode(Node):
         """adds a new filter to the filter bank"""
 
         return self._bank.create_filter(xi, check=check)
-
-    ## sorting node interface
-
-    def _adaption(self):
-        """adapt using non overlapping spikes"""
-
-        # checks and inits
-        if self._data is None or self.rval is None:
-            return
-        ovlp_info = overlaps(self.rval, self.tf)[0]
-        cut = get_cut(self.tf)
-
-        # adapt filters with found waveforms
-        for u in self.rval:
-            st = self.rval[u][ovlp_info[u] == False]
-            if len(st) == 0:
-                continue
-            spks_u = get_aligned_spikes(
-                self._data, st, cut, self._adapt_templates, mc=True,
-                kind='min')[0]
-            if spks_u.size == 0:
-                continue
-            self._bank.bank[u].extend_xi_buf(spks_u)
-
-        # adapt noise covariance matrix
-        if self._learn_noise:
-            nep = epochs_from_spiketrain_set(
-                self.rval, cut=cut, end=self._data.shape[0])['noise']
-            self._ce.update(self._data, epochs=nep)
 
     ## mpd.Node interface
 
@@ -296,28 +275,33 @@ class FilterBankSortingNode(Node):
         # sort per chunk
         while has_next_chunk:
             # get chunk limits
-            c_start = curr_chunk * self._chunk_size
-            c_stopp = min(dlen, (curr_chunk + 1) * self._chunk_size)
-            clen = c_stopp - c_start
+            #c_start = curr_chunk * self._chunk_size
+            self._chunk_offset = curr_chunk * self._chunk_size
+            clen = min(dlen, (curr_chunk + 1) * self._chunk_size)
+            clen -= self._chunk_offset
 
             # generate data chunk and process
-            self._chunk = self._data[c_start:c_stopp]
+            self._chunk = self._data[
+                          self._chunk_offset:self._chunk_offset + clen]
             self._fout = sp.empty((clen, self.nfilter))
+
+            # spike detection
             self.det(self._chunk)
+
+            # filtering
             self._pre_filter()
             self._fout = self._bank(self._chunk)
             self._post_filter()
-            self._sort_chunk(c_start)
+
+            # sorting
+            self._sort_chunk()
+            self._post_sort()
 
             # iteration
             curr_chunk += 1
-            if c_stopp >= dlen:
+            if self._chunk_offset + clen >= dlen:
                 has_next_chunk = False
         self._combine_results()
-
-        # adaption
-        if self._adapt_templates >= 0:
-            self._adaption()
 
         # return input data
         return x
@@ -330,13 +314,16 @@ class FilterBankSortingNode(Node):
     def _post_filter(self):
         return
 
+    def _post_sort(self):
+        return
+
     def _combine_results(self):
         self.rval = dict_list_to_ndarray(self.rval)
         correct = int(self.tf / 2)
         for k in self.rval:
             self.rval[k] -= correct
 
-    def _sort_chunk(self, offset):
+    def _sort_chunk(self):
         return
 
     ## plotting methods
@@ -465,7 +452,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                             self._bank.get_xcorrs_at(f0, f1, tau))
                         oc_idx += 1
 
-    def _sort_chunk(self, offset):
+    def _sort_chunk(self):
         """sort this chunk on the calculated discriminant functions
 
         method: "och"
@@ -479,7 +466,6 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         """
 
         # inits
-        offset = int(offset)
         spk_ep = epochs_from_binvec(
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
@@ -536,9 +522,10 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     if niter > self.nfilter:
                         warnings.warn(
                             'more spikes than filters found! '
-                            'epoch: [%d:%d] %d' % (spk_ep[i][0] + offset,
-                                                   spk_ep[i][1] + offset,
-                                                   niter))
+                            'epoch: [%d:%d] %d' % (
+                                spk_ep[i][0] + self._chunk_offset,
+                                spk_ep[i][1] + self._chunk_offset,
+                                niter))
                         if niter > 2 * self.nfilter:
                             break
 
@@ -546,21 +533,23 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
                     ep_c = sp.nanargmax(ep_disc[ep_t])
 
-                    # build subtractor
+                    # build subtrahend
                     sub = shifted_matrix_sub(
                         sp.zeros_like(ep_disc),
                         self._bank.xcorrs[ep_c, :, :].T,
                         ep_t - self.tf + 1)
 
-                    # apply subtractor
+                    # apply subtrahend
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
                         if self.debug is True:
-                            x_range = sp.arange(spk_ep[i, 0] + offset,
-                                                spk_ep[i, 1] + offset)
+                            x_range = sp.arange(
+                                spk_ep[i, 0] + self._chunk_offset,
+                                spk_ep[i, 1] + self._chunk_offset)
                             f = plt.figure()
                             f.suptitle('spike epoch [%d:%d] #%d' %
-                                       (spk_ep[i, 0] + offset,
-                                        spk_ep[i, 1] + offset, niter))
+                                       (spk_ep[i, 0] + self._chunk_offset,
+                                        spk_ep[i, 1] + self._chunk_offset,
+                                        niter))
                             ax1 = f.add_subplot(211)
                             ax1.plot(x_range, sp.zeros_like(x_range), 'k--')
                             ax1.plot(x_range, ep_disc)
@@ -572,7 +561,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         if self.debug is True:
                             ax1.plot(x_range, ep_disc, ls=':', lw=2)
                         fid = self._bank.get_fid_for(ep_c)
-                        self.rval[fid].append(spk_ep[i, 0] + ep_t + offset)
+                        self.rval[fid].append(
+                            spk_ep[i, 0] + ep_t + self._chunk_offset)
                     else:
                         break
                 del ep_fout, ep_disc, sub
@@ -610,69 +600,46 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         return mcdata(self._data, other=other, events=ev,
                       plot_handle=ph, colours=cols, show=show)
 
+# for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
 
-class ParallelAdaptionMixIn(object):
-    """mixin class to send the check internals into a separate thread
+class ABOTMNode(BayesOptimalTemplateMatchingNode):
+    """Adaptive BOTM Node
 
-    Provides old behavior under same name and adds the methods for parallel
-    execution.
+    tries to match parallel detection with sorting to find new units.
     """
 
-    def _check_internals(self):
-        """internal bookkeeping that assures the filter bank is up to date"""
+    def __init__(self, **kwargs):
+        """
+        :type adapt_templates: int
+        :keyword adapt_templates: if non-negative integer, adapt the filters
+            with the found events aligned at that sample.
+            Default=-1
+        :type det_limit: int
+        :keyword det_limit: capacity of the ringbufferto hold the detection
+            spikes.
+            Default=500
+        :type learn_noise: bool
+        :keyword learn_noise: if True, adapt the noise covariance matrix with
+            the noise epochs w.r.t. the found events. Else, do not learn the
+            noise.
+            Default=True
+        """
 
-        # check
-        if self.debug:
-            print '_check_internals (paralell)'
-        if len(self.bank) == 0:
-            return
+        # kwargs
+        adapt_templates = kwargs.pop('adapt_templates', -1)
+        det_limit = kwargs.pop('det_limit', 500)
+        learn_noise = kwargs.pop('learn_noise', True)
 
-        # parallel execution
-        self._check_internals_par()
-        self._check_internals_t.join()
-        good = False
-        while not good:
-            good = self._check_internals_par_collect()
+        # super
+        super(ABOTMNode, self).__init__(**kwargs)
 
-    def _check_internals_par(self):
-        """check internals trigger function"""
+        # members
+        self._adapt_templates = adapt_templates
+        self._det_limit = detection_limit
 
-        if self.debug:
-            print 'Starting check_internals_par!'
-        self._check_internals_q = Queue()
-        self._check_internals_t = Thread(
-            target=self._check_internals_par_kernel,
-            args=(self._check_internals_q,))
-        self._check_internals_t.start()
-
-    def _check_internals_par_kernel(self, q):
-        """check_internals kernel for the background thread"""
-
-        # for windows: reduce the priority of the current thread to idle
-        if platform.system() == 'Windows':
-            THREAD_PRIORITY_IDLE = -15
-            THREAD_SET_INFORMATION = 0x20
-            w32 = ctypes.windll.kernel32
-            handle = w32.OpenThread(THREAD_SET_INFORMATION, False,
-                                    w32.GetCurrentThreadId())
-            result = w32.SetThreadPriority(handle, THREAD_PRIORITY_IDLE)
-            w32.CloseHandle(handle)
-            if not result:
-                print 'Failed to set priority of thread', w32.GetLastError()
-        self._check_internals()
-        q.put((self.bank, self._xcorrs))
-
-    def _check_internals_par_collect(self):
-        """returns true if collect was good"""
-
-        if self._check_internals_q.empty():
-            return False
-        else:
-            self.bank, self._xcorrs = self._check_internals_q.get()
-            self._check_internals_q.task_done()
-            self._check_internals_q = None
-            return True
+    def _post_sort(self):
+        pass
 
 ##---MAIN
 
