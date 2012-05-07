@@ -166,11 +166,12 @@ class PrewhiteningNode2(Node):
         return False
 
     def _execute(self, x):
-        if self._covest.is_initializes is False:
+        if self._covest.is_initialised is False:
             raise RuntimeError('Node not initialised yet!')
 
         # return prewhitened data
-        rval = sp.dot(x, self._covest.get_whitening_op(tf=self.input_dim))
+        tf = self.input_dim / self._covest.nc
+        rval = sp.dot(x, self._covest.get_whitening_op(tf=tf))
         return rval.astype(self.dtype)
 
 ##--- MAIN

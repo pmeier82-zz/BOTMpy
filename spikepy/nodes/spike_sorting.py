@@ -61,20 +61,28 @@ __all__ = ['ABOTMNode', 'BOTMNode', 'BayesOptimalTemplateMatchingNode',
 
 import scipy as sp
 from scipy import linalg as sp_la
+from sklearn.mixture import lmvnpdf
+from sklearn.utils.extmath import logsumexp
 from spikeplot import COLOURS, mcdata, plt
 import warnings
-from .base_nodes import Node
+from .base_nodes import Node, PCANode
+from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
+from .prewhiten import PrewhiteningNode2
 from .spike_detector import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc,
     epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
-    get_cut, get_aligned_spikes, GdfFile, MxRingBuffer)
+    get_cut, get_aligned_spikes, GdfFile, MxRingBuffer, mcvec_from_conc,
+    VERBOSE)
 
 ##---CONSTANTS
 
 MTEO_DET = SDMteoNode
-MTEO_PARAMS = tuple(), {'kvalues':[6, 9, 13, 18], 'threshold_factor':3.0, }
+#MTEO_PARAMS = tuple(), {'kvalues':[6, 9, 13, 18],
+MTEO_PARAMS = tuple(), {'kvalues':[1, 3, 5, 7, 9],
+                        'threshold_factor':3.0,
+                        'min_dist':5}
 
 ##---CLASSES
 
@@ -117,10 +125,9 @@ class FilterBankSortingNode(Node):
         :keyword chunk_size: if input data will be longer than chunk_size, the
             input will be processed chunk per chunk to overcome memory sinks
             Default=100000
-        :type debug: bool
-        :keyword debug: if True, store intermediate results and generate
-            verbose output
-            Default=False
+        :type verbose: int
+        :keyword verbose: verbosity level, 0:none, >1: print .. ref `VERBOSE`
+                Default=0
         :type dtype: dtype resolvable
         :keyword dtype: anything that resolves into a scipy dtype, like a
             string or number type
@@ -140,11 +147,13 @@ class FilterBankSortingNode(Node):
             kwargs['tf'] = templates.shape[1]
         chunk_size = kwargs.pop('chunk_size', 100000)
         dtype = kwargs.pop('dtype', sp.float32)
+        verbose = kwargs.get('verbose', 0)
         # everything not popped goes to FilterBankNode
 
         # build filter bank
         bank = FilterBankNode(dtype=dtype, **kwargs)
-        for key in ['ce', 'chan_set', 'filter_cls', 'rb_cap', 'tf', 'debug']:
+        keywords = ['ce', 'chan_set', 'filter_cls', 'rb_cap', 'tf', 'verbose']
+        for key in keywords:
             kwargs.pop(key, None)
 
         # everything not popped goes to super
@@ -159,12 +168,13 @@ class FilterBankSortingNode(Node):
         self._chunk = None
         self._chunk_offset = 0
         self._chunk_size = int(chunk_size)
-        self.debug = bool(self._bank.debug)
+        self.verbose = VERBOSE(verbose)
         self.rval = {}
 
         # create filters for templates
-        for temp in templates:
-            self.create_filter(temp)
+        if templates is not None:
+            for temp in templates:
+                self.create_filter(temp)
 
     ## properties
 
@@ -221,6 +231,7 @@ class FilterBankSortingNode(Node):
     def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank"""
 
+        xi = mcvec_from_conc(xi, nc=self.nc)
         return self._bank.create_filter(xi, check=check)
 
     ## mpd.Node interface
@@ -310,7 +321,7 @@ class FilterBankSortingNode(Node):
 
         return self._bank.plot_template_set(ph=ph, show=show)
 
-    def plot_sorting(self, ph=None, show=False, debug=False):
+    def plot_sorting(self, ph=None, show=False):
         """plot the sorting of the last data chunk"""
 
         # create events
@@ -384,10 +395,10 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._ovlp_taus = ovlp_taus
         if self._ovlp_taus is not None:
             self._ovlp_taus = list(self._ovlp_taus)
-            if self.debug is True:
+            if self.verbose.has_print():
                 print 'using overlap channels'
         else:
-            if self.debug is True:
+            if self.verbose.has_print:
                 print 'using subtractive interference cancelation'
         self._disc = None
         self._pr_n = None
@@ -469,6 +480,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         """
 
         # inits
+        if self.nfilter == 0:
+            return
         spk_ep = epochs_from_binvec(
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
@@ -544,7 +557,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                     # apply subtrahend
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
-                        if self.debug is True:
+                        if self.verbose.has_plot:
                             x_range = sp.arange(
                                 spk_ep[i, 0] + self._chunk_offset,
                                 spk_ep[i, 1] + self._chunk_offset)
@@ -561,7 +574,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                             ax2.plot(x_range, sub)
                             ax2.axvline(x_range[ep_t])
                         ep_disc += sub + self._lpr_s
-                        if self.debug is True:
+                        if self.verbose.has_plot:
                             ax1.plot(x_range, ep_disc, ls=':', lw=2)
                         fid = self._bank.get_fid_for(ep_c)
                         self.rval[fid].append(
@@ -572,17 +585,118 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
     ## BOTM implementation
 
-    def eval_prob(self, data):
-        """evaluate the probability of the data at a sample"""
+    def posterior_prob(self, obs, with_noise=False):
+        """posterior probabilities for data under the model
 
-        data = mcvec_to_conc(data)
-        resi = data - self.get_template_set(mc=False)
-        maha = sp.zeros(len(resi))
-        for i in xrange(len(resi)):
-            maha[i] = sp.dot(resi[i],
-                             sp.dot(self.ce.get_icmx(tf=self.tf), resi[i]))
-        lp = -.5 * maha + self._lpr_s
-        return lp / lp.sum()
+        :type obs: ndarray
+        :param obs: observations to be evaluated [n, tf, nc]
+        :type with_noise: bool
+        :param with_noise: if True, include the noise cluster as component
+            in the mixture.
+            Default=False
+        :rtype: ndarray
+        :returns: matrix with per component posterior probabilities [n, c]
+        """
+
+        # check obs
+        obs = sp.atleast_2d(obs)
+        if len(obs) == 0:
+            raise ValueError('no observations passed!')
+        data = []
+        if obs.ndim == 2:
+            if obs.shape[1] != self.tf * self.nc:
+                raise ValueError('data dimensions not compatible with model')
+            for i in xrange(obs.shape[0]):
+                data.append(obs[i])
+        elif obs.ndim == 3:
+            if obs.shape[1:] != (self.tf, self.nc):
+                raise ValueError('data dimensions not compatible with model')
+            for i in xrange(obs.shape[0]):
+                data.append(mcvec_to_conc(obs[i]))
+        data = sp.asarray(data, dtype=sp.float64)
+
+        # build comps
+        comps = self.get_template_set(mc=False)
+        if with_noise:
+            comps = sp.vstack((comps, sp.zeros((self.tf * self.nc))))
+        comps = comps.astype(sp.float64)
+        if len(comps) == 0:
+            return sp.zeros((len(obs), 1))
+
+        # build priors
+        prior = sp.array([self._lpr_s] * len(comps), dtype=sp.float64)
+        if with_noise:
+            prior[-1] = self._lpr_n
+
+        # get sigma
+        try:
+            sigma = self.ce.get_cmx(tf=self.tf).astype(sp.float64)
+        except:
+            return sp.zeros((len(obs), 1))
+
+        # calc log probs
+        lpr = lmvnpdf(data, comps, sigma, 'tied') + prior
+        logprob = logsumexp(lpr, axis=1)
+        return sp.exp(lpr - logprob[:, sp.newaxis])
+
+    def component_chi2_cdf(self, obs, with_noise=False, loading=True):
+        """component probabilities under the model
+
+        :type obs: ndarray
+        :param obs: observations to be evaluated [n, tf, nc]
+        :type with_noise: bool
+        :param with_noise: if True, include the noise cluster as component
+            in the mixture.
+            Default=False
+        :type loading: bool
+        :param loading: if True, use the loaded matrix
+            Default=True
+        :rtype: ndarray
+        :returns: matrix with cdf of chi2 per component [n, c]
+        """
+
+        # check data
+        obs = sp.atleast_2d(obs)
+        if len(obs) == 0:
+            raise ValueError('no observations passed!')
+        data = []
+        if obs.ndim == 2:
+            if obs.shape[1] != self.tf * self.nc:
+                raise ValueError('data dimensions not compatible with model')
+            for i in xrange(obs.shape[0]):
+                data.append(obs[i])
+        elif obs.ndim == 3:
+            if obs.shape[1:] != (self.tf, self.nc):
+                raise ValueError('data dimensions not compatible with model')
+            for i in xrange(obs.shape[0]):
+                data.append(mcvec_to_conc(obs[i]))
+        data = sp.asarray(data, dtype=sp.float64)
+
+        # build component
+        comps = self.get_template_set(mc=False)
+        if with_noise:
+            comps = sp.vstack((comps, sp.zeros((self.tf * self.nc))))
+        comps = comps.astype(sp.float64)
+        if len(comps) == 0:
+            return sp.ones((len(obs), 1))
+
+        # get sigma
+        try:
+            if loading is True:
+                sigma_inv = self.ce.get_icmx_loaded(tf=self.tf).astype(
+                    sp.float64)
+            else:
+                sigma_inv = self.ce.get_icmx(tf=self.tf).astype(sp.float64)
+        except:
+            return sp.ones((len(obs), 1))
+
+        # maha dist
+        rval = sp.zeros((obs.shape[0], comps.shape[0]), dtype=sp.float64)
+        for n in xrange(obs.shape[0]):
+            x = data[n] - comps
+            for c in xrange(comps.shape[0]):
+                rval[n, c] = sp.dot(x[c], sp.dot(sigma_inv, x[c]))
+        return sp.stats.chi2.cdf(rval, data.shape[1])
 
 # for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
@@ -622,8 +736,9 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         """
 
         # kwargs
+        learn_templates_pval = kwargs.pop('learn_templates_pval', 0.05)
         learn_templates = kwargs.pop('learn_templates', -1)
-        learn_noise = kwargs.pop('learn_noise', 'sort')
+        learn_noise = kwargs.pop('learn_noise', 'det')
         det_cls = kwargs.pop('det_cls', MTEO_DET)
         det_limit = kwargs.pop('det_limit', 2000)
         det_params = kwargs.pop('det_params', MTEO_PARAMS)
@@ -651,15 +766,16 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         self._det_unexplained_by_fb = None
         self._learn_noise = learn_noise
         self._learn_templates = learn_templates
+        self._learn_templates_pval = learn_templates_pval
 
     ## properties
 
     def get_det(self):
         if self._det is None:
-            self._det = self._det_cls(*self._det_params[0],
+            self._det = self._det_cls(tf=self.tf, *self._det_params[0],
                                       **self._det_params[1])
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                                         dimension=(self.tf, self.nc),
+                                         dimension=(self.tf * self.nc),
                                          dtype=self.dtype)
         return self._det
 
@@ -671,37 +787,102 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         pass
 
     def _post_sort(self):
+        self.det.reset()
         self.det(self._chunk)
         det_spks = self.det.get_extracted_events(
             mc=False, align_kind='min', align_at=self._learn_templates)
+        spks_explained = self.component_chi2_cdf(det_spks, with_noise=True)
+        spks_explained = sp.any(
+            spks_explained < 1. - self._learn_templates_pval, axis=1)
+        spks_explained_by_noise = (
+            spks_explained[:, -1] < 1. - self._learn_templates_pval)
+        if self.verbose.has_print:
+            print 'S:', len(det_spks),
+            print 'Sex_all:', spks_explained.sum(),
+            print 'Sex_noise:', spks_explained_by_noise.sum()
+        keep_spks = det_spks[spks_explained == False]
+        if len(keep_spks) > 0:
+            self._det_buf.extend(keep_spks)
 
     def _execute(self, x):
         # call super to get sorting
         rval = super(ABOTMNode, self)._execute(x)
-        # learn new templates from detection
-        self._adapt_det_spks()
-        # learn slow template changes
-        self._adapt_templates()
-        # learn slow noise statistic changes
+        # adaption of noise covariance
         self._adapt_noise()
+        # adaption filter bank
+        self._adapt_filter_drop()
+        self._adapt_filter_current()
+        self._adapt_filter_new()
+        # learn slow noise statistic changes
         return rval
 
     ## ABOTM interface
 
-    def _adapt_det_spks(self):
-        pass
+    def _adapt_filter_drop(self):
+        for k in self.get_filter_idx():
+            filt = self._bank.bank[k]
+            # 1) snr drop below 0.5
+            if filt.get_snr < 0.5:
+                filt.active = False
+
+            # 2) rate drop below 1.0
+            if hasattr(filt, 'rate'):
+                try:
+                    nspks = len(self.rval[k])
+                except:
+                    nspks = 0
+                nsmpl = self._data.shape[0]
+                filt.rate.observation(nspks, nsmpl)
+                if filt.rate.estimate() < 1.0:
+                    filt.active = False
+
+    def _adapt_filter_new(self):
+        if self._det_buf.is_full:
+            if self.verbose.has_print:
+                print 'det_buf is full!'
+
+            # get all spikes and clear buffer
+            spks = self._det_buf[:].copy()
+            self._det_buf.clear()
+
+            # processing chain
+            flow = (PrewhiteningNode2(self.ce) + PCANode(output_dim=10) +
+                    HomoscedasticClusteringNode(
+                        clus_type='gmm', debug=self.verbose.has_print))
+            flow(spks)
+            lbls = flow[-1].labels
+            for i in sp.unique(lbls):
+                if self.verbose.has_print:
+                    print 'checking new unit:',
+                spks_i = spks[lbls == i]
+                # TODO: parametrise this
+                if len(spks_i) < 50:
+                    self._det_buf.extend(spks_i)
+                    if self.verbose.has_print:
+                        print 'rejected, only %d spikes' % len(spks_i)
+                else:
+                    self.create_filter(spks_i.mean(0))
+                    if self.verbose.has_print:
+                        print 'accepted, with %d spikes' % len(spks_i)
+            del flow, spks
+        else:
+            if self.verbose.has_print:
+                print 'det_buf:', self._det_buf
 
     def _adapt_noise(self):
         if self._learn_noise:
             nep = None
             if self._learn_noise == 'sort':
-                nep = epochs_from_spiketrain_set(
-                    self.rval, cut=self.tf, end=self._data.shape[0])['noise']
+                if len(self.rval) > 0:
+                    nep = epochs_from_spiketrain_set(
+                        self.rval, cut=self.tf,
+                        end=self._data.shape[0])['noise']
             elif self._learn_noise == 'det':
-                nep = self.det.get_epochs(merge=True, invert=True)
+                if len(self.det.events) > 0:
+                    nep = self.det.get_epochs(merge=True, invert=True)
             self.ce.update(self._data, epochs=nep)
 
-    def _adapt_templates(self):
+    def _adapt_filter_current(self):
         """adapt templates/filters using non overlapping spikes"""
 
         # checks and inits

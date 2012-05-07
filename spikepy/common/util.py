@@ -46,7 +46,7 @@
 """constants for the common package"""
 __docformat__ = 'restructuredtext'
 __all__ = ['INDEX_DTYPE', 'SI8MAX', 'SI16MAX', 'SI32MAX', 'SI64MAX', 'UI8MAX',
-           'UI16MAX', 'UI32MAX', 'UI64MAX', 'deprecated']
+           'UI16MAX', 'UI32MAX', 'UI64MAX', 'deprecated', 'VERBOSE']
 
 ##---IMPORTS
 
@@ -116,6 +116,40 @@ def deprecated(replacement=None):
         return inner
 
     return outer
+
+## CLASSES
+
+class VERBOSE(object):
+    """verbosity manager"""
+
+    # default modes
+    NONE = 0x0
+    PRINT = 0x1
+
+    # augmented modes
+    PLOT = 0x10
+
+    ## constructor
+
+    def __init__(self, level):
+        self.level = level
+
+    ## interface
+
+    def get_is_verbose(self):
+        return self.level > self.NONE
+
+    is_verbose = property(get_is_verbose)
+
+    def get_has_print(self):
+        return self.level >= self.PRINT
+
+    has_print = property(get_has_print)
+
+    def get_has_plot(self):
+        return  self.level >= self.PLOT
+
+    has_plot = property(get_has_plot)
 
 ##---MAIN
 

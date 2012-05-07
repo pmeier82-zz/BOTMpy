@@ -316,6 +316,34 @@ class NormalisedMatchedFilterNode(FilterNode):
         return sp.ascontiguousarray(mcvec_from_conc(f / norm_factor, nc=nc),
                                     dtype=sp.float32)
 
+
+class RateEstimator(object):
+    def __init__(self, *args, **kwargs):
+        self._spike_count = 0
+        self._sample_count = 0
+        self._sample_rate = kwargs.pop('sample_rate', 32000.0)
+
+    def estimate(self):
+        return self._sample_rate * self._spike_count / self._sample_count
+
+    def observation(self, nobs, tlen):
+        self._spike_count += nobs
+        self._sample_count += tlen
+
+
+class REMF(MatchedFilterNode):
+    def __init__(self, *args, **kwargs):
+        srate = kwargs.pop('sample_rate', 32000.0)
+        super(REMF, self).__init__(*args, **kwargs)
+        self.rate = RateEstimator(srate)
+
+
+class RENMF(NormalisedMatchedFilterNode):
+    def __init__(self, *args, **kwargs):
+        srate = kwargs.pop('sample_rate', 32000.0)
+        super(RENMF, self).__init__(*args, **kwargs)
+        self.rate = RateEstimator(srate)
+
 ##---MAIN
 
 if __name__ == '__main__':

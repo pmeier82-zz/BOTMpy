@@ -57,8 +57,8 @@ __all__ = ['FilterBankError', 'FilterBankNode']
 import scipy as sp
 from spikeplot import waveforms, xvf_tensor
 from .base_nodes import Node
-from .linear_filter import FilterNode, MatchedFilterNode
-from ..common import (TimeSeriesCovE, xi_vs_f)
+from .linear_filter import FilterNode, REMF
+from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
 
 ##---CLASSES
 
@@ -99,19 +99,18 @@ class FilterBankNode(Node):
         :keyword tf: temporal extend of the filters in the filter bank in
             samples.
             Default=47
-        :type debug: bool
-        :keyword debug: if True, store intermediate results and generate
-            verbose output
-            Default=False
+        :type verbose: int
+        :keyword verbose: verbosity level, 0:none, >1: print .. ref `VERBOSE`
+            Default=0
         """
 
         # kwargs
         ce = kwargs.pop('ce', None)
         chan_set = kwargs.pop('chan_set', None)
-        filter_cls = kwargs.pop('filter_cls', MatchedFilterNode)
+        filter_cls = kwargs.pop('filter_cls', REMF)
         rb_cap = kwargs.pop('rb_cap', 350)
         tf = kwargs.pop('tf', 47)
-        debug = kwargs.pop('debug', False)
+        verbose = kwargs.pop('verbose', False)
         # everything not popped goes to mdp.Node.__init__ via super
 
         # checks
@@ -134,7 +133,7 @@ class FilterBankNode(Node):
         self._xcorrs = None
         self._ce = None
         self._idx_active_set = set()
-        self.debug = bool(debug)
+        self.verbose = VERBOSE(verbose)
         self.bank = {}
         self.ce = ce
 
@@ -243,7 +242,8 @@ class FilterBankNode(Node):
                                  rb_cap=self._rb_cap,
                                  chan_set=self._chan_set,
                                  dtype=self.dtype)
-        new_f.fill_xi_buf(xi)
+        #new_f.fill_xi_buf(xi)
+        new_f.append_xi_buf(xi)
         idx = 0
         if len(self.bank):
             idx = max(self.bank.keys()) + 1
@@ -288,7 +288,7 @@ class FilterBankNode(Node):
         """triggers filter recalculation and rebuild xcorr tensor"""
 
         # check
-        if self.debug:
+        if self.verbose.has_print:
             print '_check_internals'
         if not self.bank:
             return
@@ -341,6 +341,10 @@ class FilterBankNode(Node):
                          plot_mean=True,
                          plot_single_waveforms=True,
                          plot_handle=ph, show=show)
+
+    ## special methods
+
+    __len__ = get_nfilter
 
 ##---MAIN
 

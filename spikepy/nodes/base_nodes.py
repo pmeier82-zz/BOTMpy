@@ -86,45 +86,6 @@ class TrainingResetMixin(object):
     def _reset(self):
         pass
 
-    ## mdp interface
-
-    def train(self, x, *args, **kwargs):
-        """Update the internal structures according to the input data 'x'.
-
-        'x' is a matrix having different variables on different columns
-        and observations on the rows.
-
-        By default, subclasses should overwrite _train to implement their
-        training phase. The docstring of the '_train' method overwrites this
-        docstring.
-
-        Note: a subclass supporting multiple training phases should implement
-        the *same* signature for all the training phases and document the
-        meaning of the arguments in the '_train' method doc-string. Having
-        consistent signatures is a requirement to use the node in a flow.
-        """
-
-        if not self.is_trainable():
-            raise IsNotTrainableException("This node is not trainable.")
-
-        if not self.is_training():
-            err_str = "The training phase has already finished."
-            raise TrainingFinishedException(err_str)
-
-        # BEGIN - TRAINING RESET MIXIN ADDITION
-
-        if self._train_phase_started is False:
-            self.reset()
-
-        # END - TRAINING RESET MIXIN ADDITION
-
-        self._check_input(x)
-        self._check_train_args(x, *args, **kwargs)
-
-        self._train_phase_started = True
-        self._train_seq[self._train_phase][0](self._refcast(x), *args,
-                                              **kwargs)
-
 
 class ResetNode(TrainingResetMixin, Node):
     pass

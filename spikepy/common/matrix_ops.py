@@ -62,6 +62,26 @@ SUFFICIENT_CONDITION = 50
 
 ##---FUNCTIONS
 
+def matrix_pos_def(mat):
+    """checks if the matrix is positive definite
+
+    :type mat: ndarray
+    :param mat: input matrix
+    :returns: True if p.d., False else
+    """
+
+    mat = sp.atleast_2d(mat)
+    if mat.ndim != 2:
+        raise ValueError('expected matrix')
+    if mat.size == 0:
+        raise ValueError('undefined for empty matrix')
+    try:
+        sv = sp_la.svd(mat, compute_uv=False)
+        return sp.all(sv > 0.0)
+    except:
+        return False
+
+
 def matrix_cond(mat):
     """yield the matrix condition number w.r.t. l2-norm (using svd)
 
