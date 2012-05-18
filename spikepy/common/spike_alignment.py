@@ -124,6 +124,9 @@ def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
         alignment
     """
 
+    if len(data) == 0:
+        return sp.zeros(sum(cut))
+
     ep, st = epochs_from_spiketrain(spiketrain,
                                     cut,
                                     end=data.shape[0],
@@ -147,7 +150,7 @@ def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
             size = 0, sum(cut), data.shape[1]
         else:
             size = 0, sum(cut) * data.shape[1]
-        spikes = sp.zeros((0, size))
+        spikes = sp.zeros(size)
     return spikes, st
 
 ##--- MAIN

@@ -289,7 +289,7 @@ class ThresholdDetectorNode(ResetNode):
             rval = rval.astype(INDEX_DTYPE)
         return rval
 
-    def get_extracted_events(self, mc=False, align_kind='none', align_at=None,
+    def get_extracted_events(self, mc=False, align_kind='none', align_at=-1,
                              buffer=False):
         """yields the extracted spikes
 
@@ -311,6 +311,9 @@ class ThresholdDetectorNode(ResetNode):
             state.
             Default=False
         """
+
+        if self.events is None:
+            raise ValueError('no events present!')
 
         if self.extracted_events is None or buffer:
             self.extracted_events, self.events = get_aligned_spikes(

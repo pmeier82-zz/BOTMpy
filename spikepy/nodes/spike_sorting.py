@@ -63,13 +63,13 @@ import scipy as sp
 from scipy import linalg as sp_la
 from sklearn.mixture import lmvnpdf
 from sklearn.utils.extmath import logsumexp
-from spikeplot import COLOURS, mcdata, plt
+from spikeplot import COLOURS, mcdata, plt, waveforms
 import warnings
 from .base_nodes import Node, PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
 from .prewhiten import PrewhiteningNode2
-from .spike_detector import SDMteoNode, ThresholdDetectorNode
+from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc,
     epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
@@ -346,6 +346,38 @@ class FilterBankSortingNode(Node):
         # plot mcdata
         return mcdata(self._data, other=other, events=ev,
                       plot_handle=ph, colours=cols, show=show)
+
+    def plot_sorting_waveforms(self, ph=None, show=False):
+        """plot the waveforms of the sorting of the last data chunk"""
+
+        # inits
+        wf = {}
+        temps = {}
+        #if self._data is None or self.rval is None:
+        #    return
+        cut = get_cut(self.tf)
+
+        # adapt filters with found waveforms
+        nunits = 0
+        for u in self.rval:
+            spks_u = get_aligned_spikes(self._data, self.rval[u], self.tf,
+                                        mc=False)[0]
+            if spks_u.size > 0:
+                wf[u] = spks_u
+                temps[u] = self._bank.bank[u].xi_conc
+                nunits += 1
+        print 'waveforms for units:', nunits
+
+        """
+        waveforms(waveforms, samples_per_second=None, tf=None, plot_mean=False,
+              plot_single_waveforms=True, set_y_range=False,
+              plot_separate=True, plot_handle=None, colours=None, title=None,
+              filename=None, show=True):
+        """
+        return waveforms(wf, samples_per_second=None, tf=self.tf,
+                         plot_mean=True, templates=temps,
+                         plot_single_waveforms=True, set_y_range=False,
+                         plot_separate=True, plot_handle=ph, show=show)
 
     def sorting2gdf(self, fname):
         """yield the gdf representing the current sorting"""
@@ -639,7 +671,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         logprob = logsumexp(lpr, axis=1)
         return sp.exp(lpr - logprob[:, sp.newaxis])
 
-    def component_chi2_cdf(self, obs, with_noise=False, loading=True):
+    def component_divergence(self, obs, with_noise=False,
+                             loading=False, subdim=None):
         """component probabilities under the model
 
         :type obs: ndarray
@@ -650,9 +683,13 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             Default=False
         :type loading: bool
         :param loading: if True, use the loaded matrix
-            Default=True
+            Default=False
+        :type subdim: int
+        :param subdim: dimensionality of subspace to build the inverse over.
+            if None ignore
+            Default=None
         :rtype: ndarray
-        :returns: matrix with cdf of chi2 per component [n, c]
+        :returns: divergence from means of current filter bank[n, c]
         """
 
         # check data
@@ -678,7 +715,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             comps = sp.vstack((comps, sp.zeros((self.tf * self.nc))))
         comps = comps.astype(sp.float64)
         if len(comps) == 0:
-            return sp.ones((len(obs), 1))
+            return sp.ones((len(obs), 1)) * sp.inf
 
         # get sigma
         try:
@@ -687,16 +724,25 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     sp.float64)
             else:
                 sigma_inv = self.ce.get_icmx(tf=self.tf).astype(sp.float64)
+            if subdim is not None:
+                subdim = int(subdim)
+                svd = self.ce.get_svd(tf=self.tf).astype(sp.float64)
+                sv = svd[1].copy()
+                t = sp.finfo(self.ce.dtype).eps * len(sv) * svd[1].max()
+                sv[sv < t] = 0.0
+                sigma_inv = sp.dot(svd[0][:, :subdim],
+                                   sp.dot(sp.diag(1. / sv[:subdim]),
+                                          svd[2][:subdim]))
         except:
-            return sp.ones((len(obs), 1))
+            return sp.ones((len(obs), 1)) * sp.inf
 
-        # maha dist
+        # return component wise divergence
         rval = sp.zeros((obs.shape[0], comps.shape[0]), dtype=sp.float64)
         for n in xrange(obs.shape[0]):
             x = data[n] - comps
             for c in xrange(comps.shape[0]):
                 rval[n, c] = sp.dot(x[c], sp.dot(sigma_inv, x[c]))
-        return sp.stats.chi2.cdf(rval, data.shape[1])
+        return rval
 
 # for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
@@ -763,7 +809,6 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         self._det_params = det_params
         self._det_limit = int(det_limit)
         self._det_buf = None
-        self._det_unexplained_by_fb = None
         self._learn_noise = learn_noise
         self._learn_templates = learn_templates
         self._learn_templates_pval = learn_templates_pval
@@ -777,6 +822,8 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
                                          dimension=(self.tf * self.nc),
                                          dtype=self.dtype)
+            if self.verbose.has_print:
+                print 'build detector:', self._det_cls, self._det_params
         return self._det
 
     det = property(get_det)
@@ -789,18 +836,16 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
     def _post_sort(self):
         self.det.reset()
         self.det(self._chunk)
-        det_spks = self.det.get_extracted_events(
+        spks = self.det.get_extracted_events(
             mc=False, align_kind='min', align_at=self._learn_templates)
-        spks_explained = self.component_chi2_cdf(det_spks, with_noise=True)
-        spks_explained = sp.any(
-            spks_explained < 1. - self._learn_templates_pval, axis=1)
-        spks_explained_by_noise = (
-            spks_explained[:, -1] < 1. - self._learn_templates_pval)
+        spks_div = self.component_divergence(spks, loading=False,
+                                             with_noise=True)
+        spks_new = sp.any(
+            sp.stats.chisqprob(spks_div, self.tf * self.nc) <
+            self._learn_templates_pval, axis=1)
         if self.verbose.has_print:
-            print 'S:', len(det_spks),
-            print 'Sex_all:', spks_explained.sum(),
-            print 'Sex_noise:', spks_explained_by_noise.sum()
-        keep_spks = det_spks[spks_explained == False]
+            print 'S:', len(spks), 'Snew:', spks_new.sum()
+        keep_spks = spks[spks_new]
         if len(keep_spks) > 0:
             self._det_buf.extend(keep_spks)
 

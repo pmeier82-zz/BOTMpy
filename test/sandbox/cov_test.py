@@ -105,25 +105,26 @@ if __name__ == '__main__':
     print q
 
     # archive
-    with openFile('/home/phil/Data/cov_test_%s' % name, 'w') as arc:
-        data = sp.zeros((len(q), 6))
-        data[:] = sp.nan
-        # id loop
-        for i, aid in enumerate(q):
-            print '###########################################################'
-            print 'now doing', aid
+    arc = openFile('/home/phil/Data/cov_test_%s' % name, 'w')
+    data = sp.zeros((len(q), 6))
+    data[:] = sp.nan
+
+    # id loop
+    for i, aid in enumerate(q):
+        print '###########################################################'
+        print 'now doing', aid
+        print
+
+        # compute
+        data[i, 0] = aid
+        try:
+            data[i, 1:] = compute_some_values_yay(aid)
+        except:
+            continue
+        finally:
             print
 
-            # compute
-            data[i, 0] = aid
-            try:
-                data[i, 1:] = compute_some_values_yay(aid)
-            except:
-                continue
-            finally:
-                print
-
-        # save
-        arc.createArray(arc.root, 'data', data)
+    # save
+    arc.createArray(arc.root, 'data', data)
 
     print 'ALL DONE'

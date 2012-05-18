@@ -222,8 +222,8 @@ class FilterBankNode(Node):
     def reset_history(self):
         """sets the history to all zeros for all filters"""
 
-        for f in self.bank:
-            f.reset_history()
+        for filt in self.bank.values():
+            filt.reset_history()
 
     def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank"""
