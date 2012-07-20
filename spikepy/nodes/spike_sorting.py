@@ -338,6 +338,7 @@ class FilterBankSortingNode(Node):
         # calc discriminants for single units
         other = None
         if self.nfilter > 0:
+            self.reset_history()
             other = self._bank(self._data)
             other += self._lpr_s
             other -= [.5 * self._bank.get_xcorrs_at(i)
