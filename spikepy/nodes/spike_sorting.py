@@ -80,9 +80,9 @@ from ..common import (
 
 MTEO_DET = SDMteoNode
 #MTEO_PARAMS = tuple(), {'kvalues':[6, 9, 13, 18],
-MTEO_PARAMS = tuple(), {'kvalues':[1, 3, 5, 7, 9],
-                        'threshold_factor':3.0,
-                        'min_dist':5}
+MTEO_PARAMS = tuple(), {'kvalues': [1, 3, 5, 7, 9],
+                        'threshold_factor': 3.0,
+                        'min_dist': 5}
 
 ##---CLASSES
 
@@ -231,7 +231,12 @@ class FilterBankSortingNode(Node):
     def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank"""
 
-        xi = mcvec_from_conc(xi, nc=self.nc)
+        if xi.ndim == 1 and xi.size == self.tf * self.nc:
+            xi = mcvec_from_conc(xi, nc=self.nc)
+        elif xi.ndim == 2 and xi.shape == (self.tf, self.nc):
+            pass
+        else:
+            raise ValueError('dimension missmatch! tf=%s, nc=%s' % (self.tf, self.nc))
         return self._bank.create_filter(xi, check=check)
 
     ## mpd.Node interface
@@ -338,6 +343,7 @@ class FilterBankSortingNode(Node):
         # calc discriminants for single units
         other = None
         if self.nfilter > 0:
+            self.reset_history()
             other = self._bank(self._data)
             other += self._lpr_s
             other -= [.5 * self._bank.get_xcorrs_at(i)
@@ -345,7 +351,7 @@ class FilterBankSortingNode(Node):
 
         # plot mcdata
         return mcdata(self._data, other=other, events=ev,
-                      plot_handle=ph, colours=cols, show=show)
+            plot_handle=ph, colours=cols, show=show)
 
     def plot_sorting_waveforms(self, ph=None, show=False):
         """plot the waveforms of the sorting of the last data chunk"""
@@ -361,7 +367,7 @@ class FilterBankSortingNode(Node):
         nunits = 0
         for u in self.rval:
             spks_u = get_aligned_spikes(self._data, self.rval[u], self.tf,
-                                        mc=False)[0]
+                mc=False)[0]
             if spks_u.size > 0:
                 wf[u] = spks_u
                 temps[u] = self._bank.bank[u].xi_conc
@@ -375,9 +381,9 @@ class FilterBankSortingNode(Node):
               filename=None, show=True):
         """
         return waveforms(wf, samples_per_second=None, tf=self.tf,
-                         plot_mean=True, templates=temps,
-                         plot_single_waveforms=True, set_y_range=False,
-                         plot_separate=True, plot_handle=ph, show=show)
+            plot_mean=True, templates=temps,
+            plot_single_waveforms=True, set_y_range=False,
+            plot_separate=True, plot_handle=ph, show=show)
 
     def sorting2gdf(self, fname):
         """yield the gdf representing the current sorting"""
@@ -731,8 +737,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 t = sp.finfo(self.ce.dtype).eps * len(sv) * svd[1].max()
                 sv[sv < t] = 0.0
                 sigma_inv = sp.dot(svd[0][:, :subdim],
-                                   sp.dot(sp.diag(1. / sv[:subdim]),
-                                          svd[2][:subdim]))
+                    sp.dot(sp.diag(1. / sv[:subdim]),
+                        svd[2][:subdim]))
         except:
             return sp.ones((len(obs), 1)) * sp.inf
 
@@ -818,10 +824,10 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
     def get_det(self):
         if self._det is None:
             self._det = self._det_cls(tf=self.tf, *self._det_params[0],
-                                      **self._det_params[1])
+                **self._det_params[1])
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                                         dimension=(self.tf * self.nc),
-                                         dtype=self.dtype)
+                dimension=(self.tf * self.nc),
+                dtype=self.dtype)
             if self.verbose.has_print:
                 print 'build detector:', self._det_cls, self._det_params
         return self._det
@@ -839,7 +845,7 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
         spks = self.det.get_extracted_events(
             mc=False, align_kind='min', align_at=self._learn_templates)
         spks_div = self.component_divergence(spks, loading=False,
-                                             with_noise=True)
+            with_noise=True)
         spks_new = sp.any(
             sp.stats.chisqprob(spks_div, self.tf * self.nc) <
             self._learn_templates_pval, axis=1)

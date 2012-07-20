@@ -44,7 +44,7 @@
 #
 
 
-"""datafile implementation for xpd file fomat"""
+"""datafile implementation for xpd file format"""
 __docformat__ = 'restructuredtext'
 __all__ = ['XpdFile', '_XPD_TH', '_XPD_CH']
 

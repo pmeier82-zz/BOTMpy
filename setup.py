@@ -80,6 +80,7 @@ DESC_TITLE = 'SpikePy : online spike sorting with linear fitlers'
 DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
 
 ##---USE_CYTHON
+
 ext_mod_list = []
 if build_ext is not None:
     ext_mod_list.append(
@@ -98,7 +99,7 @@ if __name__ == "__main__":
         packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
                   'spikepy.ntrode', 'spikepy.common.datafile',
                   'spikepy.common.mcfilter'],
-        requires=['scipy', 'sklearn', 'mdp', 'tables'],
+        requires=['scipy', 'mdp', 'tables', 'scikits.learn'],
 
         # metadata
         author="Philipp Meier",
@@ -119,5 +120,5 @@ if __name__ == "__main__":
             'Topic :: Scientific/Engineering :: Bio-Informatics'],
 
         # cython
-        cmdclass={'build_ext':build_ext},
+        cmdclass={'build_ext': build_ext},
         ext_modules=ext_mod_list)
