@@ -104,7 +104,7 @@ class ThresholdDetectorNode(ResetNode):
     def __init__(self, input_dim=None, output_dim=None, dtype=None,
                  energy_func=None, threshold_func=None, threshold_mode='gt',
                  threshold_base='energy', threshold_factor=1.0, tf=47,
-                 min_dist=1, find_max=True):
+                 min_dist=1, find_max=True, ch_separate=False):
         """
         see mdp.Node
         :type energy_func: function
@@ -151,6 +151,10 @@ class ThresholdDetectorNode(ResetNode):
             feature epoch. Else, the onset of feature epoch will be taken as
             the event.
             Default=True
+        :type ch_separate: bool
+        :param ch_separate: if True, find event per channel separatly, else
+            use the max along the signal energy function.
+            Default=False
         """
 
         # super
@@ -178,6 +182,7 @@ class ThresholdDetectorNode(ResetNode):
         self.nchan = None
         self.events = None
         self.extracted_events = None
+        self.ch_sep = bool(ch_separate)
 
         # energy function
         if energy_func is not None:
@@ -225,9 +230,15 @@ class ThresholdDetectorNode(ResetNode):
         # assert energy and threshold
         if self.energy is None:
             raise EnergyNotCalculatedError
+
+        # channels separate?
+        if self.ch_sep is False:
+            self.energy = sp.atleast_2d(self.energy.max(axis=1)).T
+
+        # threshold
         self._calc_threshold()
 
-        # threshold detection
+        # events
         self.events = threshold_detection(
             self.energy,
             self.threshold,
@@ -289,7 +300,7 @@ class ThresholdDetectorNode(ResetNode):
             rval = rval.astype(INDEX_DTYPE)
         return rval
 
-    def get_extracted_events(self, mc=False, align_kind='none', align_at=-1,
+    def get_extracted_events(self, mc=False, align_kind='min', align_at=-1,
                              buffer=False):
         """yields the extracted spikes
 
@@ -305,7 +316,7 @@ class ThresholdDetectorNode(ResetNode):
         :param align_at: if a float from (0.0,1.0), determine the align_sample
             according to that weight. If a positive integer from (0,
             self.tf-1] use that sample as the align_sample.
-            Default=0.25
+            Default=0.25 * self.tf
         :type buffer: bool
         :param buffer: if True, write to buffer regardless of current buffer
             state.
@@ -316,9 +327,14 @@ class ThresholdDetectorNode(ResetNode):
             raise ValueError('no events present!')
 
         if self.extracted_events is None or buffer:
+            if align_at < 0:
+                align_at = .25
+            if isinstance(align_at, float):
+                if 0.0 <= align_at <= 1.0:
+                    align_at *= self.tf
+                align_at = int(align_at)
             self.extracted_events, self.events = get_aligned_spikes(
-                self.data, self.events, self.tf, align_at=align_at, mc=mc,
-                kind=align_kind)
+                self.data, self.events, self.tf, align_at=align_at, mc=mc, kind=align_kind)
 
         # return extracted events
         return self.extracted_events
@@ -357,8 +373,8 @@ class ThresholdDetectorNode(ResetNode):
         """calculates the threshold"""
 
         base = {
-            'signal':self.data,
-            'energy':self.energy
+            'signal': self.data,
+            'energy': self.energy
         }[self.th_base]
         self.threshold = sp.asarray(
             [self._threshold_func(base[:, c])
@@ -370,12 +386,17 @@ class ThresholdDetectorNode(ResetNode):
 
         from spikeplot import plt, mcdata
 
-        fig = mcdata(self.data, other=self.energy, events={0:self.events},
-                     show=False)
-        for i in xrange(self.nchan):
-            fig.axes[-1].axhline(self.threshold[i])
+        fig = mcdata(self.data, other=self.energy, events={0: self.events},
+            show=False)
+        for th in self.threshold:
+            fig.axes[-1].axhline(th)
+        self._plot_additional(fig)
         if show is True:
             plt.show()
+        return fig
+
+    def _plot_additional(self, fig):
+        pass
 
 ## spike detector implementations
 
@@ -394,8 +415,8 @@ class SDAbsNode(ThresholdDetectorNode):
 
         # super
         kwargs.update(energy_func=sp.absolute,
-                      threshold_base='signal',
-                      threshold_func=sp.std)
+            threshold_base='signal',
+            threshold_func=sp.std)
         super(SDAbsNode, self).__init__(**kwargs)
 
     def _threshold_func(self, x):
@@ -417,8 +438,8 @@ class SDSqrNode(ThresholdDetectorNode):
 
         # super
         kwargs.update(energy_func=sp.square,
-                      threshold_base='signal',
-                      threshold_func=sp.var)
+            threshold_base='signal',
+            threshold_func=sp.var)
         super(SDSqrNode, self).__init__(**kwargs)
 
 
@@ -429,7 +450,7 @@ class SDMteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalues=[3, 5, 7], **kwargs):
+    def __init__(self, kvalues=[1, 3, 5, 7, 9], **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
@@ -440,8 +461,11 @@ class SDMteoNode(ThresholdDetectorNode):
         """
 
         # super
-        kwargs.update(threshold_base='energy',
-                      threshold_func=sp.std)
+        kwargs.update(
+            threshold_base='energy',
+            threshold_func=sp.std,
+            threshold_factor=kwargs.get('threshold_factor', 3.0),
+            min_dist=kwargs.get('min_dist', 5))
         super(SDMteoNode, self).__init__(**kwargs)
 
         # members
@@ -470,7 +494,7 @@ class SDKteoNode(ThresholdDetectorNode):
 
         # super
         kwargs.update(threshold_base='energy',
-                      threshold_func=sp.std)
+            threshold_func=sp.std)
         super(SDKteoNode, self).__init__(**kwargs)
 
         # members
