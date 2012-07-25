@@ -110,7 +110,7 @@ def xi_vs_f(xi, f, nc=4):
 
 ## teager energy operator functions
 
-def mteo(X, kvalues=[1, 3, 5], condense=True):
+def mteo(data, kvalues=[1, 3, 5], condense=True):
     """multiresolution teager energy operator using given k-values [MTEO]
 
     The multi-resolution teager energy operator (MTEO) applies TEO operators
@@ -122,24 +122,28 @@ def mteo(X, kvalues=[1, 3, 5], condense=True):
     h_k(i) = hamming(4k+1) / sqrt(3sum(hamming(4k+1)^2) + sum(hamming(4k+1))
     ^2), as suggested in Choi et al., 2006.
 
-    :type X: ndarray
-    :param X: The signal to operate on. ndim=1
+    :type data: ndarray
+    :param data: The signal to operate on. ndim=1
     :type kvalues: list
     :param kvalues: List of k-values to run the kteo for. If you want to give
         a single k-value, either use the kteo directly or put it in a list
         like [2].
+    :type condense: bool
+    :param condense: if True, use max operator condensing onto one time series,
+        else return a multichannel version with one channel per kvalue.
+        Default=True
     :return: ndarray- Array of same shape as the input signal, holding the
         response of the kteo which response was maximum after smoothing for
         each sample in the input signal.
     """
 
     # inits
-    rval = sp.zeros((X.size, len(kvalues)))
+    rval = sp.zeros((data.size, len(kvalues)))
 
     # evaluate the kteos
     for i in xrange(len(kvalues)):
         k = kvalues[i]
-        rval[:, i] = kteo(X, k)
+        rval[:, i] = kteo(data, k)
         win = sp.hamming(4 * k + 1)
         win /= sp.sqrt(3 * (win ** 2).sum() + win.sum() ** 2)
         rval[:, i] = sp.convolve(rval[:, i], win, 'same')
@@ -151,14 +155,14 @@ def mteo(X, kvalues=[1, 3, 5], condense=True):
     return rval
 
 
-def kteo(X, k=1):
+def kteo(data, k=1):
     """teager energy operator of range k [TEO]
 
     The discrete teager energy operator (TEO) of window size k is defined as:
     M{S{Psi}[x(n)] = x^2(n) - x(n-k) x(n+k)}
 
-    :type X: ndarray
-    :param X: The signal to operate on. ndim=1
+    :type data: ndarray
+    :param data: The signal to operate on. ndim=1
     :type k: int
     :param k: Parameter defining the window size for the TEO.
     :return: ndarray - Array of same shape as the input signal, holding the
@@ -167,13 +171,13 @@ def kteo(X, k=1):
     """
 
     # checks and inits
-    if X.ndim != 1:
+    if data.ndim != 1:
         raise ValueError(
-            'ndim != 1! ndim=%s with shape=%s' % (X.ndim, X.shape))
+            'ndim != 1! ndim=%s with shape=%s' % (data.ndim, data.shape))
 
     # apply nonlinear energy operator with range k
-    rval = X ** 2 - sp.concatenate(([0] * sp.ceil(k / 2.0),
-                                    X[:-k] * X[k:],
+    rval = data ** 2 - sp.concatenate(([0] * sp.ceil(k / 2.0),
+                                    data[:-k] * data[k:],
                                     [0] * sp.floor(k / 2.0)))
 
     # return

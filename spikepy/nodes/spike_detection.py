@@ -61,6 +61,7 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 ##--- IMPORTS
 
 import scipy as sp
+from scipy.stats.mstats import mquantiles
 from .base_nodes import ResetNode
 from ..common import (threshold_detection, extract_spikes, merge_epochs,
                       get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
@@ -244,8 +245,7 @@ class ThresholdDetectorNode(ResetNode):
             self.threshold,
             min_dist=self.min_dist,
             mode=self.th_mode,
-            find_max=self.find_max
-        )
+            find_max=self.find_max)
 
         # return
         return x
@@ -463,8 +463,7 @@ class SDMteoNode(ThresholdDetectorNode):
         # super
         kwargs.update(
             threshold_base='energy',
-            threshold_func=sp.std,
-            threshold_factor=kwargs.get('threshold_factor', 3.0),
+            threshold_factor=kwargs.get('threshold_factor', 0.96),
             min_dist=kwargs.get('min_dist', 5))
         super(SDMteoNode, self).__init__(**kwargs)
 
@@ -474,6 +473,9 @@ class SDMteoNode(ThresholdDetectorNode):
     def _energy_func(self, x):
         return sp.vstack([mteo(x[:, c], kvalues=self.kvalues, condense=True)
                           for c in xrange(x.shape[1])]).T
+
+    def _threshold_func(self, x):
+        return mquantiles(x, prob=[self.th_fac])[0]
 
 
 class SDKteoNode(ThresholdDetectorNode):
@@ -493,8 +495,10 @@ class SDKteoNode(ThresholdDetectorNode):
         """
 
         # super
-        kwargs.update(threshold_base='energy',
-            threshold_func=sp.std)
+        kwargs.update(
+            threshold_base='energy',
+            threshold_factor=kwargs.get('threshold_factor', 0.96),
+            min_dist=kwargs.get('min_dist', 5))
         super(SDKteoNode, self).__init__(**kwargs)
 
         # members
@@ -503,6 +507,9 @@ class SDKteoNode(ThresholdDetectorNode):
     def _energy_func(self, x):
         return sp.vstack([kteo(x[:, c], k=self.kvalue)
                           for c in xrange(x.shape[1])]).T
+
+    def _threshold_func(self, x):
+        return mquantiles(x, prob=[self.th_fac])[0]
 
 
 class SDIntraNode(ThresholdDetectorNode):
