@@ -110,7 +110,7 @@ class FilterBankNode(Node):
         filter_cls = kwargs.pop('filter_cls', REMF)
         rb_cap = kwargs.pop('rb_cap', 350)
         tf = kwargs.pop('tf', 47)
-        verbose = kwargs.pop('verbose', False)
+        verbose = kwargs.pop('verbose', 0)
         # everything not popped goes to mdp.Node.__init__ via super
 
         # checks
