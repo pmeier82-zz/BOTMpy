@@ -55,6 +55,7 @@ __all__ = ['FilterBankError', 'FilterBankNode']
 ##---IMPORTS
 
 import scipy as sp
+import warnings
 from spikeplot import waveforms, xvf_tensor
 from .base_nodes import Node
 from .linear_filter import FilterNode, REMF
@@ -237,11 +238,11 @@ class FilterBankNode(Node):
 
         # build filter and add to filter bank
         new_f = self._filter_cls(self._tf,
-                                 self._nc,
-                                 self._ce,
-                                 rb_cap=self._rb_cap,
-                                 chan_set=self._chan_set,
-                                 dtype=self.dtype)
+            self._nc,
+            self._ce,
+            rb_cap=self._rb_cap,
+            chan_set=self._chan_set,
+            dtype=self.dtype)
         #new_f.fill_xi_buf(xi)
         new_f.append_xi_buf(xi)
         idx = 0
@@ -299,8 +300,8 @@ class FilterBankNode(Node):
 
         # build cross-correlation tensor
         self._xcorrs = xi_vs_f(self.get_template_set(mc=False),
-                               self.get_filter_set(mc=False),
-                               nc=self._nc)
+            self.get_filter_set(mc=False),
+            nc=self._nc)
 
     ## mpd.Node interface
 
@@ -323,6 +324,12 @@ class FilterBankNode(Node):
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
 
+        # check
+        if len(self._idx_active_set) == 0:
+            warnings.warn('skipping plot, no active units!')
+            return
+
+        # init
         inlist = [self.get_template_set(mc=False),
                   self.get_filter_set(mc=False),
                   self._xcorrs]
@@ -331,16 +338,22 @@ class FilterBankNode(Node):
     def plot_template_set(self, ph=None, show=False):
         """plot the template set in a waveform plot"""
 
+        # checks
+        if len(self._idx_active_set) == 0:
+            warnings.warn('skipping plot, no active units!')
+            return
+
+        # init
         units = {}
         for k in self._idx_active_set:
             units[k] = self.bank[k]._xi_buf[:]
 
         return waveforms(units,
-                         tf=self._tf,
-                         plot_separate=True,
-                         plot_mean=True,
-                         plot_single_waveforms=True,
-                         plot_handle=ph, show=show)
+            tf=self._tf,
+            plot_separate=True,
+            plot_mean=True,
+            plot_single_waveforms=True,
+            plot_handle=ph, show=show)
 
     ## special methods
 

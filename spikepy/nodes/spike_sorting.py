@@ -54,8 +54,8 @@ The revolutionary BOTM Paper
 """
 
 __docformat__ = 'restructuredtext'
-__all__ = ['ABOTMNode', 'BOTMNode', 'BayesOptimalTemplateMatchingNode',
-           'FilterBankSortingNode']
+__all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
+           'BayesOptimalTemplateMatchingNode', 'BOTMNode', 'ABOTMNode']
 
 ##---IMPORTS
 
@@ -79,10 +79,9 @@ from ..common import (
 ##---CONSTANTS
 
 MTEO_DET = SDMteoNode
-#MTEO_PARAMS = tuple(), {'kvalues':[6, 9, 13, 18],
-MTEO_PARAMS = tuple(), {'kvalues': [1, 3, 5, 7, 9],
-                        'threshold_factor': 3.0,
-                        'min_dist': 5}
+MTEO_PARAMS = tuple(), {'kvalues': [3, 9, 15, 21],
+                        'threshold_factor': 0.98,
+                        'min_dist': 32}
 
 ##---CLASSES
 
@@ -233,13 +232,19 @@ class FilterBankSortingNode(FilterBankNode):
     def plot_sorting(self, ph=None, show=False):
         """plot the sorting of the last data chunk"""
 
+        # check
+        if self._data is None or self.rval is None or len(self._idx_active_set) == 0:
+            warnings.warn('not initialised properly to plot a sorting!')
+            return
+
         # create events
         ev = {}
         if self.rval is not None:
             temps = self.template_set
-            for i, k in enumerate(self.filter_idx):
-                if self.rval[k].any():
-                    ev[k] = (temps[i], self.rval[k])
+            for i, k in enumerate(self._idx_active_set):
+                if k in self.rval:
+                    if self.rval[k].any():
+                        ev[k] = (temps[i], self.rval[k])
 
         # create colours
         cols = COLOURS[:self.nfilter]
@@ -259,6 +264,11 @@ class FilterBankSortingNode(FilterBankNode):
 
     def plot_sorting_waveforms(self, ph=None, show=False):
         """plot the waveforms of the sorting of the last data chunk"""
+
+        # check
+        if self._data is None or self.rval is None or len(self._idx_active_set) == 0:
+            warnings.warn('not initialised properly to plot a sorting!')
+            return
 
         # inits
         wf = {}
@@ -376,7 +386,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
     spike_prior = property(get_spike_prior, set_spike_prior)
 
-    ## filter bank implementation
+    ## filter bank sorting interface
 
     def _post_filter(self):
         """build discriminant functions, prepare for sorting"""
@@ -657,7 +667,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 # for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
 
-class ABOTMNode(BayesOptimalTemplateMatchingNode):
+class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode):
     """Adaptive BOTM Node
 
     tries to match parallel detection with sorting to find new units.
@@ -708,7 +718,7 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
                 learn_noise = None
 
         # super
-        super(ABOTMNode, self).__init__(**kwargs)
+        super(AdaptiveBayesOptimalTemplateMatchingNode, self).__init__(**kwargs)
 
         if learn_templates < 0:
             learn_templates = int(0.25 * self._tf)
@@ -738,16 +748,15 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
 
     det = property(get_det)
 
-    ## FilterBanksortingNode interface
-
-    def _pre_filter(self):
-        pass
+    ## filter bank sorting interface
 
     def _post_sort(self):
         self.det.reset()
         self.det(self._chunk)
         spks = self.det.get_extracted_events(
             mc=False, align_kind='min', align_at=self._learn_templates)
+        if spks.size == 0:
+            return
         spks_div = self.component_divergence(spks, loading=False,
             with_noise=True)
         spks_new = sp.any(
@@ -761,7 +770,7 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
 
     def _execute(self, x):
         # call super to get sorting
-        rval = super(ABOTMNode, self)._execute(x)
+        rval = super(AdaptiveBayesOptimalTemplateMatchingNode, self)._execute(x)
         # adaption of noise covariance
         self._adapt_noise()
         # adaption filter bank
@@ -804,7 +813,9 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             # processing chain
             flow = (PrewhiteningNode2(self._ce) + PCANode(output_dim=10) +
                     HomoscedasticClusteringNode(
-                        clus_type='gmm', debug=self.verbose.has_print))
+                        clus_type='gmm',
+                        debug=self.verbose.has_print,
+                        crange=range(1, 10)))
             flow(spks)
             lbls = flow[-1].labels
             for i in sp.unique(lbls):
@@ -817,7 +828,8 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
                     if self.verbose.has_print:
                         print 'rejected, only %d spikes' % len(spks_i)
                 else:
-                    self.create_filter(spks_i.mean(0))
+                    spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+                    self.create_filter(spk_i)
                     if self.verbose.has_print:
                         print 'accepted, with %d spikes' % len(spks_i)
             del flow, spks
@@ -858,6 +870,8 @@ class ABOTMNode(BayesOptimalTemplateMatchingNode):
             if spks_u.size == 0:
                 continue
             self.bank[u].extend_xi_buf(spks_u)
+
+ABOTMNode = AdaptiveBayesOptimalTemplateMatchingNode
 
 ##---MAIN
 
