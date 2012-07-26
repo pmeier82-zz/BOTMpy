@@ -94,8 +94,8 @@ def xi_vs_f(xi, f, nc=4):
     if tf != round(float(xi.shape[1]) / float(nc)):
         raise ValueError('sample count does not match to nc: xi(%s), nc(%s)' %
                          (xi.shape[1], nc))
-    t_pad = get_cut(tf)[0]
-    pad = sp.zeros((t_pad, nc))
+    pad_len = get_cut(tf)[0]
+    pad = sp.zeros((pad_len, nc))
     rval = sp.zeros((n, n, 2 * tf - 1))
 
     # calc xcorrs
@@ -177,8 +177,8 @@ def kteo(data, k=1):
 
     # apply nonlinear energy operator with range k
     rval = data ** 2 - sp.concatenate(([0] * sp.ceil(k / 2.0),
-                                    data[:-k] * data[k:],
-                                    [0] * sp.floor(k / 2.0)))
+                                       data[:-k] * data[k:],
+                                       [0] * sp.floor(k / 2.0)))
 
     # return
     return rval

@@ -96,9 +96,8 @@ if __name__ == "__main__":
         #main
         name="SpikePy",
         version=find_version(),
-        packages=['spikepy', 'spikepy.common', 'spikepy.nodes',
-                  'spikepy.ntrode', 'spikepy.common.datafile',
-                  'spikepy.common.mcfilter'],
+        packages=['spikepy', 'spikepy.common', 'spikepy.common.datafile',
+                  'spikepy.common.mcfilter', 'spikepy.nodes'],
         requires=['scipy', 'mdp', 'tables', 'scikits.learn'],
 
         # metadata
