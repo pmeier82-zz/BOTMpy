@@ -49,7 +49,12 @@
 __docformat__ = 'restructuredtext'
 __version__ = '0.2.1'
 
-##--- MAIN
+##---IMPORTS
+
+import common
+import nodes
+
+##---MAIN
 
 if __name__ == '__main__':
     pass

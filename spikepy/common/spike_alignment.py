@@ -53,7 +53,6 @@ __all__ = ['get_tau_for_alignment', 'get_tau_align_min', 'get_tau_align_max',
 
 import scipy as sp
 from .util import INDEX_DTYPE
-from .funcs_general import mcvec_to_conc
 from .funcs_spike import epochs_from_spiketrain, get_cut, extract_spikes
 
 ##---FUNCTIONS
@@ -63,52 +62,39 @@ def get_tau_for_alignment(spikes, align_at):
     the desired alignment sample within the spike waveform.
 
     :type spikes: ndarray
-    :param spikes: stacked spike waveforms in their multichanneled
-        representation [nspikes, tf, nc]
+    :param spikes: stacked mc spike waveforms [ns, tf, nc]
     :type align_at: int
     :param align_at: sample to align the maximum at
     :returns: ndarray - offset per spike
     """
 
+    # checks
+    ns, tf, nc = spikes.shape
+    if 0 < align_at >= tf:
+        return sp.zeros(ns)
+
+    # offsets
     dchan = [spike.max(0).argmax() for spike in spikes]
-    tau = [spikes[i, :, dchan[i]].argmax() - align_at
-           for i in xrange(spikes.shape[0])]
-    return - sp.asarray(tau, dtype=INDEX_DTYPE)
+    tau = [spikes[i, :, dchan[i]].argmax() - align_at for i in xrange(ns)]
+    return sp.asarray(tau, dtype=INDEX_DTYPE)
 
+get_tau_align_min = lambda spks, ali: get_tau_for_alignment(-spks, ali)
+get_tau_align_max = lambda spks, ali: get_tau_for_alignment(spks, ali)
+get_tau_align_energy = lambda spks, ali: get_tau_for_alignment(spks * spks, ali)
 
-def get_tau_align_min(spikes, align_at):
-    """align on minimum"""
-
-    return get_tau_for_alignment(-spikes, align_at)
-
-
-def get_tau_align_max(spikes, align_at):
-    """align on maximum"""
-
-    return get_tau_for_alignment(spikes, align_at)
-
-
-def get_tau_align_energy(spikes, align_at):
-    """align on peak in the spike energy"""
-
-    return get_tau_for_alignment(spikes * spikes, align_at)
-
-
-def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
-                       kind='none'):
-    """return the set of aligned spikes waveforms and thei taus
+def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True, kind='none'):
+    """return the set of aligned spikes waveforms and the aligned spike train
 
     :type data: ndarray
     :param data: data with channels in the columns
-    :type spiketrain: ndarray or list
-    :param spiketrain: spike train of events in data
-    :type cut: tuple or int
-    :param cut: (cut_left,cut_right) tuple or int for symmetric cut tuple
+    :type spike_train: ndarray or list
+    :param spike_train: spike train of events in data
     :type align_at: int
-    :param align_at: align chosen feature at this sample in the waveform
+    :param align_at: align feature at this sample in the waveform
+    :type tf: int
+    :param tf: temporal extend of the waveform in samples
     :type mc: bool
-    :param mc: if True, return multichanneled waveforms, else return
-        concatenated waveforms.
+    :param mc: if True, return mc waveforms, else return concatenated waveforms.
         Default=True
     :type kind: str
     :param kind: String giving the type of alignment to conduct. One of:
@@ -124,28 +110,28 @@ def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
         alignment
     """
 
-    if len(data) == 0:
-        return sp.zeros(sum(cut))
+    cut = align_at, tf - align_at
+    ep, st = epochs_from_spiketrain(
+        spike_train,
+        cut,
+        end=data.shape[0],
+        with_corrected_st=True)
 
-    ep, st = epochs_from_spiketrain(spiketrain,
-                                    cut,
-                                    end=data.shape[0],
-                                    with_corrected_st=True)
     if ep.shape[0] > 0:
         if kind in ['min', 'max', 'energy']:
             spikes = extract_spikes(data, ep, mc=True)
-            tau = {'min':get_tau_align_min,
-                   'max':get_tau_align_max,
-                   'energy':get_tau_align_energy}[kind](spikes, align_at)
-            ep, st = epochs_from_spiketrain(st - tau,
-                                            cut,
-                                            end=data.shape[0],
-                                            with_corrected_st=True)
-            spikes = extract_spikes(data, ep, mc=mc)
-        else:
-            spikes = extract_spikes(data, ep, mc=mc)
+            tau = {'min': get_tau_align_min,
+                   'max': get_tau_align_max,
+                   'energy': get_tau_align_energy}[kind](spikes, align_at)
+            st += tau
+
+            ep, st = epochs_from_spiketrain(
+                st,
+                cut,
+                end=data.shape[0],
+                with_corrected_st=True)
+        spikes = extract_spikes(data, ep, mc=mc)
     else:
-        cut = get_cut(cut)
         if mc is True:
             size = 0, sum(cut), data.shape[1]
         else:
@@ -156,44 +142,4 @@ def get_aligned_spikes(data, spiketrain, cut, align_at=-1, mc=True,
 ##--- MAIN
 
 if __name__ == '__main__':
-    # initial imports and constants
-    from spikeplot import plt, waveforms
-
-    TF = 65
-    OFF = 20
-    KIND = 'min'
-
-    # get a spikes train
-    from spikedb import MunkSession
-
-    DB = MunkSession()
-    data = DB.get_tetrode_data(1, 3)
-    from spikepy.nodes import SDMteoNode
-
-    SD = SDMteoNode(tf=TF, threshold_factor=3.5)
-    SD(data)
-    st = SD.events
-    ep, st = epochs_from_spiketrain(st, get_cut(TF, OFF),
-                                    with_corrected_st=True)
-
-    # plot raw
-    spikes_raw = []
-    for i in xrange(st.size):
-        spikes_raw.append(mcvec_to_conc(data[ep[i][0]:ep[i][1]]))
-    spikes_raw = sp.vstack(spikes_raw)
-    waveforms(spikes_raw, tf=TF, title='RAW SPIKES', show=False)
-
-    # plot aligned
-    spikes_aligned, st = get_aligned_spikes(data,
-                                            SD.events,
-                                            get_cut(TF, OFF),
-                                            20,
-                                            mc=False,
-                                            kind=KIND)
-
-    # show aligned spikes
-    waveforms(spikes_aligned, tf=TF, title='ALIGNED SPIKES ["%s"]' % KIND,
-              show=False)
-    for c in xrange(4):
-        plt.axvline(c * TF + 20)
-    plt.show()
+    pass

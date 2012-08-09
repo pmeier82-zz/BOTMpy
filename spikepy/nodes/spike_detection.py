@@ -85,11 +85,9 @@ class ThresholdDetectorNode(ResetNode):
     row).
 
     The output will be a timeseries of detected feature in the input signal.
-     To
-    find the features, the input signal is transformed by applying an operator
+    To find the features, the input signal is transformed by applying an operator
     (called the energy function from here on) that produces an
-    representation of
-    the input signal, which should optimize the SNR of the features vs the
+    representation of the input signal, which should optimize the SNR of the features vs the
     remainder of the input signal. A threshold is then applied to this energy
     representation of the input signal to find the feature epochs.
 
@@ -300,23 +298,22 @@ class ThresholdDetectorNode(ResetNode):
             rval = rval.astype(INDEX_DTYPE)
         return rval
 
-    def get_extracted_events(self, mc=False, align_kind='min', align_at=-1,
-                             buffer=False):
+    def get_extracted_events(self, mc=False, align_at=-1, kind='min', buffer=False):
         """yields the extracted spikes
 
         :type mc: bool
         :param mc: if True, return multichannel events, else return
             concatenated events.
             Default=False
-        :type align_kind: str
-        :param align_kind: one of "min", "max", "energy" or "none". method
-            to use for alignment, will be passed to the alignment function.
-            Default='none'
         :type align_at: int or float
         :param align_at: if a float from (0.0,1.0), determine the align_sample
             according to that weight. If a positive integer from (0,
             self.tf-1] use that sample as the align_sample.
             Default=0.25 * self.tf
+        :type kind: str
+        :param kind: one of "min", "max", "energy" or "none". method
+            to use for alignment, will be passed to the alignment function.
+            Default='min'
         :type buffer: bool
         :param buffer: if True, write to buffer regardless of current buffer
             state.
@@ -324,7 +321,12 @@ class ThresholdDetectorNode(ResetNode):
         """
 
         if self.events is None:
-            raise ValueError('no events present!')
+            if mc is True:
+                size = 0, self.tf, self.nchan
+            else:
+                size = 0, self.tf * self.nchan
+            return sp.zeros(size)
+            #raise ValueError('no events present!')
 
         if self.extracted_events is None or buffer:
             if align_at < 0:
@@ -334,7 +336,7 @@ class ThresholdDetectorNode(ResetNode):
                     align_at *= self.tf
                 align_at = int(align_at)
             self.extracted_events, self.events = get_aligned_spikes(
-                self.data, self.events, self.tf, align_at=align_at, mc=mc, kind=align_kind)
+                self.data, self.events, align_at=align_at, tf=self.tf, mc=mc, kind=kind)
 
         # return extracted events
         return self.extracted_events
@@ -376,6 +378,8 @@ class ThresholdDetectorNode(ResetNode):
             'signal': self.data,
             'energy': self.energy
         }[self.th_base]
+        if self.ch_sep is False:
+            base = sp.atleast_2d(sp.absolute(base).max(axis=1)).T
         self.threshold = sp.asarray(
             [self._threshold_func(base[:, c])
              for c in xrange(base.shape[1])], dtype=self.dtype)
@@ -384,12 +388,12 @@ class ThresholdDetectorNode(ResetNode):
     def plot(self, show=False):
         """plot detection in mcdata plot"""
 
-        from spikeplot import plt, mcdata
+        from spikeplot import plt, mcdata, COLOURS
 
         fig = mcdata(self.data, other=self.energy, events={0: self.events},
             show=False)
-        for th in self.threshold:
-            fig.axes[-1].axhline(th)
+        for i, th in enumerate(self.threshold):
+            fig.axes[-1].axhline(th, c=COLOURS[i % len(COLOURS)])
         self._plot_additional(fig)
         if show is True:
             plt.show()
@@ -464,7 +468,8 @@ class SDMteoNode(ThresholdDetectorNode):
         kwargs.update(
             threshold_base='energy',
             threshold_factor=kwargs.get('threshold_factor', 0.96),
-            min_dist=kwargs.get('min_dist', 5))
+            min_dist=kwargs.get('min_dist', 5),
+            ch_separate=True)
         super(SDMteoNode, self).__init__(**kwargs)
 
         # members
@@ -498,7 +503,8 @@ class SDKteoNode(ThresholdDetectorNode):
         kwargs.update(
             threshold_base='energy',
             threshold_factor=kwargs.get('threshold_factor', 0.96),
-            min_dist=kwargs.get('min_dist', 5))
+            min_dist=kwargs.get('min_dist', 5),
+            ch_separate=True)
         super(SDKteoNode, self).__init__(**kwargs)
 
         # members

@@ -45,26 +45,21 @@
 
 """abstract base classes derived from MDP nodes"""
 __docformat__ = 'restructuredtext'
-__all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'TimeSeriesNode',
-           'PCANode']
+__all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'PCANode']
 
 ##---IMPORTS
 
-from mdp import Node, IsNotTrainableException, TrainingFinishedException
+from mdp import Node
 from mdp.nodes import PCANode
 
 ##---CLASSES
-
-class TimeSeriesNode(Node):
-    pass
-
 
 class TrainingResetMixin(object):
     """allows :py:class:`mdp.Node` to reset to training state
 
     This is a mixin class for subclasses of :py:class:`mdp.Node`. To use it
     inherit from :py:class:`mdp.Node` and put this mixin as the first
-    superclass
+    superclass.
 
     node is a mdp.signal_node.Cumulator that can have its training phase
     reinitialised once a batch of cumulated data has been processed on. This

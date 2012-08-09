@@ -16,5 +16,4 @@ Subpackages
 
     spikepy.common
     spikepy.nodes
-    spikepy.ntrode
 

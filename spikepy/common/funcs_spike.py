@@ -108,8 +108,8 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     # inits
     rval = []
     ep_func = {
-        'gt':lambda d, t:epochs_from_binvec(d > t).tolist(),
-        'lt':lambda d, t:epochs_from_binvec(d < t).tolist(),
+        'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
+        'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
         }[mode]
 
     # per channel detection
@@ -174,17 +174,16 @@ def merge_epochs(*args, **kwargs):
     rval = rval_ovlp
 
     # rval_ovlp epochs with gaps smaller than minimum distance
-    if 'min_dist' in kwargs:
-        min_dist = int(kwargs.get('min_dist', 0))
-        if min_dist > 0:
-            rval_gaps = [rval_ovlp.pop(0)]
-            while len(rval_ovlp) > 0:
-                ep = rval_ovlp.pop(0)
-                if ep[0] - rval_gaps[-1][1] < min_dist:
-                    rval_gaps[-1][1] = ep[1]
-                else:
-                    rval_gaps.append(ep)
-            rval = rval_gaps
+    min_dist = int(kwargs.get('min_dist', 0))
+    if min_dist > 0:
+        rval_gaps = [rval_ovlp.pop(0)]
+        while len(rval_ovlp) > 0:
+            ep = rval_ovlp.pop(0)
+            if ep[0] - rval_gaps[-1][1] < min_dist:
+                rval_gaps[-1][1] = ep[1]
+            else:
+                rval_gaps.append(ep)
+        rval = rval_gaps
 
     # return
     rval = sp.asarray(rval, dtype=INDEX_DTYPE)

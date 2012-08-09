@@ -174,9 +174,9 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._labels = sp.zeros((len(self.crange) * self.repeats,
                                  x.shape[0]), dtype=sp.integer) - 1
         self._gof = sp.zeros(len(self.crange) * self.repeats,
-                             dtype=self.dtype)
+            dtype=self.dtype)
         self._ll = sp.zeros(len(self.crange) * self.repeats,
-                            dtype=self.dtype)
+            dtype=self.dtype)
         self._parameters = [None] * len(self.crange) * self.repeats
 
         # clustering
@@ -191,7 +191,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 # evaluate model for this run
                 if self.clus_type == 'kmeans':
                     model = KMeans(k=k, init='k-means++',
-                                   max_iter=self.maxiter)
+                        max_iter=self.maxiter)
                     model.fit(x)
                     self._labels[idx] = model.labels_
                     self._parameters[idx] = model.cluster_centers_
@@ -204,10 +204,10 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     model.covars = sp.ones(k) * self.sigma_factor
                     model.fit(x, n_iter=0, init_params='wm')
                     model.fit(x,
-                              n_iter=self.maxiter,
-                              thresh=self.conv_th,
-                              init_params='',
-                              params='wm')
+                        n_iter=self.maxiter,
+                        thresh=self.conv_th,
+                        init_params='',
+                        params='wm')
                     self._labels[idx] = model.predict(x)
                     self._parameters[idx] = model.means
                     self._ll[idx] = model.score(x).sum()
@@ -240,16 +240,17 @@ class HomoscedasticClusteringNode(ClusteringNode):
         Np = k * (Nk + 1) - 1
 
         #=============================================================
-        # # calculate BIC value (Xu & Wunsch, 2005)
-        # return - ll + Np * 0.5 * sp.log(sp)
+        # BIC value (Xu & Wunsch, 2005)
+        # BIC(K) = LL - (Np / 2) * log(N)
+        # chose: arg(K) max BIC(K) = arg(K) min -BIC(K)
         #=============================================================
+        return -LL + Np * 0.5 * sp.log(N)
 
         #=============================================================
-        # # calculate AIC value (Xu & Wunsch, 2005)
-        # return - 2 * (sp - 1 - Nk - ncmp * 0.5) * ll / sp + 3 * Np
+        # AIC value (Xu & Wunsch, 2005)
+        # AIC(K) = -2 * (N - 1 - Nk - k * 0.5) * LL / N + 3 * Np
         #=============================================================
-
-        return - LL + Np * 0.5 * sp.log(N)
+        # return -2.0 * (N - 1 - Nk - k * .5) * LL / float(N) + 3.0 * Np
 
     def plot(self, data, views=2, show=False):
         """plot clustering"""
@@ -269,24 +270,27 @@ class HomoscedasticClusteringNode(ClusteringNode):
         # plot clustering
         for v in xrange(views):
             cluster(cdata,
-                    data_dim=(2 * v, 2 * v + 1),
-                    plot_handle=ax[v],
-                    plot_mean=sp.sqrt(self.sigma_factor),
-                    xlabel='PC %d' % int(2 * v),
-                    ylabel='PC %d' % int(2 * v + 1),
-                    show=False)
+                data_dim=(2 * v, 2 * v + 1),
+                plot_handle=ax[v],
+                plot_mean=sp.sqrt(self.sigma_factor),
+                xlabel='PC %d' % int(2 * v),
+                ylabel='PC %d' % int(2 * v + 1),
+                show=False)
 
         # plot gof
         axg.plot(self._gof, ls='steps')
         for i in xrange(1, len(self.crange)):
             axg.axvline(i * self.repeats - 0.5, c='y', ls='--')
         axg.axvspan(self._winner - 0.5, self._winner + 0.5, fc='gray',
-                    alpha=0.2)
+            alpha=0.2)
         labels = []
         for k in self.crange:
-            labels += ['%d-%d' % (k, r + 1) for r in xrange(self.repeats)]
+            labels += ['%d' % k]
+            labels += [''] * (self.repeats - 1)
         axg.set_xticks(sp.arange(len(labels)))
         axg.set_xticklabels(labels)
+        axg.set_xlabel('repeats')
+        axg.set_ylabel('BIC')
         axg.set_xlim(-1, len(labels))
 
         # show?

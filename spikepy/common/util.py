@@ -131,8 +131,31 @@ class VERBOSE(object):
 
     ## constructor
 
-    def __init__(self, level):
+    def __init__(self, level=None, has_print=False, has_plot=False):
+        """
+
+        :param level: int
+        :type level: bitfield as hexadecimal
+        :param has_print:
+        :type has_print:
+        :param has_plot:
+        :type has_plot:
+        :return:
+        :rtype:
+        """
+
+        # set level
+        if isinstance(level, VERBOSE):
+            level = level.level
         self.level = level
+
+        # adjust level
+        if self.level is None:
+            self.level = self.NONE
+        if has_print is True:
+            self.level |= self.PRINT
+        if has_plot is True:
+            self.level |= self.PLOT
 
     ## interface
 

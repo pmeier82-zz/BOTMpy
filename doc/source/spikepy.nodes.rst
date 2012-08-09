@@ -9,18 +9,18 @@ nodes Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`alignment_nodes` Module
------------------------------
+:mod:`alignment` Module
+-----------------------
 
-.. automodule:: spikepy.nodes.alignment_nodes
+.. automodule:: spikepy.nodes.alignment
     :members:
     :undoc-members:
     :show-inheritance:
 
-:mod:`artifact_nodes` Module
-----------------------------
+:mod:`artifact_detector` Module
+-------------------------------
 
-.. automodule:: spikepy.nodes.artifact_nodes
+.. automodule:: spikepy.nodes.artifact_detector
     :members:
     :undoc-members:
     :show-inheritance:
@@ -33,58 +33,58 @@ nodes Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`cluster_nodes` Module
+:mod:`cluster` Module
+---------------------
+
+.. automodule:: spikepy.nodes.cluster
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`filter_bank` Module
+-------------------------
+
+.. automodule:: spikepy.nodes.filter_bank
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`linear_filter` Module
 ---------------------------
 
-.. automodule:: spikepy.nodes.cluster_nodes
+.. automodule:: spikepy.nodes.linear_filter
     :members:
     :undoc-members:
     :show-inheritance:
 
-:mod:`detector_nodes` Module
-----------------------------
+:mod:`prewhiten` Module
+-----------------------
 
-.. automodule:: spikepy.nodes.detector_nodes
+.. automodule:: spikepy.nodes.prewhiten
     :members:
     :undoc-members:
     :show-inheritance:
 
-:mod:`filter_nodes` Module
---------------------------
+:mod:`smoothing` Module
+-----------------------
 
-.. automodule:: spikepy.nodes.filter_nodes
+.. automodule:: spikepy.nodes.smoothing
     :members:
     :undoc-members:
     :show-inheritance:
 
-:mod:`filter_sorting` Module
-----------------------------
-
-.. automodule:: spikepy.nodes.filter_sorting
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`prewhiten_nodes` Module
+:mod:`spike_detection` Module
 -----------------------------
 
-.. automodule:: spikepy.nodes.prewhiten_nodes
+.. automodule:: spikepy.nodes.spike_detection
     :members:
     :undoc-members:
     :show-inheritance:
 
-:mod:`smooth_nodes` Module
---------------------------
-
-.. automodule:: spikepy.nodes.smooth_nodes
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`sorting_nodes` Module
+:mod:`spike_sorting` Module
 ---------------------------
 
-.. automodule:: spikepy.nodes.sorting_nodes
+.. automodule:: spikepy.nodes.spike_sorting
     :members:
     :undoc-members:
     :show-inheritance:
