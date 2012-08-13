@@ -56,7 +56,7 @@ __all__ = ['FilterBankError', 'FilterBankNode']
 
 import scipy as sp
 import warnings
-from spikeplot import waveforms, xvf_tensor
+from spikeplot import waveforms, xvf_tensor, plt
 from .base_nodes import Node
 from .linear_filter import FilterNode, REMF
 from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
@@ -70,9 +70,15 @@ class FilterBankError(Exception):
 class FilterBankNode(Node):
     """abstract class that handles filter instances and their outputs
 
-    All filters constituting the filter bank have to be of the same temporal
-    extend (Tf) and process the same channel set.
+    All filters constituting the filter bank have to be of the same temporal extend (Tf) and process
+    the same channel set.
+
+    There are two different index sets. One is abbreviated "idx" and one "key". The "idx" the index
+    of filter in `self.bank` and thus a unique, hashable identifier. Where as the "key" an index in a
+    subset of idx. Ex.: the index for list(self._idx_active_set) would be a "key".
     """
+
+    ## constructor
 
     def __init__(self, **kwargs):
         """see `mdp.Node`
@@ -126,34 +132,87 @@ class FilterBankNode(Node):
         super(FilterBankNode, self).__init__(**kwargs)
 
         # members
-        self._chan_set = tuple(sorted(chan_set))
         self._tf = int(tf)
-        self._nc = len(self._chan_set)
-        self._filter_cls = filter_cls
-        self._rb_cap = int(rb_cap)
+        self._nc = None
+        self._chan_set = None
         self._xcorrs = None
         self._ce = None
+        self._filter_cls = filter_cls
+        self._rb_cap = int(rb_cap)
         self._idx_active_set = set()
-        self.verbose = VERBOSE(verbose)
         self.bank = {}
+        self.verbose = VERBOSE(verbose)
+
+        # set members
+        self.cs = chan_set
         self.ce = ce
 
-    ## properties
+    ## properties static or protected
 
     def get_tf(self):
         return self._tf
 
-    tf = property(get_tf)
+    tf = property(get_tf, doc='temporal filter extend [samples]')
 
     def get_nc(self):
         return self._nc
 
-    nc = property(get_nc)
+    nc = property(get_nc, doc='number of channels')
+
+    def get_nf(self, active=True):
+        if active:
+            return len(self._idx_active_set)
+        else:
+            return len(self.bank)
+
+    nf = property(get_nf, doc='number of filters')
+
+    def get_template_set(self, active=True, mc=True):
+        key_set = self._idx_active_set if active else set(self.bank.keys())
+        if not key_set:
+            shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
+            return sp.zeros(shape, dtype=self.dtype)
+        f_list = self._get_idx_set(key_set)
+        return sp.asarray([f.xi if mc else f.xi_conc for f in f_list])
+
+    template_set = property(get_template_set, doc='template set of active filters')
+
+    def get_filter_set(self, active=True, mc=True):
+        key_set = self._idx_active_set if active else set(self.bank.keys())
+        if not key_set:
+            shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
+            return sp.zeros(shape, dtype=self.dtype)
+        f_list = self._get_idx_set(key_set)
+        return sp.asarray([f.f if mc else f.f_conc for f in f_list])
+
+    filter_set = property(get_filter_set, doc='filter set of active filters')
+
+    def get_xcorrs(self):
+        return self._xcorrs
+
+    xcorrs = property(get_xcorrs, doc='cross correlation tensor for active filters')
+
+    def get_xcorrs_at(self, idx0, idx1=None, shift=0):
+        if self._xcorrs is None:
+            return None
+        return self._xcorrs[idx0, idx1 or idx0, self._tf - 1 + shift]
+
+    def get_idx_for(self, key):
+        return list(self._idx_active_set)[key]
+
+    def _get_idx_set(self, key_set):
+        return [self.bank[k] for k in key_set]
+
+    ## properties public
 
     def get_chan_set(self):
         return self._chan_set
 
-    cs = property(get_chan_set)
+    def set_chan_set(self, value):
+        self._chan_set = tuple(sorted(value))
+        self._nc = len(self._chan_set)
+
+    cs = property(get_chan_set, set_chan_set)
 
     def get_ce(self):
         return self._ce
@@ -174,50 +233,6 @@ class FilterBankNode(Node):
 
     ce = property(get_ce, set_ce)
 
-    def get_nfilter(self, active=True):
-        if active:
-            return len(self._idx_active_set)
-        else:
-            return len(self.bank)
-
-    nfilter = property(get_nfilter)
-
-    def _get_key_set(self, key_set):
-        return [self.bank[k] for k in key_set]
-
-    def get_template_set(self, active=True, mc=True):
-        key_set = self._idx_active_set if active else set(self.bank.keys())
-        if not key_set:
-            shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
-            return sp.zeros(shape, dtype=self.dtype)
-        f_list = self._get_key_set(key_set)
-        return sp.asarray([f.xi if mc else f.xi_conc for f in f_list])
-
-    template_set = property(get_template_set)
-
-    def get_filter_set(self, active=True, mc=True):
-        key_set = self._idx_active_set if active else set(self.bank.keys())
-        if not key_set:
-            shape = (0, self._tf, self._nc) if mc else (0, self._tf * self._nc)
-            return sp.zeros(shape, dtype=self.dtype)
-        f_list = self._get_key_set(key_set)
-        return sp.asarray([f.f if mc else f.f_conc for f in f_list])
-
-    filter_set = property(get_filter_set)
-
-    def get_xcorrs(self):
-        return self._xcorrs
-
-    xcorrs = property(get_xcorrs)
-
-    def get_xcorrs_at(self, idx0, idx1=None, shift=0):
-        if self._xcorrs is None:
-            return None
-        return self._xcorrs[idx0, idx1 or idx0, self._tf - 1 + shift]
-
-    def get_fid_for(self, idx):
-        return list(self._idx_active_set)[idx]
-
     ## filter bank interface
 
     def reset_history(self):
@@ -227,7 +242,11 @@ class FilterBankNode(Node):
             filt.reset_history()
 
     def create_filter(self, xi, check=True):
-        """adds a new filter to the filter bank"""
+        """adds a new filter to the filter bank
+
+        :type xi: ndarray
+        :param xi: template to build the filter for
+        """
 
         # check input
         xi = sp.asarray(xi, dtype=self.dtype)
@@ -295,11 +314,12 @@ class FilterBankNode(Node):
             return
 
         # build filters
-        for k in self._idx_active_set:
-            self.bank[k].calc_filter()
+        for i in self._idx_active_set:
+            self.bank[i].calc_filter()
 
         # build cross-correlation tensor
-        self._xcorrs = xi_vs_f(self.get_template_set(mc=False),
+        self._xcorrs = xi_vs_f(
+            self.get_template_set(mc=False),
             self.get_filter_set(mc=False),
             nc=self._nc)
 
@@ -314,9 +334,9 @@ class FilterBankNode(Node):
     def _execute(self, x):
         if not self._idx_active_set:
             return sp.zeros((x.shape[0], 0), dtype=self.dtype)
-        rval = sp.empty((x.shape[0], self.nfilter))
-        for i, k in enumerate(self._idx_active_set):
-            rval[:, i] = self.bank[k](x)
+        rval = sp.empty((x.shape[0], self.nf))
+        for k, i in enumerate(self._idx_active_set):
+            rval[:, k] = self.bank[i](x)
         return rval
 
     ## plotting methods
@@ -325,7 +345,7 @@ class FilterBankNode(Node):
         """plot the Xi vs F Tensor of the filter bank"""
 
         # check
-        if len(self._idx_active_set) == 0:
+        if self.nf == 0:
             warnings.warn('skipping plot, no active units!')
             return
 
@@ -339,7 +359,7 @@ class FilterBankNode(Node):
         """plot the template set in a waveform plot"""
 
         # checks
-        if len(self._idx_active_set) == 0:
+        if self.nf == 0:
             warnings.warn('skipping plot, no active units!')
             return
 
@@ -348,16 +368,61 @@ class FilterBankNode(Node):
         for k in self._idx_active_set:
             units[k] = self.bank[k]._xi_buf[:]
 
-        return waveforms(units,
+        return waveforms(
+            units,
             tf=self._tf,
             plot_separate=True,
             plot_mean=True,
             plot_single_waveforms=True,
             plot_handle=ph, show=show)
 
+    def plot_template_set2(self, show=False):
+        """plot the template set in a waveform plot"""
+
+        # checks
+        if self.nf == 0:
+            warnings.warn('skipping plot, no active units!')
+            return
+
+        # init
+        f = plt.figure()
+        y_min, y_max = 0, 0
+        share = None
+        for k, i in enumerate(self._idx_active_set):
+            ax = f.add_subplot(self.nf, 1, k + 1, sharex=share, sharey=share)
+            a, b = self.bank[i].plot_buffer_to_axis(axis=ax, idx=i)
+            y_min = min(y_min, a)
+            y_max = max(y_max, b)
+            share = ax
+        f.axes[0].set_ylim(y_min, y_max)
+
+        if show is True:
+            plt.show()
+
+    def plot_filter_set(self, ph=None, show=False):
+        """plot the filter set in a waveform plot"""
+
+        # checks
+        if self.nf == 0:
+            warnings.warn('skipping plot, no active units!')
+            return
+
+        # init
+        units = {}
+        for k in self._idx_active_set:
+            units[k] = sp.atleast_2d(self.bank[k].f_conc)
+
+        return waveforms(
+            units,
+            tf=self._tf,
+            plot_separate=True,
+            plot_mean=False,
+            plot_single_waveforms=False,
+            plot_handle=ph, show=show)
+
     ## special methods
 
-    __len__ = get_nfilter
+    __len__ = get_nf
 
 ##---MAIN
 

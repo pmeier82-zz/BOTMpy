@@ -71,9 +71,9 @@ from .filter_bank import FilterBankError, FilterBankNode
 from .prewhiten import PrewhiteningNode2
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
-    overlaps, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc,
-    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
-    get_cut, get_aligned_spikes, GdfFile, MxRingBuffer, mcvec_from_conc)
+    overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc,
+    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile,
+    MxRingBuffer, mcvec_from_conc, extract_spikes)
 
 ##---CONSTANTS
 
@@ -174,14 +174,13 @@ class FilterBankSortingNode(FilterBankNode):
         # sort per chunk
         while has_next_chunk:
             # get chunk limits
-            #c_start = curr_chunk * self._chunk_size
             self._chunk_offset = curr_chunk * self._chunk_size
             clen = min(dlen, (curr_chunk + 1) * self._chunk_size)
             clen -= self._chunk_offset
 
             # generate data chunk and process
             self._chunk = self._data[self._chunk_offset:self._chunk_offset + clen]
-            self._fout = sp.empty((clen, self.nfilter))
+            self._fout = sp.empty((clen, self.nf))
 
             # filtering
             self._pre_filter()
@@ -225,6 +224,47 @@ class FilterBankSortingNode(FilterBankNode):
         for k in self.rval:
             self.rval[k] -= correct
 
+    ## result access
+
+    def spikes_u(self, u, mc=True, exclude_overlaps=True, overlap_window=None):
+        """yields the spike for the u-th filter
+
+        :type u: int
+        :param u: index of the filter # CHECK THIS
+        :type mc: bool
+        :param mc: if True, return spikes multi-channeled, else return spikes concatenated
+            Default=True
+        :type exclude_overlaps: bool
+        :param exclude_overlaps: if True, exclude overlap spike
+        :type overlap_window: int
+        :param overlap_window: if `exclude_overlaps` is True, this will define the overlap range,
+            if None set overlap_window=self._tf.
+            Default=None
+        """
+
+        # init
+        cut = get_cut(self._tf)
+        rval = None
+        size = 0, sum(cut), self._data.shape[1]
+        if mc is False:
+            size = size[0], size[1] * size[2]
+
+        # extract spikes
+        if u not in self.rval:
+            rval = sp.zeros(size)
+        else:
+            ep = epochs_from_spiketrain(self.rval[u], self._tf, end=self._data.shape[0])
+            if ep.size == 0:
+                rval = sp.zeros(size)
+            else:
+                rval = extract_spikes(self._data, ep, mc=mc)
+                if exclude_overlaps is True:
+                    ovlp_info = overlaps(self.rval, overlap_window or self._tf)[0]
+                    rval = rval[ovlp_info[u] == False]
+
+        return rval
+
+
     ## plotting methods
 
     def plot_sorting(self, ph=None, show=False):
@@ -245,22 +285,22 @@ class FilterBankSortingNode(FilterBankNode):
         ev = {}
         if self.rval is not None:
             temps = self.template_set
-            for i, k in enumerate(self._idx_active_set):
-                if k in self.rval:
-                    if self.rval[k].any():
-                        ev[k] = (temps[i], self.rval[k])
+            for i in self._idx_active_set:
+                if i in self.rval:
+                    if self.rval[i].any():
+                        ev[i] = (self.bank[i].xi, self.rval[i])
 
         # create colours
-        cols = COLOURS[:self.nfilter]
+        cols = COLOURS[:self.nf]
 
         # calc discriminants for single units
         other = None
-        if self.nfilter > 0:
+        if self.nf > 0:
             self.reset_history()
             other = super(FilterBankSortingNode, self)._execute(self._data)
             other += getattr(self, '_lpr_s', sp.log(1.e-6))
             other -= [.5 * self.get_xcorrs_at(i)
-                      for i in xrange(self.nfilter)]
+                      for i in xrange(self.nf)]
 
         # plot mcdata
         return mcdata(self._data, other=other, events=ev,
@@ -287,13 +327,13 @@ class FilterBankSortingNode(FilterBankNode):
         #    return
         cut = get_cut(self._tf)
 
+
         # adapt filters with found waveforms
         nunits = 0
         for u in self.rval:
-            spks_u = get_aligned_spikes(self._data, self.rval[u], self._tf,
-                mc=False)[0]
+            spks_u = self.spikes_u(u, mc=False)
             if spks_u.size > 0:
-                wf[u] = spks_u
+                wf[u] = self.spikes_u(u)
                 temps[u] = self.bank[u].xi_conc
                 nunits += 1
         print 'waveforms for units:', nunits
@@ -406,21 +446,21 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
         # tune filter outputs to prob. model
         ns = self._fout.shape[0]
-        nf = self.nfilter
+        nf = self.nf
         if self._ovlp_taus is not None:
             nf += nf * (nf - 1) * 0.5 * len(self._ovlp_taus)
         self._disc = sp.empty((ns, nf), dtype=self.dtype)
         self._disc[:] = sp.nan
-        for i in xrange(self.nfilter):
+        for i in xrange(self.nf):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
                                 .5 * self.get_xcorrs_at(i))
 
         # build overlap channels from filter outputs for overlap channels
         if self._ovlp_taus is not None:
             self._oc_idx = {}
-            oc_idx = self.nfilter
-            for f0 in xrange(self.nfilter):
-                for f1 in xrange(f0 + 1, self.nfilter):
+            oc_idx = self.nf
+            for f0 in xrange(self.nf):
+                for f1 in xrange(f0 + 1, self.nf):
                     for tau in self._ovlp_taus:
                         self._oc_idx[oc_idx] = (f0, f1, tau)
                         f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
@@ -445,7 +485,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         """
 
         # inits
-        if self.nfilter == 0:
+        if self.nf == 0:
             return
         spk_ep = epochs_from_binvec(
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
@@ -453,6 +493,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             return
         l, r = get_cut(self._tf)
         for i in xrange(spk_ep.shape[0]):
+            # FIX: for now we just continue for empty epochs, where do they come from anyways?!
+            if spk_ep[i, 1] - spk_ep[i, 0] < 1:
+                continue
             mc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].argmax(0).argmax()
             s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[i, 0]
             spk_ep[i] = [s - l, s + r]
@@ -472,16 +515,16 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 ep_t += spk_ep[i, 0]
 
                 # lets fill in the results
-                if ep_c < self.nfilter:
+                if ep_c < self.nf:
                     # was single unit
-                    fid = self.get_fid_for(ep_c)
+                    fid = self.get_idx_for(ep_c)
                     self.rval[fid].append(ep_t + self._chunk_offset)
                 else:
                     # was overlap
                     my_oc_idx = self._oc_idx[ep_c]
-                    fid0 = self.get_fid_for(my_oc_idx[0])
+                    fid0 = self.get_idx_for(my_oc_idx[0])
                     self.rval[fid0].append(ep_t + self._chunk_offset)
-                    fid1 = self.get_fid_for(my_oc_idx[1])
+                    fid1 = self.get_idx_for(my_oc_idx[1])
                     self.rval[fid1].append(
                         ep_t + my_oc_idx[2] + self._chunk_offset)
 
@@ -495,16 +538,16 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                 niter = 0
                 while sp.nanmax(ep_disc) > self._lpr_n:
-                    # fail on spike overflow
+                    # warn on spike overflow
                     niter += 1
-                    if niter > self.nfilter:
+                    if niter > self.nf:
                         warnings.warn(
                             'more spikes than filters found! '
                             'epoch: [%d:%d] %d' % (
                                 spk_ep[i][0] + self._chunk_offset,
                                 spk_ep[i][1] + self._chunk_offset,
                                 niter))
-                        if niter > 2 * self.nfilter:
+                        if niter > 2 * self.nf:
                             break
 
                     # find spike classes
@@ -529,12 +572,12 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                         spk_ep[i, 1] + self._chunk_offset,
                                         niter))
                             ax1 = f.add_subplot(211)
-                            ax1.set_color_cycle(['k'] + COLOURS[:self.nfilter] * 2)
+                            ax1.set_color_cycle(['k'] + COLOURS[:self.nf] * 2)
                             ax1.plot(x_range, sp.zeros_like(x_range), ls='--')
                             ax1.plot(x_range, ep_disc, label='pre_sub')
                             ax1.axvline(x_range[ep_t], c='k')
                             ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
-                            ax2.set_color_cycle(['k'] + COLOURS[:self.nfilter])
+                            ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
                             ax2.plot(x_range, sp.zeros_like(x_range), ls='--')
                             ax2.plot(x_range, sub)
                             ax2.axvline(x_range[ep_t], c='k')
@@ -542,7 +585,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         if self.verbose.has_plot:
                             ax1.plot(x_range, ep_disc, ls=':', lw=2, label='post_sub')
                             ax1.legend(loc=2)
-                        fid = self.get_fid_for(ep_c)
+                        fid = self.get_idx_for(ep_c)
                         self.rval[fid].append(
                             spk_ep[i, 0] + ep_t + self._chunk_offset)
                     else:
@@ -775,6 +818,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
     def _check_event(self, ev, win_half_span=15):
         """check event for explanation by the filter bank"""
 
+        if not self._disc.size:
+            return True
         cut = self._learn_templates, self.tf - self._learn_templates
         disc_at = ev + cut[1] - 1
         if self.verbose.has_plot:
@@ -787,8 +832,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
     def _post_sort(self):
         self.det.reset()
         self.det(self._chunk)
-        spks = self.det.get_extracted_events(
-            mc=False, kind='min', align_at=self._learn_templates)
+        print '_post_sort, self._learn_templates:', self._learn_templates
+        spks = self.det.get_extracted_events(mc=False, kind='min', align_at=self._learn_templates)
         spks_explained = [self._check_event(e) for e in self.det.events]
         if len(spks[spks_explained]) > 0:
             self._det_buf.extend(spks[spks_explained])
@@ -840,7 +885,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
                     HomoscedasticClusteringNode(
                         clus_type='gmm',
                         debug=self.verbose.has_print,
-                        crange=range(1, 10)))
+                        crange=range(1, 20)))
             flow(spks)
             lbls = flow[-1].labels
             for i in sp.unique(lbls):
@@ -878,20 +923,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
     def _adapt_filter_current(self):
         """adapt templates/filters using non overlapping spikes"""
 
-        # checks and inits
+        # check and init
         if self._data is None or self.rval is None:
             return
-        ovlp_info = overlaps(self.rval, self._tf)[0]
-        cut = get_cut(self._tf)
 
         # adapt filters with found waveforms
         for u in self.rval:
-            st = self.rval[u][ovlp_info[u] == False]
-            if len(st) == 0:
-                continue
-            spks_u = get_aligned_spikes(
-                self._data, st, cut, self._learn_templates, mc=True,
-                kind='min')[0]
+            spks_u = self.spikes_u(u, mc=True, exclude_overlaps=True)
             if spks_u.size == 0:
                 continue
             self.bank[u].extend_xi_buf(spks_u)

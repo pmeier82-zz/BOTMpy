@@ -249,6 +249,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         #=============================================================
         # AIC value (Xu & Wunsch, 2005)
         # AIC(K) = -2 * (N - 1 - Nk - k * 0.5) * LL / N + 3 * Np
+        # chose: arg(K) min AIC(K)
         #=============================================================
         # return -2.0 * (N - 1 - Nk - k * .5) * LL / float(N) + 3.0 * Np
 
