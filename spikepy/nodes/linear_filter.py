@@ -349,7 +349,8 @@ class RateEstimator(object):
     def __init__(self, *args, **kwargs):
         self._spike_count = 0
         self._sample_count = 0
-        self._sample_rate = kwargs.pop('sample_rate', 32000.0)
+        self._n_updates_since = 0
+        self._sample_rate = float(kwargs.pop('sample_rate', 32000.0))
 
     def estimate(self):
         return self._sample_rate * self._spike_count / self._sample_count
@@ -357,6 +358,15 @@ class RateEstimator(object):
     def observation(self, nobs, tlen):
         self._spike_count += nobs
         self._sample_count += tlen
+        if nobs > 0:
+            self._n_updates_since = 0
+        else:
+            self._n_updates_since += 1
+
+    def reset(self):
+        self._spike_count = 0
+        self._sample_count = 0
+        self._n_updates_since = 0
 
 
 class REMF(MatchedFilterNode):

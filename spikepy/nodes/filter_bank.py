@@ -241,6 +241,13 @@ class FilterBankNode(Node):
         for filt in self.bank.values():
             filt.reset_history()
 
+    def reset_rates(self):
+        """resets the rate estimators for all filters (if applicable)"""
+
+        for filt in self.bank.values():
+            if hasattr(filt, 'rate'):
+                filt.rate.reset()
+
     def create_filter(self, xi, check=True):
         """adds a new filter to the filter bank
 
@@ -276,7 +283,7 @@ class FilterBankNode(Node):
             rval = self._check_internals()
         return rval
 
-    def deactivate_filter(self, idx):
+    def deactivate(self, idx, check=False):
         """deactivates a filter in the filter bank
 
         Filters are never deleted, but can be de-/reactivated and will be used
@@ -289,9 +296,13 @@ class FilterBankNode(Node):
         if idx in self.bank:
             self.bank[idx].active = False
             self._idx_active_set.discard(idx)
+            if check is True:
+                self._check_internals()
+        else:
+            warnings.warn('no idx=%s in filter bank!' % idx)
 
-    def reactivate_filter(self, idx):
-        """reactivates a filter in the filter bank
+    def activate(self, idx, check=False):
+        """activates a filter in the filter bank
 
         Filters are never deleted, but can be de-/reactivated and will be used
         respecting there activation state for the filter output of the
@@ -303,6 +314,10 @@ class FilterBankNode(Node):
         if idx in self.bank:
             self.bank[idx].active = True
             self._idx_active_set.add(idx)
+            if check is True:
+                self._check_internals()
+        else:
+            warnings.warn('no idx=%s in filter bank!' % idx)
 
     def _check_internals(self):
         """triggers filter recalculation and rebuild xcorr tensor"""

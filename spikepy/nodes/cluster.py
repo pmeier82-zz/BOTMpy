@@ -51,8 +51,9 @@ __all__ = ['ClusteringNode', 'HomoscedasticClusteringNode']
 ##---IMPORTS
 
 import scipy as sp
-from sklearn.mixture import GMM
-from sklearn.cluster import KMeans
+from sklearn.mixture import DPGMM, GMM, VBGMM
+from sklearn.cluster import KMeans, SpectralClustering
+from sklearn.metrics import euclidean_distances
 from .base_nodes import ResetNode
 
 ##---CLASSES
@@ -62,7 +63,7 @@ class ClusteringNode(ResetNode):
 
     ## constructor
 
-    def __init__(self, dtype=sp.float32):
+    def __init__(self, dtype=None):
         """
         :type dtype: dtype resolvable
         :param dtype: will be passed to :py:class:`mdp.Node`
@@ -114,32 +115,43 @@ class HomoscedasticClusteringNode(ClusteringNode):
     Minimising said criterion will lead to the most likely model.
     """
 
-    def __init__(self, clus_type='kmeans', crange=range(1, 16), maxiter=32,
-                 repeats=4, conv_th=1e-4, sigma_factor=4.0, dtype=sp.float32,
-                 debug=False):
+    ## constructor
+
+    def __init__(self, clus_type='kmeans', crange=range(1, 16), repeats=4, sigma_factor=4.0,
+                 max_iter=None, conv_thresh=None, alpha=None, cvtype='tied', gof_type='bic',
+                 dtype=None, debug=False):
         """
         :type clus_type: str
-        :param cluls_type: clustering algorithm to use. Must be one of:
+        :param clus_type: clustering algorithm to use. Must be one of:
             'kmeans', 'gmm'
             Default='kmeans'
         :type crange: list
         :param crange: cluster count to test for
             Default=range(1,16)
-        :type maxiter: int
-        :param maxiter: upper bound for the iterations per run
-            Default=32
         :type repeats: int
         :param repeats: repeat this many times per cluster count
             Default=4
-        :type conv_th: float
-        :param conv_th: convergence threshold.
-            Default=1e-4
         :type sigma_factor: float
         :param sigma_factor: variance factor for the spherical covariance
             Default=4.0
+        :type max_iter: int
+        :param max_iter: upper bound for the iterations per run
+            Default=None
+        :type conv_thresh: float
+        :param conv_thresh: convergence threshold.
+            Default=None
+        :type alpha: float
+        :param alpha: alpha value for the variational inference based gmm algorithms
+            Default=None
+        :type cvtype: str
+        :param cvtype: covariance type, one of {'spherical', 'diag', 'tied', 'full'}
+            Default='tied'
         :type dtype: dtype resolvable
         :param dtype: dtype for internal calculations
-            Default=scipy.float32
+            Default=None
+        :type gof_type: str
+        :param gof_type: goodness of fit criterion to use, one of {'aic', 'bic'}
+            Default='bic'
         :type debug: bool
         :param debug: if True, announce progress to stdout.
         """
@@ -148,31 +160,209 @@ class HomoscedasticClusteringNode(ClusteringNode):
         super(HomoscedasticClusteringNode, self).__init__(dtype=dtype)
 
         # members
-        self.clus_type = str(clus_type)
-        if self.clus_type not in ['kmeans', 'gmm']:
-            raise ValueError(
-                'clus_type must be one of: \'kmeans\' or \'gmm\'!')
-        self.crange = list(crange)
-        self.maxiter = int(maxiter)
-        self.repeats = int(repeats)
-        self.conv_th = float(conv_th)
-        self.sigma_factor = float(sigma_factor)
         self._ll = None
         self._gof = None
         self._winner = None
+        self.clus_type = str(clus_type)
+        self.gof_type = str(gof_type)
+        if self.clus_type not in ['kmeans', 'gmm', 'dpgmm', 'vbgmm', 'spectral']:
+            raise ValueError(
+                'clus_type must be one of: \'kmeans\', \'gmm\', \'vbgmm\' or \'dpgmm\'!')
+        self.cvtype = str(cvtype)
+        self.crange = list(crange)
+        self.repeats = int(repeats)
+        self.sigma_factor = float(sigma_factor)
         self.debug = bool(debug)
+
+        self.clus_kwargs = {}
+        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm', 'dpgmm']:
+            self.clus_kwargs.update(max_iter=max_iter)
+        if conv_thresh is not None and clus_type in ['kmeans', 'gmm', 'dpgmm']:
+            self.clus_kwargs.update(conv_thresh=conv_thresh)
+        if alpha is not None and clus_type in ['vbgmm', 'dpgmm']:
+            self.clus_kwargs.update(alpha=alpha)
 
     def _reset(self):
         super(HomoscedasticClusteringNode, self)._reset()
         self._gof = None
         self._winner = None
 
+    ## spectral clustering
+
+    @staticmethod
+    def gauss_heat_kernel(x, delta=1.0):
+        return sp.exp(-x ** 2 / (2. * delta ** 2))
+
+    def _fit_spectral(self, x):
+        # FIXME: broken still
+        D = euclidean_distances(x, x)
+        A = HomoscedasticClusteringNode.gauss_heat_kernel(D)
+        # clustering
+        for c in xrange(len(self.crange)):
+            k = self.crange[c]
+            for r in xrange(self.repeats):
+                # init
+                if self.debug is True:
+                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
+                idx = c * self.repeats + r
+
+                # evaluate model
+                model = SpectralClustering(k=k)
+                model.fit(A)
+                self._labels[idx] = model.labels_
+                means = sp.zeros((k, x.shape[1]))
+                for i in xrange(k):
+                    means[i] = x[model.labels_ == i].mean(0)
+                self._parameters[idx] = means
+
+    ## kmeans
+
+    def _fit_kmeans(self, x):
+        # clustering
+        for c in xrange(len(self.crange)):
+            k = self.crange[c]
+            for r in xrange(self.repeats):
+                # info
+                if self.debug is True:
+                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
+                idx = c * self.repeats + r
+
+                # fit and evaluate model
+                model_kwargs = {}
+                if 'max_iter' in self.clus_kwargs:
+                    model_kwargs.update(max_iter=self.clus_kwargs['max_iter'])
+                model = KMeans(k=k, init='k-means++', **model_kwargs)
+                model.fit(x)
+                self._labels[idx] = model.labels_
+                self._parameters[idx] = model.cluster_centers_
+                model_gmm = GMM(n_components=k, cvtype='spherical')
+                model_gmm.n_features = self.input_dim
+                model_gmm.means = model.cluster_centers_
+                model_gmm.covars = sp.ones(k) * self.sigma_factor
+                self._ll[idx] = model_gmm.score(x).sum()
+
+                # evaluate goodness of fit
+                self._gof[idx] = self.gof(x, self._ll[idx], k)
+
+                # debug info
+                if self.debug is True:
+                    print self._gof[idx], model.inertia_
+
+    ## gmm (vanilla em)
+
+    def _fit_gmm(self, x):
+        # clustering
+        for c in xrange(len(self.crange)):
+            k = self.crange[c]
+            for r in xrange(self.repeats):
+                # info
+                if self.debug is True:
+                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, k, r + 1),
+                idx = c * self.repeats + r
+
+                # fit and evaluate model
+                model_kwargs = {}
+                if 'conv_thresh' in self.clus_kwargs:
+                    model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
+                model = GMM(n_components=k, cvtype=self.cvtype, **model_kwargs)
+                model.n_features = self.input_dim
+                model.covars = {'spherical': sp.ones(k),
+                                'diag': sp.ones((k, self.input_dim)),
+                                'tied': sp.eye(self.input_dim),
+                                'full': sp.array([sp.eye(self.input_dim)] * k),
+                                }[self.cvtype] * self.sigma_factor
+                fit_kwargs = {}
+                if 'max_iter' in self.clus_kwargs:
+                    fit_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
+                model.fit(x, params='wm', init_params='wm')
+                self._labels[idx] = model.predict(x)
+                self._parameters[idx] = model.means
+                self._ll[idx] = model.score(x).sum()
+
+                # evaluate goodness of fit
+                self._gof[idx] = self.gof(x, self._ll[idx], k)
+
+                # debug
+                if self.debug is True:
+                    print self._gof[idx], model.converged_
+
+    ## gmm (variational inference bias)
+
+    def _fit_vbgmm(self, x):
+        # clustering
+        for c in xrange(len(self.crange)):
+            k = self.crange[c]
+            for r in xrange(self.repeats):
+                # info
+                if self.debug is True:
+                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
+                idx = c * self.repeats + r
+
+                # fit and evaluate model
+                model_kwargs = {}
+                if 'alpha' in self.clus_kwargs:
+                    model_kwargs.update(alpha=self.clus_kwargs['alpha'])
+                if 'conv_thresh' in self.clus_kwargs:
+                    model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
+                model = VBGMM(n_components=k, cvtype=self.cvtype, **model_kwargs)
+                model.n_features = self.input_dim
+                fit_kwargs = {}
+                if 'max_iter' in self.clus_kwargs:
+                    fit_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
+                model.fit(x, params='wmc', init_params='wmc', **fit_kwargs)
+                self._labels[idx] = model.predict(x)
+                self._parameters[idx] = model.means
+                self._ll[idx] = model.score(x).sum()
+
+                # evaluate goodness of fit
+                self._gof[idx] = self.gof(x, self._ll[idx], k)
+
+                # debug
+                if self.debug is True:
+                    print self._gof[idx], model.converged_
+
+    ## gmm (Dirichlet process fitting)
+
+    def _fit_dpgmm(self, x):
+        # clustering
+        k = self.crange[0]
+        for r in xrange(self.repeats):
+            # info
+            if self.debug is True:
+                print '\t[%s][c:%d][r:%d]' % (self.clus_type, k, r + 1),
+
+            # fit and evaluate model
+            model_kwargs = {}
+            if 'alpha' in self.clus_kwargs:
+                model_kwargs.update(alpha=self.clus_kwargs['alpha'])
+            if 'conv_thresh' in self.clus_kwargs:
+                model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
+            model = DPGMM(n_components=k, cvtype=self.cvtype, **model_kwargs)
+            model.n_features = self.input_dim
+            fit_kwargs = {}
+            if 'max_iter' in self.clus_kwargs:
+                fit_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
+            model.fit(x, params='wmc', init_params='wmc', **fit_kwargs)
+            model.fit(x)
+            self._labels[r] = model.predict(x)
+            self._parameters[r] = model.means
+            self._ll[r] = model.score(x).sum()
+
+            # evaluate goodness of fit for this run
+            self._gof[r] = self.gof(x, self._ll[r], k)
+
+            # debug
+            if self.debug is True:
+                print self._gof[r], model.converged_
+
+    ## mdp.node interface
+
     def _execute(self, x, *args, **kwargs):
         """run the clustering on a set of observations"""
 
-        # inits
+        # init
         self._labels = sp.zeros((len(self.crange) * self.repeats,
-                                 x.shape[0]), dtype=sp.integer) - 1
+                                 x.shape[0]), dtype=int) - 1
         self._gof = sp.zeros(len(self.crange) * self.repeats,
             dtype=self.dtype)
         self._ll = sp.zeros(len(self.crange) * self.repeats,
@@ -180,49 +370,35 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._parameters = [None] * len(self.crange) * self.repeats
 
         # clustering
-        for c in xrange(len(self.crange)):
-            k = self.crange[c]
-            for r in xrange(self.repeats):
-                # inits
-                if self.debug is True:
-                    print '\t[c:%d][r:%d]' % (self.crange[c], r + 1),
-                idx = c * self.repeats + r
-
-                # evaluate model for this run
-                if self.clus_type == 'kmeans':
-                    model = KMeans(k=k, init='k-means++',
-                        max_iter=self.maxiter)
-                    model.fit(x)
-                    self._labels[idx] = model.labels_
-                    self._parameters[idx] = model.cluster_centers_
-                    self._ll[idx] = model.score(x)
-                    del model
-                if self.clus_type == 'gmm':
-                    model = GMM(n_components=k, cvtype='spherical')
-                    #model = GMM(n_states=k, cvtype='spherical')
-                    model.n_features = self.input_dim
-                    model.covars = sp.ones(k) * self.sigma_factor
-                    model.fit(x, n_iter=0, init_params='wm')
-                    model.fit(x,
-                        n_iter=self.maxiter,
-                        thresh=self.conv_th,
-                        init_params='',
-                        params='wm')
-                    self._labels[idx] = model.predict(x)
-                    self._parameters[idx] = model.means
-                    self._ll[idx] = model.score(x).sum()
-                    del model
-
-                # evaluate goodness of fit for this run
-                self._gof[idx] = self.gof(x, self._ll[idx], k)
-
-                # debug
-                if self.debug is True:
-                    print self._gof[idx]
+        fit_func = {
+            'kmeans': self._fit_kmeans,
+            'gmm': self._fit_gmm,
+            'vbgmm': self._fit_vbgmm,
+            'dpgmm': self._fit_dpgmm,
+            'spectral': self._fit_spectral}[self.clus_type]
+        fit_func(x)
 
         self._winner = sp.nanargmin(self._gof)
         self.parameters = self._parameters[self._winner]
         self.labels = self._labels[self._winner]
+
+    ## goodness of fit
+
+    def _gof_bic(self, LL, Np, No):
+        #=============================================================
+        # BIC value (sklearn 0.11)
+        # BIC(K) = -2 * LL + Np * log(No)
+        # chose: arg(K) min BIC(K)
+        #=============================================================
+        return -2.0 * LL + Np * sp.log(No)
+
+    def _gof_aic(self, LL, Np, No=None):
+        #=============================================================
+        # AIC value (sklearn 0.11)
+        # AIC(K) = -2 * LL + 2 * Np
+        # chose: arg(K) min AIC(K)
+        #=============================================================
+        return -2.0 * LL + 2.0 * Np
 
     def gof(self, obs, LL, k):
         """evaluate the goodness of fit given the data and labels
@@ -236,22 +412,26 @@ class HomoscedasticClusteringNode(ClusteringNode):
         """
 
         # components
-        N, Nk = map(sp.float64, obs.shape)
-        Np = k * (Nk + 1) - 1
+        No, Nd = map(sp.float64, obs.shape)
 
-        #=============================================================
-        # BIC value (Xu & Wunsch, 2005)
-        # BIC(K) = LL - (Np / 2) * log(N)
-        # chose: arg(K) max BIC(K) = arg(K) min -BIC(K)
-        #=============================================================
-        return -LL + Np * 0.5 * sp.log(N)
+        # covariance
+        Np = {'full': k * Nd * (Nd + 1) / 2.,
+              'tied': Nd * (Nd + 1) / 2.,
+              'diag': k * Nd,
+              'spherical': k}[self.cvtype]
+        # means
+        Np += Nd * k
+        # weights
+        Np += k - 1
 
-        #=============================================================
-        # AIC value (Xu & Wunsch, 2005)
-        # AIC(K) = -2 * (N - 1 - Nk - k * 0.5) * LL / N + 3 * Np
-        # chose: arg(K) min AIC(K)
-        #=============================================================
-        # return -2.0 * (N - 1 - Nk - k * .5) * LL / float(N) + 3.0 * Np
+        # return
+        gof_func = {
+            'bic': self._gof_bic,
+            'aic': self._gof_aic,
+            }[self.gof_type]
+        return gof_func(LL, Np, No)
+
+    ## plot interface
 
     def plot(self, data, views=2, show=False):
         """plot clustering"""
@@ -262,6 +442,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         from spikeplot import plt, cluster
 
         fig = plt.figure()
+        fig.suptitle('clustering [%s]' % self.clus_type)
         ax = [fig.add_subplot(2, views, v + 1) for v in xrange(views)]
         axg = fig.add_subplot(212)
         ncmp = int(self.labels.max() + 1)
@@ -270,7 +451,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
 
         # plot clustering
         for v in xrange(views):
-            cluster(cdata,
+            cluster(
+                cdata,
                 data_dim=(2 * v, 2 * v + 1),
                 plot_handle=ax[v],
                 plot_mean=sp.sqrt(self.sigma_factor),
@@ -282,16 +464,15 @@ class HomoscedasticClusteringNode(ClusteringNode):
         axg.plot(self._gof, ls='steps')
         for i in xrange(1, len(self.crange)):
             axg.axvline(i * self.repeats - 0.5, c='y', ls='--')
-        axg.axvspan(self._winner - 0.5, self._winner + 0.5, fc='gray',
-            alpha=0.2)
+        axg.axvspan(self._winner - 0.5, self._winner + 0.5, fc='gray', alpha=0.2)
         labels = []
         for k in self.crange:
             labels += ['%d' % k]
-            labels += [''] * (self.repeats - 1)
+            labels += ['.'] * (self.repeats - 1)
         axg.set_xticks(sp.arange(len(labels)))
         axg.set_xticklabels(labels)
-        axg.set_xlabel('repeats')
-        axg.set_ylabel('BIC')
+        axg.set_xlabel('cluster count and repeats')
+        axg.set_ylabel(str(self.gof_type).upper())
         axg.set_xlim(-1, len(labels))
 
         # show?

@@ -59,6 +59,7 @@ __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
 
 ##---IMPORTS
 
+import copy
 import scipy as sp
 from scipy import linalg as sp_la
 from sklearn.mixture import lmvnpdf
@@ -248,18 +249,20 @@ class FilterBankSortingNode(FilterBankNode):
         size = 0, sum(cut), self._data.shape[1]
         if mc is False:
             size = size[0], size[1] * size[2]
+        st_dict = copy.deepcopy(self.rval)
 
         # extract spikes
         if u not in self.rval:
             rval = sp.zeros(size)
         else:
-            ep = epochs_from_spiketrain(self.rval[u], self._tf, end=self._data.shape[0])
+            ep, st_dict[u] = epochs_from_spiketrain(
+                st_dict[u], self._tf, end=self._data.shape[0], with_corrected_st=True)
             if ep.size == 0:
                 rval = sp.zeros(size)
             else:
                 rval = extract_spikes(self._data, ep, mc=mc)
                 if exclude_overlaps is True:
-                    ovlp_info = overlaps(self.rval, overlap_window or self._tf)[0]
+                    ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
                     rval = rval[ovlp_info[u] == False]
 
         return rval
@@ -761,7 +764,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
         # kwargs
         learn_templates_pval = kwargs.pop('learn_templates_pval', 0.05)
         learn_templates = kwargs.pop('learn_templates', -1)
-        learn_noise = kwargs.pop('learn_noise', 'det')
+        learn_noise = kwargs.pop('learn_noise', None)
         det_cls = kwargs.pop('det_cls', MTEO_DET)
         det_limit = kwargs.pop('det_limit', 2000)
         det_params = kwargs.pop('det_params', MTEO_PARAMS)
@@ -815,18 +818,20 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
 
     ## filter bank sorting interface
 
-    def _check_event(self, ev, win_half_span=15):
+    def _event_explained(self, ev, win_half_span=15):
         """check event for explanation by the filter bank"""
 
         if not self._disc.size:
-            return True
+            return False
         cut = self._learn_templates, self.tf - self._learn_templates
         disc_at = ev + cut[1] - 1
         if self.verbose.has_plot:
             at = disc_at - win_half_span, disc_at + win_half_span
             evts = {0: [ev - at[0]], 1: [disc_at - at[0]]}
-            mcdata(data=self._chunk[at[0] - self.tf:at[1]], other=self._disc[at[0]:at[1]], events=evts,
-                x_offset=at[0], title='det@%s(%s) disc@%s' % (ev, self._learn_templates, disc_at), show=False)
+            mcdata(
+                data=self._chunk[at[0] - self.tf:at[1]], other=self._disc[at[0]:at[1]], events=evts,
+                x_offset=at[0],
+                title='det@%s(%s) disc@%s' % (ev, self._learn_templates, disc_at), show=False)
         return self._disc[disc_at - win_half_span:disc_at + win_half_span, :].max() >= 0.0
 
     def _post_sort(self):
@@ -834,9 +839,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
         self.det(self._chunk)
         print '_post_sort, self._learn_templates:', self._learn_templates
         spks = self.det.get_extracted_events(mc=False, kind='min', align_at=self._learn_templates)
-        spks_explained = [self._check_event(e) for e in self.det.events]
-        if len(spks[spks_explained]) > 0:
-            self._det_buf.extend(spks[spks_explained])
+        spks_explained = sp.array([self._event_explained(e) for e in self.det.events])
+        if len(spks[spks_explained == False]) > 0:
+            self._det_buf.extend(spks[spks_explained == False])
 
     def _execute(self, x):
         # call super to get sorting
@@ -853,23 +858,25 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
     ## ABOTM interface
 
     def _adapt_filter_drop(self):
-        for k in self._idx_active_set:
-            filt = self.bank[k]
-
+        nsmpl = self._data.shape[0]
+        for u in list(self._idx_active_set):
             # 1) snr drop below 0.5
-            if filt.get_snr < 0.5:
-                filt.active = False
+            if self.bank[u].get_snr < 0.5:
+                self.deactivate(u)
+                warnings.warn('deactivating filter %s, snr' % str(u))
 
-            # 2) rate drop below 1.0
-            if hasattr(filt, 'rate'):
+            # 2) rate drop below 0.1
+            if hasattr(self.bank[u], 'rate'):
                 try:
-                    nspks = len(self.rval[k])
+                    nspks = len(self.rval[u])
                 except:
                     nspks = 0
-                nsmpl = self._data.shape[0]
-                filt.rate.observation(nspks, nsmpl)
-                if filt.rate.estimate() < 1.0:
-                    filt.active = False
+                self.bank[u].rate.observation(nspks, nsmpl)
+                if self.bank[u].rate.estimate() < 1.0:
+                    if self.bank[u].rate._n_updates_since == 10:
+                        self.deactivate(u)
+                        warnings.warn('deactivating filter %s, rate' % str(u))
+        self._check_internals()
 
     def _adapt_filter_new(self):
         if self._det_buf.is_full:
@@ -881,13 +888,19 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
             self._det_buf.clear()
 
             # processing chain
-            flow = (PrewhiteningNode2(self._ce) + PCANode(output_dim=10) +
-                    HomoscedasticClusteringNode(
-                        clus_type='gmm',
-                        debug=self.verbose.has_print,
-                        crange=range(1, 20)))
-            flow(spks)
-            lbls = flow[-1].labels
+            pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
+            clus = HomoscedasticClusteringNode(
+                clus_type='dpgmm',
+                cvtype='tied',
+                debug=self.verbose.has_print,
+                alpha=16.0,
+                crange=[20],
+                max_iter=2096)
+            spks_pp = pre_pro(spks)
+            clus(spks_pp)
+            lbls = clus.labels
+            if self.verbose.has_plot:
+                clus.plot(spks_pp, show=True)
             for i in sp.unique(lbls):
                 if self.verbose.has_print:
                     print 'checking new unit:',
@@ -902,7 +915,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
                     self.create_filter(spk_i)
                     if self.verbose.has_print:
                         print 'accepted, with %d spikes' % len(spks_i)
-            del flow, spks
+            del pre_pro, clus, spks, spks_pp
         else:
             if self.verbose.has_print:
                 print 'det_buf:', self._det_buf
@@ -918,6 +931,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
             elif self._learn_noise == 'det':
                 if len(self.det.events) > 0:
                     nep = self.det.get_epochs(merge=True, invert=True)
+            else:
+                raise ValueError('unrecognised value for learn_noise: %s' % str(self._learn_noise))
             self._ce.update(self._data, epochs=nep)
 
     def _adapt_filter_current(self):
@@ -933,6 +948,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
             if spks_u.size == 0:
                 continue
             self.bank[u].extend_xi_buf(spks_u)
+            self.bank[u].rate.observation(spks_u.shape[0], self._data.shape[0])
+        print [(u, f.rate.estimate()) for (u, f) in self.bank.items()]
 
 ABOTMNode = AdaptiveBayesOptimalTemplateMatchingNode
 
