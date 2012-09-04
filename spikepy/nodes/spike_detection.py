@@ -388,7 +388,10 @@ class ThresholdDetectorNode(ResetNode):
     def plot(self, show=False):
         """plot detection in mcdata plot"""
 
-        from spikeplot import plt, mcdata, COLOURS
+        try:
+            from spikeplot import plt, mcdata, COLOURS
+        except ImportError:
+            return None
 
         fig = mcdata(self.data, other=self.energy, events={0: self.events},
             show=False)

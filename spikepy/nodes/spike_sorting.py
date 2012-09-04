@@ -64,7 +64,6 @@ import scipy as sp
 from scipy import linalg as sp_la
 from sklearn.mixture import lmvnpdf
 from sklearn.utils.extmath import logsumexp
-from spikeplot import COLOURS, mcdata, plt, waveforms
 import warnings
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
@@ -279,10 +278,16 @@ class FilterBankSortingNode(FilterBankNode):
         :param show: if True, call plt.show()
         """
 
+        # get plotting tools
+        try:
+            from spikeplot import COLOURS, mcdata
+        except ImportError:
+            return None
+
         # check
         if self._data is None or self.rval is None or len(self._idx_active_set) == 0:
             warnings.warn('not initialised properly to plot a sorting!')
-            return
+            return None
 
         # create events
         ev = {}
@@ -318,10 +323,16 @@ class FilterBankSortingNode(FilterBankNode):
         :param show: if True, call plt.show()
         """
 
+        # get plotting tools
+        try:
+            from spikeplot import waveforms
+        except ImportError:
+            return None
+
         # check
         if self._data is None or self.rval is None or len(self._idx_active_set) == 0:
             warnings.warn('not initialised properly to plot a sorting!')
-            return
+            return None
 
         # inits
         wf = {}

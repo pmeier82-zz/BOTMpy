@@ -180,7 +180,7 @@ class AmplitudeHistogram(object):
             data_bin = data_[bin_set[idx - 1]:bin_set[idx], :]
             for c in xrange(self._nchan):
                 self._cur_bin[c] += sp.histogram(data_bin[:, c],
-                                                 bins=self._ampl_range)[0]
+                    bins=self._ampl_range)[0]
             self._cur_bin_smpl += data_bin.shape[0]
             if self._cur_bin_smpl == self._bin_size:
                 self.append_bin(self._cur_bin)
@@ -227,7 +227,7 @@ class AmplitudeHistogram(object):
             data_bin = data_[bin_set[idx - 1]:bin_set[idx], :]
             for c in xrange(self._nchan):
                 self._cur_bin[c] += sp.histogram(data_bin[:, c],
-                                                 bins=self._ampl_range)[0]
+                    bins=self._ampl_range)[0]
             self._cur_bin_smpl += data_bin.shape[0]
             if self._cur_bin_smpl == self._bin_size:
                 self.append_bin(self._cur_bin)
@@ -296,7 +296,7 @@ class AmplitudeHistogram(object):
                 self.ampl_ms = []
                 for i in xrange(self.nchan):
                     self.ampl_ms.append(MatShow(parent=self,
-                                                cmap=CMAP_PARAMS))
+                        cmap=CMAP_PARAMS))
                     self.lo_ampl_ms.addWidget(self.ampl_ms[i])
 
             def update_data(self, ah_data):
@@ -341,11 +341,12 @@ def main1():
 
     #arc = openFile('C:/SVN/Python/SpikePy/posi/test.h5')
     arc = openFile('/home/ff/amplhist.h5')
-    ampl = AmplitudeHistogram(ampl_range=(-.5, .2, .01),
-                              ampl_noise=(-.05, .05),
-                              nchan=4,
-                              bin_size=32000,
-                              bin_hist=1000)
+    ampl = AmplitudeHistogram(
+        ampl_range=(-.5, .2, .01),
+        ampl_noise=(-.05, .05),
+        nchan=4,
+        bin_size=32000,
+        bin_hist=1000)
 
     for i in xrange(len(arc.listNodes('/'))):
         print 'Processing: Node %s ..' % i,
@@ -372,10 +373,10 @@ def main2():
 
     DB = MunkSession()
     ampl = AmplitudeHistogram(ampl_range=(-100.0, 100.0, 1.0),
-                              ampl_noise=(-8.0, 8.0),
-                              nchan=4,
-                              bin_size=300000,
-                              bin_hist=2500)
+        ampl_noise=(-8.0, 8.0),
+        nchan=4,
+        bin_size=300000,
+        bin_hist=2500)
 
     id_exp = DB.get_exp_id(EXP)
     id_blks = [DB.get_block_id(EXP, '%s' % b) for b in

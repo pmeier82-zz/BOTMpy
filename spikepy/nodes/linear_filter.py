@@ -52,7 +52,6 @@ __all__ = ['FilterError', 'FilterNode', 'MatchedFilterNode',
 
 import scipy as sp
 from .base_nodes import Node
-from spikeplot import plt, COLOURS
 from ..common import (mcfilter_hist, mcvec_from_conc, mcvec_to_conc,
                       TimeSeriesCovE, MxRingBuffer, snr_maha)
 
@@ -244,6 +243,11 @@ class FilterNode(Node):
 
     def plot_buffer_to_axis(self, axis=None, idx=None, limits=None):
         """plots the current buffer on the passed axis handle"""
+
+        try:
+            from spikeplot import plt, COLOURS
+        except ImportError:
+            return None
 
         # init
         ax = axis

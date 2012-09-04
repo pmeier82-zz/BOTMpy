@@ -436,11 +436,16 @@ class HomoscedasticClusteringNode(ClusteringNode):
     def plot(self, data, views=2, show=False):
         """plot clustering"""
 
-        views = min(views, int(data.shape[1] / 2))
+
 
         # get plotting tools
-        from spikeplot import plt, cluster
+        try:
+            from spikeplot import plt, cluster
+        except ImportError:
+            return None
 
+        # init
+        views = min(views, int(data.shape[1] / 2))
         fig = plt.figure()
         fig.suptitle('clustering [%s]' % self.clus_type)
         ax = [fig.add_subplot(2, views, v + 1) for v in xrange(views)]
@@ -478,6 +483,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         # show?
         if show is True:
             plt.show()
+        return True
 
 ##--- MAIN
 

@@ -56,7 +56,6 @@ __all__ = ['FilterBankError', 'FilterBankNode']
 
 import scipy as sp
 import warnings
-from spikeplot import waveforms, xvf_tensor, plt
 from .base_nodes import Node
 from .linear_filter import FilterNode, REMF
 from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
@@ -359,10 +358,16 @@ class FilterBankNode(Node):
     def plot_xvft(self, ph=None, show=False):
         """plot the Xi vs F Tensor of the filter bank"""
 
+        # get plotting tools
+        try:
+            from spikeplot import xvf_tensor, plt
+        except ImportError:
+            return None
+
         # check
         if self.nf == 0:
             warnings.warn('skipping plot, no active units!')
-            return
+            return None
 
         # init
         inlist = [self.get_template_set(mc=False),
@@ -373,10 +378,16 @@ class FilterBankNode(Node):
     def plot_template_set(self, ph=None, show=False):
         """plot the template set in a waveform plot"""
 
+        # get plotting tools
+        try:
+            from spikeplot import waveforms, plt
+        except ImportError:
+            return None
+
         # checks
         if self.nf == 0:
             warnings.warn('skipping plot, no active units!')
-            return
+            return None
 
         # init
         units = {}
@@ -394,10 +405,16 @@ class FilterBankNode(Node):
     def plot_template_set2(self, show=False):
         """plot the template set in a waveform plot"""
 
+        # get plotting tools
+        try:
+            from spikeplot import plt
+        except ImportError:
+            return None
+
         # checks
         if self.nf == 0:
             warnings.warn('skipping plot, no active units!')
-            return
+            return None
 
         # init
         f = plt.figure()
@@ -413,14 +430,21 @@ class FilterBankNode(Node):
 
         if show is True:
             plt.show()
+        return f
 
     def plot_filter_set(self, ph=None, show=False):
         """plot the filter set in a waveform plot"""
 
+        # get plotting tools
+        try:
+            from spikeplot import waveforms
+        except ImportError:
+            return None
+
         # checks
         if self.nf == 0:
             warnings.warn('skipping plot, no active units!')
-            return
+            return None
 
         # init
         units = {}
