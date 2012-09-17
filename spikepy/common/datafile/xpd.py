@@ -110,7 +110,7 @@ class _XPD_TH(object):
         self.low_ver = _CONV_B.unpack(buf[17:18])[0]
         self.trial_no = _CONV_I.unpack(buf[18:22])[0]
         self.stimulus = _CONV_B.unpack(buf[22:23])[0]
-        #self.error = _CONV_B.unpack(buf[23:24])[0]
+        self.error = _CONV_B.unpack(buf[23:24])[0]
         self.timestamp = (_CONV_H.unpack(buf[24:26])[0],
                           _CONV_H.unpack(buf[26:28])[0],
                           _CONV_H.unpack(buf[28:30])[0],
@@ -131,7 +131,7 @@ class _XPD_TH(object):
         rval += 'low_ver\t\t%d\n' % self.low_ver
         rval += 'trial_no\t%d\n' % self.trial_no
         rval += 'stimulus\t%d\n' % self.stimulus
-        #fout += 'error\t%d\n' % self.error
+        rval += 'error\t%d\n' % self.error
         rval += 'timestamp\t%s\n' % str(self.timestamp)
         rval += 'comment\t\t%s\n' % self.comment
         rval += 'add_comment\t%s\n' % self.add_comment
@@ -382,6 +382,11 @@ class XpdFile(DataFile):
         if len(byte_data) == 0:
             return sp.array([], dtype=sp.int32)
         return sp.frombuffer(byte_data, dtype=sp.int32)
+
+    def get_available_tetrodes(self):
+        """yields the set of available tetrodes"""
+
+        return [k for k in self.achan_header.keys() if 1 <= k <= 16]
 
 ##--- MAIN
 

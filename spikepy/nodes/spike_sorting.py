@@ -49,7 +49,7 @@ See:
 [1] F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
 spike detection and spike classification algorithm capable of instantaneous
 resolution of overlapping spikes. Journal of Computational Neuroscience, 2009
-[2] F. Franke, ... , K. Obermayer, 2012,
+[2] F. Franke, ... , 2012,
 The revolutionary BOTM Paper
 """
 
@@ -62,7 +62,11 @@ __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
 import copy
 import scipy as sp
 from scipy import linalg as sp_la
-from sklearn.mixture import lmvnpdf
+
+try:
+    from sklearn.mixture import log_multivariate_normal_density
+except ImportError:
+    from sklearn.mixture import lmvnpdf as log_multivariate_normal_density
 from sklearn.utils.extmath import logsumexp
 import warnings
 from .base_nodes import PCANode
@@ -658,12 +662,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             return sp.zeros((len(obs), 1))
 
         # calc log probs
-        lpr = lmvnpdf(data, comps, sigma, 'tied') + prior
+        lpr = log_multivariate_normal_density(data, comps, sigma, 'tied') + prior
         logprob = logsumexp(lpr, axis=1)
         return sp.exp(lpr - logprob[:, sp.newaxis])
 
-    def component_divergence(self, obs, with_noise=False,
-                             loading=False, subdim=None):
+    def component_divergence(self, obs, with_noise=False, loading=False, subdim=None):
         """component probabilities under the model
 
         :type obs: ndarray
