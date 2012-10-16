@@ -581,28 +581,36 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     # apply subtrahend
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
                         if self.verbose.has_plot:
-                            x_range = sp.arange(
-                                spk_ep[i, 0] + self._chunk_offset,
-                                spk_ep[i, 1] + self._chunk_offset)
-                            f = plt.figure()
-                            f.suptitle('spike epoch [%d:%d] #%d' %
-                                       (spk_ep[i, 0] + self._chunk_offset,
-                                        spk_ep[i, 1] + self._chunk_offset,
-                                        niter))
-                            ax1 = f.add_subplot(211)
-                            ax1.set_color_cycle(['k'] + COLOURS[:self.nf] * 2)
-                            ax1.plot(x_range, sp.zeros_like(x_range), ls='--')
-                            ax1.plot(x_range, ep_disc, label='pre_sub')
-                            ax1.axvline(x_range[ep_t], c='k')
-                            ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
-                            ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
-                            ax2.plot(x_range, sp.zeros_like(x_range), ls='--')
-                            ax2.plot(x_range, sub)
-                            ax2.axvline(x_range[ep_t], c='k')
+                            try:
+                                from spikeplot import xvf_tensor, plt, COLOURS
+
+                                x_range = sp.arange(
+                                    spk_ep[i, 0] + self._chunk_offset,
+                                    spk_ep[i, 1] + self._chunk_offset)
+                                f = plt.figure()
+                                f.suptitle('spike epoch [%d:%d] #%d' %
+                                           (spk_ep[i, 0] + self._chunk_offset,
+                                            spk_ep[i, 1] + self._chunk_offset,
+                                            niter))
+                                ax1 = f.add_subplot(211)
+                                ax1.set_color_cycle(['k'] + COLOURS[:self.nf] * 2)
+                                ax1.plot(x_range, sp.zeros_like(x_range), ls='--')
+                                ax1.plot(x_range, ep_disc, label='pre_sub')
+                                ax1.axvline(x_range[ep_t], c='k')
+                                ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
+                                ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
+                                ax2.plot(x_range, sp.zeros_like(x_range), ls='--')
+                                ax2.plot(x_range, sub)
+                                ax2.axvline(x_range[ep_t], c='k')
+                            except ImportError:
+                                pass
                         ep_disc += sub + self._lpr_s
                         if self.verbose.has_plot:
-                            ax1.plot(x_range, ep_disc, ls=':', lw=2, label='post_sub')
-                            ax1.legend(loc=2)
+                            try:
+                                ax1.plot(x_range, ep_disc, ls=':', lw=2, label='post_sub')
+                                ax1.legend(loc=2)
+                            except ImportError:
+                                pass
                         fid = self.get_idx_for(ep_c)
                         self.rval[fid].append(
                             spk_ep[i, 0] + ep_t + self._chunk_offset)
@@ -840,12 +848,17 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
         cut = self._learn_templates, self.tf - self._learn_templates
         disc_at = ev + cut[1] - 1
         if self.verbose.has_plot:
-            at = disc_at - win_half_span, disc_at + win_half_span
-            evts = {0: [ev - at[0]], 1: [disc_at - at[0]]}
-            mcdata(
-                data=self._chunk[at[0] - self.tf:at[1]], other=self._disc[at[0]:at[1]], events=evts,
-                x_offset=at[0],
-                title='det@%s(%s) disc@%s' % (ev, self._learn_templates, disc_at), show=False)
+            try:
+                from spikeplot import  mcdata
+
+                at = disc_at - win_half_span, disc_at + win_half_span
+                evts = {0: [ev - at[0]], 1: [disc_at - at[0]]}
+                mcdata(
+                    data=self._chunk[at[0] - self.tf:at[1]], other=self._disc[at[0]:at[1]], events=evts,
+                    x_offset=at[0],
+                    title='det@%s(%s) disc@%s' % (ev, self._learn_templates, disc_at), show=False)
+            except ImportError:
+                pass
         return self._disc[disc_at - win_half_span:disc_at + win_half_span, :].max() >= 0.0
 
     def _post_sort(self):
