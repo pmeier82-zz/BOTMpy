@@ -235,7 +235,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model.fit(x)
                 self._labels[idx] = model.labels_
                 self._parameters[idx] = model.cluster_centers_
-                model_gmm = GMM(n_components=k, cvtype='spherical')
+                model_gmm = GMM(n_components=k, covariance_type='spherical')
                 model_gmm.n_features = self.input_dim
                 model_gmm.means = model.cluster_centers_
                 model_gmm.covars = sp.ones(k) * self.sigma_factor
@@ -264,7 +264,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model_kwargs = {}
                 if 'conv_thresh' in self.clus_kwargs:
                     model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
-                model = GMM(n_components=k, cvtype=self.cvtype, **model_kwargs)
+                model = GMM(n_components=k, covariance_type=self.cvtype, **model_kwargs)
                 model.n_features = self.input_dim
                 model.covars = {'spherical': sp.ones(k),
                                 'diag': sp.ones((k, self.input_dim)),
@@ -304,7 +304,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     model_kwargs.update(alpha=self.clus_kwargs['alpha'])
                 if 'conv_thresh' in self.clus_kwargs:
                     model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
-                model = VBGMM(n_components=k, cvtype=self.cvtype, **model_kwargs)
+                model = VBGMM(n_components=k, covariance_type=self.cvtype, **model_kwargs)
                 model.n_features = self.input_dim
                 fit_kwargs = {}
                 if 'max_iter' in self.clus_kwargs:
@@ -337,7 +337,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model_kwargs.update(alpha=self.clus_kwargs['alpha'])
             if 'conv_thresh' in self.clus_kwargs:
                 model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
-            model = DPGMM(n_components=k, cvtype=self.cvtype, **model_kwargs)
+            model = DPGMM(n_components=k, covariance_type=self.cvtype, **model_kwargs)
             model.n_features = self.input_dim
             fit_kwargs = {}
             if 'max_iter' in self.clus_kwargs:
