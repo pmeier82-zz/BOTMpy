@@ -227,22 +227,27 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
                 idx = c * self.repeats + r
 
-                # fit and evaluate model
+                # fit kmeans model
                 model_kwargs = {}
                 if 'max_iter' in self.clus_kwargs:
                     model_kwargs.update(max_iter=self.clus_kwargs['max_iter'])
-                model = KMeans(k=k, init='k-means++', **model_kwargs)
+                model = KMeans(n_clusters=k, init='k-means++', **model_kwargs)
                 model.fit(x)
                 self._labels[idx] = model.labels_
                 self._parameters[idx] = model.cluster_centers_
+
+                # build equivalent gmm
                 model_gmm = GMM(n_components=k, covariance_type='spherical')
-                model_gmm.n_features = self.input_dim
-                model_gmm.means = model.cluster_centers_
-                model_gmm.covars = sp.ones(k) * self.sigma_factor
-                self._ll[idx] = model_gmm.score(x).sum()
+                model_gmm.means_ = model.cluster_centers_
+                model_gmm.covars_ = sp.ones((k, self.input_dim)) * self.sigma_factor
+                model_gmm.weights_ = sp.array([(self._labels[idx] == i).sum() for i in xrange(k)])
 
                 # evaluate goodness of fit
-                self._gof[idx] = self.gof(x, self._ll[idx], k)
+                self._ll[idx] = model_gmm.score(x).sum()
+                if self.gof_type == 'aic':
+                    self._gof[idx] = model_gmm.aic(x)
+                if self.gof_type == 'bic':
+                    self._gof[idx] = model_gmm.bic(x)
 
                 # debug info
                 if self.debug is True:
@@ -264,23 +269,30 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model_kwargs = {}
                 if 'conv_thresh' in self.clus_kwargs:
                     model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
-                model = GMM(n_components=k, covariance_type=self.cvtype, **model_kwargs)
-                model.n_features = self.input_dim
-                model.covars = {'spherical': sp.ones(k),
-                                'diag': sp.ones((k, self.input_dim)),
-                                'tied': sp.eye(self.input_dim),
-                                'full': sp.array([sp.eye(self.input_dim)] * k),
-                                }[self.cvtype] * self.sigma_factor
-                fit_kwargs = {}
                 if 'max_iter' in self.clus_kwargs:
-                    fit_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
-                model.fit(x, params='wm', init_params='wm')
+                    model_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
+                model = GMM(
+                    n_components=k,
+                    covariance_type=self.cvtype,
+                    params='wm',
+                    init_params='wm',
+                    **model_kwargs)
+                model.covars_ = {'spherical': sp.ones((k, self.input_dim)),
+                                 'diag': sp.ones((k, self.input_dim)),
+                                 'tied': sp.eye(self.input_dim),
+                                 'full': sp.array([sp.eye(self.input_dim)] * k),
+                                }[self.cvtype] * self.sigma_factor
+                model.fit(x)
                 self._labels[idx] = model.predict(x)
-                self._parameters[idx] = model.means
+                self._parameters[idx] = model.means_
                 self._ll[idx] = model.score(x).sum()
 
                 # evaluate goodness of fit
-                self._gof[idx] = self.gof(x, self._ll[idx], k)
+                self._ll[idx] = model.score(x).sum()
+                if self.gof_type == 'aic':
+                    self._gof[idx] = model.aic(x)
+                if self.gof_type == 'bic':
+                    self._gof[idx] = model.bic(x)
 
                 # debug
                 if self.debug is True:
@@ -370,66 +382,16 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._parameters = [None] * len(self.crange) * self.repeats
 
         # clustering
-        fit_func = {
-            'kmeans': self._fit_kmeans,
-            'gmm': self._fit_gmm,
-            'vbgmm': self._fit_vbgmm,
-            'dpgmm': self._fit_dpgmm,
-            'spectral': self._fit_spectral}[self.clus_type]
+        fit_func = {'kmeans': self._fit_kmeans,
+                    'gmm': self._fit_gmm,
+                    'vbgmm': self._fit_vbgmm,
+                    'dpgmm': self._fit_dpgmm,
+                    'spectral': self._fit_spectral}[self.clus_type]
         fit_func(x)
 
         self._winner = sp.nanargmin(self._gof)
         self.parameters = self._parameters[self._winner]
         self.labels = self._labels[self._winner]
-
-    ## goodness of fit
-
-    def _gof_bic(self, LL, Np, No):
-        #=============================================================
-        # BIC value (sklearn 0.11)
-        # BIC(K) = -2 * LL + Np * log(No)
-        # chose: arg(K) min BIC(K)
-        #=============================================================
-        return -2.0 * LL + Np * sp.log(No)
-
-    def _gof_aic(self, LL, Np, No=None):
-        #=============================================================
-        # AIC value (sklearn 0.11)
-        # AIC(K) = -2 * LL + 2 * Np
-        # chose: arg(K) min AIC(K)
-        #=============================================================
-        return -2.0 * LL + 2.0 * Np
-
-    def gof(self, obs, LL, k):
-        """evaluate the goodness of fit given the data and labels
-
-        :type obs: ndarray
-        :param obs: the observations
-        :type LL: float
-        :param LL: model log likelihood
-        :type k: int
-        :param k: number of mixture components
-        """
-
-        # components
-        No, Nd = map(sp.float64, obs.shape)
-
-        # covariance
-        Np = {'full': k * Nd * (Nd + 1) / 2.,
-              'tied': Nd * (Nd + 1) / 2.,
-              'diag': k * Nd,
-              'spherical': k}[self.cvtype]
-        # means
-        Np += Nd * k
-        # weights
-        Np += k - 1
-
-        # return
-        gof_func = {
-            'bic': self._gof_bic,
-            'aic': self._gof_aic,
-            }[self.gof_type]
-        return gof_func(LL, Np, No)
 
     ## plot interface
 
