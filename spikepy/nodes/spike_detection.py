@@ -375,9 +375,9 @@ class ThresholdDetectorNode(ResetNode):
         """calculates the threshold"""
 
         base = {
-            'signal': self.data,
-            'energy': self.energy
-        }[self.th_base]
+                   'signal': self.data,
+                   'energy': self.energy
+               }[self.th_base]
         if self.ch_sep is False:
             base = sp.atleast_2d(sp.absolute(base).max(axis=1)).T
         self.threshold = sp.asarray(
@@ -457,14 +457,12 @@ class SDMteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalues=[1, 3, 5, 7, 9], **kwargs):
+    def __init__(self, kvalues=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
         """
-        :Parameters:
-            see ThresholdDetectorNode
-
-            kvalues : list
-                List of integers, determining the kteo detectors to build the
-                multiresolution teo from.
+        :type kvalues: list
+        :param kvalues: integers determining the kteo detectors to build the multiresolution teo from.
+        :type quantile: float
+        :param quantile: quantile of the MTeo output to use for threshold calculation.
         """
 
         # super
@@ -477,13 +475,14 @@ class SDMteoNode(ThresholdDetectorNode):
 
         # members
         self.kvalues = map(int, kvalues)
+        self.quantile = quantile
 
     def _energy_func(self, x):
         return sp.vstack([mteo(x[:, c], kvalues=self.kvalues, condense=True)
                           for c in xrange(x.shape[1])]).T
 
     def _threshold_func(self, x):
-        return mquantiles(x, prob=[self.th_fac])[0]
+        return mquantiles(x, prob=[self.quantile])[0]
 
 
 class SDKteoNode(ThresholdDetectorNode):
@@ -493,7 +492,7 @@ class SDKteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalue=1, **kwargs):
+    def __init__(self, kvalue=1, quantile=0.98, **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
@@ -512,13 +511,14 @@ class SDKteoNode(ThresholdDetectorNode):
 
         # members
         self.kvalue = int(kvalue)
+        self.quantile = quantile
 
     def _energy_func(self, x):
         return sp.vstack([kteo(x[:, c], k=self.kvalue)
                           for c in xrange(x.shape[1])]).T
 
     def _threshold_func(self, x):
-        return mquantiles(x, prob=[self.th_fac])[0]
+        return mquantiles(x, prob=[self.quantile])[0]
 
 
 class SDIntraNode(ThresholdDetectorNode):
