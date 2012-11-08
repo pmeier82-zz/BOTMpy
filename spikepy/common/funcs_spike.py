@@ -108,9 +108,9 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     # inits
     rval = []
     ep_func = {
-        'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
-        'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
-        }[mode]
+                  'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
+                  'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
+              }[mode]
 
     # per channel detection
     for c in xrange(data.shape[1]):
@@ -321,27 +321,32 @@ def epochs_from_spiketrain_set(sts, cut, end=None):
 
 ## spike and data extraction
 
-def chunk_data(data, epochs=None):
+def chunk_data(data, epochs=None, invert=False):
     """returns a generator of chunks from data given epochs
 
     :type data: ndarray
     :param data: signal data [[samples, channels]]
     :type epochs: ndarray
-    :param epochs: epoch set
+    :param epochs: epoch set, positive mask
+    :type invert: bool
+    :param invert: invert epochs, negative mask instead of positive mask
     :returns: generator - data chunks as per :epochs:
     """
 
     # checks
     data = sp.asarray(data)
     if data.ndim != 2:
-        raise ValueError('data has to be ndim==2')
-    if epochs is None or len(epochs) < 1:
+        data = sp.atleast2d(data).T
+    if epochs is not None:
+        if epochs.ndim != 2:
+            raise ValueError('epochs has to be ndim=2 like [[start,end]]')
+    if invert is True and epochs is not None:
+        epochs = invert_epochs(epochs, end=data.shape[0])
+    if epochs is None or len(epochs) == 0:
         epochs = [[0, data.shape[0]]]
 
     # yield data chunks
     for ep in epochs:
-        if len(ep) != 2:
-            raise ValueError('invalid epoch: %s' % ep)
         yield data[ep[0]:ep[1], :], list(ep)
 
 
