@@ -384,6 +384,7 @@ class ThresholdDetectorNode(ResetNode):
             [self._threshold_func(base[:, c])
              for c in xrange(base.shape[1])], dtype=self.dtype)
         self.threshold *= self.th_fac
+        print self.threshold
 
     def plot(self, show=False):
         """plot detection in mcdata plot"""
