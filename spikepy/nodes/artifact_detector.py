@@ -138,7 +138,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
         self.pad = (int(psize_ms[0] * self.srate / 1000.0),
                     int(psize_ms[1] * self.srate / 1000.0))
         self.mindist = int(mindist_ms * self.srate / 1000.0)
-        self.threshold = float(zcr_th)
+        self.zcr_th = float(zcr_th)
 
     ## privates
 
@@ -148,7 +148,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
             sp.bitwise_xor(x_signs[:-1], x_signs[1:]), [False] * x.shape[1]))
 
     def _execute(self, x, *args, **kwargs):
-        # inits
+        # init
         epochs = []
 
         # per channel detection
@@ -158,7 +158,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
             # replace filter artifacts with the mean
             mu = xings[self.window.size:-self.window.size].mean()
             xings[:self.window.size] = xings[-self.window.size:] = mu
-            ep = epochs_from_binvec(xings < self.threshold)
+            ep = epochs_from_binvec(xings < self.zcr_th)
             epochs.append(ep)
 
         # pad and merge artifact epochs
