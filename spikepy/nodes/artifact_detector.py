@@ -264,9 +264,12 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         for c in xrange(self.nchan):
             ep = epochs_from_binvec(self.energy[:, c] > self.threshold[c])
             epochs.extend(ep)
-        self.events = merge_epochs(epochs, min_dist=self.nfft + 1).astype(INDEX_DTYPE)
-        if self.events.size > 0:
+        if len(epochs) == 0:
+            self.events = sp.zeros((0, 2))
+        else:
+            self.events = merge_epochs(epochs, min_dist=self.nfft + 1)
             self.events = self.events[self.events[:, 1] - self.events[:, 0] > self.nfft * 2]
+        self.events = sp.asarray(epochs, dtype=INDEX_DTYPE)
         return x
 
     ## publics
