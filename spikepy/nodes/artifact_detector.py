@@ -59,7 +59,7 @@ __all__ = ['ArtifactDetectorNode']
 ##--- IMPORTS
 
 import scipy as sp
-from matplotlib.pylab import specgram
+from matplotlib.mlab import specgram
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
 
@@ -144,8 +144,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
 
     def _energy_func(self, x, **kwargs):
         x_signs = sp.signbit(x)
-        return sp.vstack((
-            sp.bitwise_xor(x_signs[:-1], x_signs[1:]), [False] * x.shape[1]))
+        return sp.vstack((sp.bitwise_xor(x_signs[:-1], x_signs[1:]), [False] * x.shape[1]))
 
     def _execute(self, x, *args, **kwargs):
         # init
@@ -249,12 +248,17 @@ class SpecgramArtifactDetector(ThresholdDetectorNode):
         self.pad = (int(psize_ms[0] * self.srate / 1000.0),
                     int(psize_ms[1] * self.srate / 1000.0))
         self.mindist = int(mindist_ms * self.srate / 1000.0)
+        self._freqs = None
+        self._times = None
 
     ## privates
 
     def _energy_func(self, x, **kwargs):
-        x_signs = sp.signbit(x)
-        return sp.vstack((sp.bitwise_xor(x_signs[:-1], x_signs[1:]), [False] * x.shape[1]))
+        rval = []
+        for c in xrange(self.nchan):
+            psd_arr, self._freqs, self._times = specgram(x, FS=self.srate)
+            rval.append(psd_arr)
+        return sp.vstack(rval).T
 
     def _execute(self, x, *args, **kwargs):
         # init
@@ -262,10 +266,16 @@ class SpecgramArtifactDetector(ThresholdDetectorNode):
 
         # per channel detection
         for c in xrange(self.nchan):
-            pass
+            # filter energy with window
+            xings = sp.correlate(self.energy[:, c], self.window, 'same')
+            # replace filter artifacts with the mean
+            mu = xings[self.window.size:-self.window.size].mean()
+            xings[:self.window.size] = xings[-self.window.size:] = mu
+            ep = epochs_from_binvec(xings < self.zcr_th)
+            epochs.append(ep)
 
-        # pad and merge artifact epochs
-        epochs = sp.vstack(epochs)
+            # pad and merge artifact epochs
+            epochs = sp.vstack(epochs)
         if epochs.size > 0:
             epochs[:, 0] -= self.pad[0]
             epochs[:, 1] += self.pad[1]
