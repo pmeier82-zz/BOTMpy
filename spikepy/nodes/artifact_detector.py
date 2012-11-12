@@ -54,7 +54,7 @@ product of the detector is the discrete events or epochs in the data signal.
 DATA_TYPE: fixed for float32 (single precision)"""
 
 __docformat__ = 'restructuredtext'
-__all__ = ['ArtifactDetectorNode']
+__all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 
 ##--- IMPORTS
 
@@ -193,7 +193,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
             return invert_epochs(self.events, end=self.size)
 
 
-class SpecgramArtifactDetector(ThresholdDetectorNode):
+class SpectrumArtifactDetector(ThresholdDetectorNode):
     """detects artifacts by identifying unwanted frequency packages in the spectrum of the signal
 
             For a zero-mean gaussian process the the zero-crossing rate `zcr` is
@@ -222,70 +222,54 @@ class SpecgramArtifactDetector(ThresholdDetectorNode):
 
     ## constructor
 
-    def __init__(self, psize_ms=(5.0, 10.0), srate=32000.0, mindist_ms=10.0):
-        """
-        :type psize_ms: tuple
-        :param psize_ms: window size of the padding windows in `ms`. Will be
-            applied to detected artifact epochs. (left_pad, right_pad)
-            Default=5.0
-        :type srate: float
-        :param srate: sample rate in `Hz`. Used to convert the windows sizes
-            from `ms` to data samples.
-            Default=32000.0
-        :type mindist_ms: float
-        :param mindist_ms: minimum size for non-artifact epochs in `ms`.
-            Data epochs in between artifacts epochs that are smaller than this
-            window, are merged into the artifact epochs to reduce
-            segmentation.
-            Default=10.0
-        """
+    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=1000.0, nfft=256, **kw):
+        """lala"""
 
         # super
-        super(SpecgramArtifactDetector, self).__init__()
+        kw['ch_separate'] = True
+        super(SpectrumArtifactDetector, self).__init__(**kw)
 
         # members
         self.srate = float(srate)
-        self.pad = (int(psize_ms[0] * self.srate / 1000.0),
-                    int(psize_ms[1] * self.srate / 1000.0))
-        self.mindist = int(mindist_ms * self.srate / 1000.0)
-        self._freqs = None
-        self._times = None
+        self.wsize = None
+        self.cutoff_hz = float(cutoff_hz)
+        self.nfft = 1
+        while self.nfft < nfft:
+            self.nfft <<= 1
 
     ## privates
 
+    def _threshold_func(self, x):
+        return 1.0
+
     def _energy_func(self, x, **kwargs):
-        rval = []
-        for c in xrange(self.nchan):
-            psd_arr, self._freqs, self._times = specgram(x, FS=self.srate)
-            rval.append(psd_arr)
-        return sp.vstack(rval).T
+        rval = sp.zeros_like(x)
+        ns, nc = x.shape
+        for c in xrange(nc):
+            psd_arr, freqs, times = specgram(x[:, c], NFFT=self.nfft, Fs=self.srate, noverlap=self.nfft / 2)
+            mask = freqs < self.cutoff_hz
+            for b in xrange(len(times)):
+                bin_s = int(times[0] * b * self.srate) - self.nfft / 2
+                bin_e = int(times[0] * b * self.srate) + self.nfft / 2
+                rval[bin_s:bin_e, c] = psd_arr[mask == True, b].sum() / psd_arr[mask == False, b].sum()
+                #rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[mask == False, b].max()
+        return rval
 
     def _execute(self, x, *args, **kwargs):
         # init
         epochs = []
+        self._calc_threshold()
 
         # per channel detection
         for c in xrange(self.nchan):
-            # filter energy with window
-            xings = sp.correlate(self.energy[:, c], self.window, 'same')
-            # replace filter artifacts with the mean
-            mu = xings[self.window.size:-self.window.size].mean()
-            xings[:self.window.size] = xings[-self.window.size:] = mu
-            ep = epochs_from_binvec(xings < self.zcr_th)
-            epochs.append(ep)
-
-            # pad and merge artifact epochs
-            epochs = sp.vstack(epochs)
-        if epochs.size > 0:
-            epochs[:, 0] -= self.pad[0]
-            epochs[:, 1] += self.pad[1]
-        self.events = merge_epochs(epochs, min_dist=self.mindist)
-
-        # return
-        self.events = self.events.astype(INDEX_DTYPE)
+            ep = epochs_from_binvec(self.energy[:, c] > self.threshold[c])
+            epochs.extend(ep)
+        self.events = merge_epochs(epochs, min_dist=self.nfft + 1).astype(INDEX_DTYPE)
+        if self.events.size > 0:
+            self.events = self.events[self.events[:, 1] - self.events[:, 0] > self.nfft * 2]
         return x
 
-    ## evaluations
+    ## publics
 
     def get_nonartefact_epochs(self):
         """return the index set that represents the non-artifact epochs"""
