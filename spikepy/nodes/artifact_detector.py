@@ -59,8 +59,8 @@ __all__ = ['ArtifactDetectorNode']
 ##--- IMPORTS
 
 import scipy as sp
-from ..common import (epochs_from_binvec, merge_epochs, invert_epochs,
-                      INDEX_DTYPE)
+from matplotlib.pylab import specgram
+from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
 
 ##--- CLASSES
@@ -182,6 +182,100 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
         nae_len = float(
             self.size - (self.events[:, 1] - self.events[:, 0]).sum())
         return - sp.log(nae_len / (self.size * (self.events.shape[0] + 1)))
+
+    def get_nonartefact_epochs(self):
+        """return the index set that represents the non-artifact epochs"""
+
+        if self.size is None:
+            raise RuntimeError('No data given!')
+        if self.events.size == 0:
+            return sp.array([[0, self.size]])
+        else:
+            return invert_epochs(self.events, end=self.size)
+
+
+class SpecgramArtifactDetector(ThresholdDetectorNode):
+    """detects artifacts by identifying unwanted frequency packages in the spectrum of the signal
+
+            For a zero-mean gaussian process the the zero-crossing rate `zcr` is
+            independent of its moments and approaches 0.5 as the integration window
+            size approaches infinity:
+
+            .. math::
+
+                s_t \\sim N(0,\\Sigma)
+
+                zcr_{wsize}(s_t) = \\frac{1}{wsize-1} \\sum_{t=1}^{wsize-1}
+                {{\\mathbb I}\\left\{{s_t s_{t-1} < 0}\\right\\}}
+
+                \\lim_{wsize \\rightarrow \\infty} zcr_{wsize}(s_t) = 0.5
+
+            The capacitive artifacts seen in the Munk dataset have a significantly
+            lower frequency, s.t. zcr decreases to 0.1 and below, for the integration
+            window sizes relevant to our application. Detecting epochs where the zcr
+            significantly deviates from the expectation, assuming a coloured Gaussian
+            noise process, can thus lead be used for detection of artifact epochs.
+
+            The zero crossing rate (zcr) is given by the convolution of a moving
+            average window (although this is configurable to use other weighting
+            methods) with the XOR of the signbits of X(t) and X(t+1).
+            """
+
+    ## constructor
+
+    def __init__(self, psize_ms=(5.0, 10.0), srate=32000.0, mindist_ms=10.0):
+        """
+        :type psize_ms: tuple
+        :param psize_ms: window size of the padding windows in `ms`. Will be
+            applied to detected artifact epochs. (left_pad, right_pad)
+            Default=5.0
+        :type srate: float
+        :param srate: sample rate in `Hz`. Used to convert the windows sizes
+            from `ms` to data samples.
+            Default=32000.0
+        :type mindist_ms: float
+        :param mindist_ms: minimum size for non-artifact epochs in `ms`.
+            Data epochs in between artifacts epochs that are smaller than this
+            window, are merged into the artifact epochs to reduce
+            segmentation.
+            Default=10.0
+        """
+
+        # super
+        super(SpecgramArtifactDetector, self).__init__()
+
+        # members
+        self.srate = float(srate)
+        self.pad = (int(psize_ms[0] * self.srate / 1000.0),
+                    int(psize_ms[1] * self.srate / 1000.0))
+        self.mindist = int(mindist_ms * self.srate / 1000.0)
+
+    ## privates
+
+    def _energy_func(self, x, **kwargs):
+        x_signs = sp.signbit(x)
+        return sp.vstack((sp.bitwise_xor(x_signs[:-1], x_signs[1:]), [False] * x.shape[1]))
+
+    def _execute(self, x, *args, **kwargs):
+        # init
+        epochs = []
+
+        # per channel detection
+        for c in xrange(self.nchan):
+            pass
+
+        # pad and merge artifact epochs
+        epochs = sp.vstack(epochs)
+        if epochs.size > 0:
+            epochs[:, 0] -= self.pad[0]
+            epochs[:, 1] += self.pad[1]
+        self.events = merge_epochs(epochs, min_dist=self.mindist)
+
+        # return
+        self.events = self.events.astype(INDEX_DTYPE)
+        return x
+
+    ## evaluations
 
     def get_nonartefact_epochs(self):
         """return the index set that represents the non-artifact epochs"""
