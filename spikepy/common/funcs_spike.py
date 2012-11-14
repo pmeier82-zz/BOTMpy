@@ -49,8 +49,8 @@ __docformat__ = 'restructuredtext'
 __all__ = [
     'threshold_detection', 'merge_epochs', 'invert_epochs',
     'epochs_from_binvec', 'epochs_from_spiketrain',
-    'epochs_from_spiketrain_set', 'chunk_data', 'extract_spikes', 'get_cut',
-    'snr_maha', 'snr_peak', 'snr_power', 'overlaps']
+    'epochs_from_spiketrain_set', 'chunk_data', 'extract_spikes',
+    'get_cut', 'snr_maha', 'snr_peak', 'snr_power', 'overlaps']
 
 ##--- IMPORTS
 
@@ -107,9 +107,8 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
 
     # inits
     rval = []
-    ep_func = {
-                  'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
-                  'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
+    ep_func = {'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
+               'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
               }[mode]
 
     # per channel detection
