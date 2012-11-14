@@ -46,7 +46,7 @@
 
 """detector nodes for capacitative artifacts in multichanneled data
 
-These detecors find events and event epochs on potentially multichanneled data
+These detectors find events and event epochs on potentially multichanneled data
 signal. Mostly, you will want to reset the internals of the detector after
 processing a chunk of data. There are different kinds of detectors, the common
 product of the detector is the discrete events or epochs in the data signal.
