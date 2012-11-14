@@ -336,7 +336,7 @@ def chunk_data(data, epochs=None, invert=False):
     # checks
     data = sp.asarray(data)
     if data.ndim != 2:
-        data = sp.atleast2d(data).T
+        data = sp.atleast_2d(data).T
     if epochs is not None:
         if epochs.ndim != 2:
             raise ValueError('epochs has to be ndim=2 like [[start,end]]')
