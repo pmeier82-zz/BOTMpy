@@ -59,7 +59,6 @@ __all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 ##--- IMPORTS
 
 import scipy as sp
-from matplotlib.mlab import specgram
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
 
@@ -243,6 +242,8 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         return 1.0
 
     def _energy_func(self, x, **kwargs):
+        from matplotlib.mlab import specgram
+
         rval = sp.zeros_like(x)
         ns, nc = x.shape
         for c in xrange(nc):

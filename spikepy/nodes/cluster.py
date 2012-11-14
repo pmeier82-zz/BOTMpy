@@ -398,8 +398,6 @@ class HomoscedasticClusteringNode(ClusteringNode):
     def plot(self, data, views=2, show=False):
         """plot clustering"""
 
-
-
         # get plotting tools
         try:
             from spikeplot import plt, cluster

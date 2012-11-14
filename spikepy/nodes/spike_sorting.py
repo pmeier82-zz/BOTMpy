@@ -849,7 +849,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
         disc_at = ev + cut[1] - 1
         if self.verbose.has_plot:
             try:
-                from spikeplot import  mcdata
+                from spikeplot import mcdata
 
                 at = disc_at - win_half_span, disc_at + win_half_span
                 evts = {0: [ev - at[0]], 1: [disc_at - at[0]]}
