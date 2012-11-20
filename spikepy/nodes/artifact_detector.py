@@ -252,7 +252,9 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
             for b in xrange(len(times)):
                 bin_s = int(times[0] * b * self.srate) - self.nfft / 2
                 bin_e = int(times[0] * b * self.srate) + self.nfft / 2
-                rval[bin_s:bin_e, c] = psd_arr[mask == True, b].sum() / psd_arr[mask == False, b].sum()
+                # settled for mean of frequency bins [11/20/12]
+                rval[bin_s:bin_e, c] = psd_arr[mask == True, b].mean() / psd_arr[mask == False, b].mean()
+                #rval[bin_s:bin_e, c] = psd_arr[mask == True, b].sum() / psd_arr[mask == False, b].sum()
                 #rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[mask == False, b].max()
         return rval
 
