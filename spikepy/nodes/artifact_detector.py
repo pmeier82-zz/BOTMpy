@@ -46,7 +46,7 @@
 
 """detector nodes for capacitative artifacts in multichanneled data
 
-These detecors find events and event epochs on potentially multichanneled data
+These detectors find events and event epochs on potentially multichanneled data
 signal. Mostly, you will want to reset the internals of the detector after
 processing a chunk of data. There are different kinds of detectors, the common
 product of the detector is the discrete events or epochs in the data signal.
@@ -60,10 +60,9 @@ __all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 
 import scipy as sp
 from matplotlib.mlab import specgram
-#import matplotlib.pyplot as plt
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
-#import numpy as np
+
 ##--- CLASSES
 
 class ArtifactDetectorNode(ThresholdDetectorNode):
@@ -248,6 +247,8 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         return 1.0
 
     def _energy_func(self, x, **kwargs):
+        from matplotlib.mlab import specgram
+
         rval = sp.zeros_like(x)
         ns, nc = x.shape
         for c in xrange(nc):
@@ -265,6 +266,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[:, b].sum(axis = 0)
                 else:
                     raise RuntimeError('Energy function does not exist!')
+
         return rval
 
     def _execute(self, x, *args, **kwargs):

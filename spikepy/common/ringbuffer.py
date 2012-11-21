@@ -169,7 +169,6 @@ class MxRingBuffer(object):
         :param iterable: iterable of objects to be stored in the ringbuffer
         """
 
-        # TODO: may be ineffective if len(iterable) >> capacity
         for item in iterable:
             self.append(item)
 

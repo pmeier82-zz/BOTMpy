@@ -53,6 +53,8 @@ __all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
 
 import scipy as sp
 from scipy import linalg as sp_la
+from scipy import random as sp_rd
+from collections import deque
 from .funcs_general import xcorr
 from .matrix_ops import (compute_coloured_loading, compute_diagonal_loading,
                          compute_matrix_cond)
@@ -144,9 +146,9 @@ class BaseTimeSeriesCovarianceEstimator(object):
         cmx = self._get_cmx(**kwargs)
         svd = self._get_svd(**kwargs)
         return {
-            'coloured':compute_coloured_loading,
-            'diagonal':compute_diagonal_loading,
-            }[kind](cmx, svd, self._cond)
+                   'coloured': compute_coloured_loading,
+                   'diagonal': compute_diagonal_loading,
+               }[kind](cmx, svd, self._cond)
 
     def get_icmx_loaded(self, **kwargs):
         if not self.is_initialised:
@@ -246,7 +248,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
 
         # super
         super(TimeSeriesCovE, self).__init__(weight=weight, cond=cond,
-                                             dtype=dtype)
+            dtype=dtype)
 
         # members
         self._tf_max = int(tf_max)
@@ -258,7 +260,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         self._buf_whi = {}
         self._chan_set = []
 
-        # intis
+        # init
         if with_default_chan_set is True:
             self.new_chan_set(tuple(range(self._nc)))
 
@@ -450,9 +452,9 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
                     continue
                 for e in xrange(n_epoch):
                     xc = xcorr(data[epochs[e, 0]:epochs[e, 1], m],
-                               data[epochs[e, 0]:epochs[e, 1], n],
-                               lag=self._tf_max - 1,
-                               normalise=True)
+                        data[epochs[e, 0]:epochs[e, 1], n],
+                        lag=self._tf_max - 1,
+                        normalise=True)
                     processed[m, n].append(xc * len_epoch[e])
         for k in processed.keys():
             processed[k] = sp.sum(processed[k], axis=0) / len_epoch.sum()
@@ -487,6 +489,52 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
                 xc[tf_max - 1] = float(std * std)
             rval._store[m, n] = xc
         rval._is_initialised = True
+        return rval
+
+
+class TimeSeriesCovE2(TimeSeriesCovE):
+    """additional representations of the underlying xcorr container"""
+
+    def __init__(self, *args, **kwargs):
+        # super
+        super(TimeSeriesCovE2, self).__init__(*args, **kwargs)
+
+        # members
+        self._sample_vars = None
+
+    def get_cov_ten(self, **kwargs):
+        tf, chan_set = self._process_keywords(kwargs)
+        return build_cov_tensor_from_xcorrs(tf, chan_set, self._store, dtype=self.dtype, both=kwargs.get('both', True))
+
+
+    def _clear_buf(self):
+        super(TimeSeriesCovE2, self)._clear_buf()
+        self._sample_vars = None
+        self._sample_mem = None
+        self._sample_coef = None
+
+    def sample(self, n=1):
+        """sample with ar model corresponding to the current estimate"""
+
+        # need to fit?
+        if self._sample_vars is None:
+            print 'fitting VAR model..',
+            #self._sample_vars = LWR(self.get_cov_ten(tf=min(12, self._tf_max), both=False))
+            self._sample_vars = LWR(self.get_cov_ten(both=False))
+            self._sample_coef = sp.hstack([self._sample_vars[0][..., i] for i in xrange(self._sample_vars[0].shape[2])])
+            mem_size = self._sample_vars[0].shape[2] * self._nc
+            self._sample_mem = deque([0] * self._tf_max * self._nc, maxlen=mem_size)
+            self._sample(5000)
+            print 'done!'
+        return self._sample(n)
+
+    def _sample(self, n=1):
+        """sampling"""
+
+        rval = sp_rd.multivariate_normal(sp.zeros(self._nc), self._sample_vars[1], n)
+        for k in xrange(self._sample_vars[0].shape[2]):
+            rval[k] += sp.dot(self._sample_coef, self._sample_mem)
+            self._sample_mem.extendleft(rval[k, ::-1])
         return rval
 
 
@@ -560,8 +608,8 @@ def build_idx_set(ids):
     """
 
     return [(ids[i], ids[j])
-    for i in xrange(len(ids))
-    for j in xrange(i, len(ids))]
+            for i in xrange(len(ids))
+            for j in xrange(i, len(ids))]
 
 
 def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
@@ -581,7 +629,7 @@ def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
         Default=None
     """
 
-    # inits and checks
+    # init and checks
     assert tf <= xcorrs._tf
     chan_set = sorted(chan_set)
     nc = len(chan_set)
@@ -600,6 +648,7 @@ def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
             sample0 = xc.size / 2
             r = xc[sample0:sample0 + tf]
             c = xc[sample0 + 1 - tf:sample0 + 1][::-1]
+            #c = xc[sample0:sample0 - tf:-1]
             block_ij = sp_la.toeplitz(c, r)
             rval[i * tf:(i + 1) * tf, j * tf:(j + 1) * tf] = block_ij
             if i != j:
@@ -607,6 +656,127 @@ def build_block_toeplitz_from_xcorrs(tf, chan_set, xcorrs, dtype=None):
 
     # return
     return rval
+
+
+def build_cov_tensor_from_xcorrs(tf, chan_set, xcorrs, dtype=None, both=False):
+    """builds a covariance tensor from a set of channel xcorrs
+
+    The tensor will hold the forward (positive lags) covariances for all auto-/cross-correlations in the chan_set
+
+    :type tf: int
+    :param tf: desired lag in samples
+    :type chan_set: list
+    :param chan_set: list of channel ids to build the channel set from. the
+        covvariance tensor will be build so that the chan_set is indexed natively.
+    :type xcorrs: XcorrStore
+    :param xcorrs: XcorrStore object holding the xcorrs for various channel
+        combinations
+    :type dtype: dtype derivable
+    :param dtype: will be passed to the constructor for the matrix returned.
+        Default=None
+    """
+
+    # init and checks
+    assert tf <= xcorrs._tf
+    chan_set = sorted(chan_set)
+    nc = len(chan_set)
+    assert all(sp.diff(chan_set) >= 1)
+    assert max(chan_set) < xcorrs._nc
+    assert all([key in xcorrs for key in
+                build_idx_set(chan_set)]), 'no data for requested channels'
+    xc_len = tf + both * (tf - 1)
+    rval = sp.empty((nc, nc, xc_len), dtype=dtype)
+
+    # write single xcorrs
+    for i in xrange(nc):
+        m = chan_set[i]
+        for j in xrange(i, nc):
+            n = chan_set[j]
+            xc = xcorrs[m, n]
+            sample0 = xc.size / 2
+            bakw = xc[:sample0 + 1][:tf - 1:-1]
+            comb = None
+            if both is True:
+                rval[i, j, :] = xc[sample0 - tf + 1:sample0 + tf]
+            else:
+                rval[i, j, :] = xc[sample0:][:tf]
+            if i != j:
+                if both is True:
+                    rval[j, i, :] = xc[::-1][sample0 - tf + 1:sample0 + tf]
+                else:
+                    rval[j, i, :] = xc[::-1][:tf]
+
+    # return
+    return rval
+
+
+def LWR(R):
+    """multivariate Levinson-Durbin recursion, (Whittle, Wiggins and Robinson) aka LWR
+
+    We assume all quantities to be well behaving: real, pos_sem_def, yadda yadda
+
+    Reference:
+    "Covariance characterization by partial autocorrelation matrices",
+    Morf, Vieira and Kailath, The Annals or Statistics 1978, Vol. 6, No. 3, 643-648
+
+    :type R: ndarray
+    :param R: xcorr sequence (nc, nc, N+1), should cover one more lag than the desired model order
+    :rtype: ndarray, ndarray
+    :return: ar coefficient sequence (nc, nc, N); driving process covariance estimate (nc, nc)
+    """
+
+    # R is (nc, nc, N+1)
+    N = R.shape[2] - 1
+    nc = R.shape[0]
+    # coefficients
+    A = sp.zeros((nc, nc, N)) # forward (ar)
+    B = sp.zeros((nc, nc, N)) # backward (lp)
+    # coefficient error covariances
+    err_e = sp.zeros((nc, nc)) # forward prediction error covariance
+    err_e = R[..., 0]
+    err_r = sp.zeros((nc, nc)) # backward prediction error covariance
+    err_r = R[..., 0]
+    # intermediate update term
+    Delta = sp.empty((nc, nc))
+
+    # iterate
+    for n in xrange(N):
+        # (9)
+        # \Delta_{n+1} = R_{n+1} + \sum_{i=1}^{n} A_{n,i} R_{n+1-i}
+        Delta[:] = R[..., n + 1]
+        for i in xrange(1, n + 1):
+            Delta += sp.dot(A[..., i - 1], R[..., n + 1 - i])
+
+        # intermediate for (7), (8), (10), (11)
+        # \Delta_{n+1} (\sigma_{n}^{r})^{-1}
+        delta_err_r_inv = sp_la.solve(err_r, Delta)
+        #delta_err_r_inv = sp.dot(Delta, la.inv(err_r))
+        # \Delta_{n+1}^{T} (\sigma_{n}^{\epsilon})^{-1}
+        deltaT_err_e_inv = sp_la.solve(err_e, Delta.T)
+        #deltaT_err_e_inv = sp.dot(Delta.T, la.inv(err_e))
+
+        AA = A.copy()
+        # (7)
+        # A_{n+1} = [I,A_{n,1},..,A_{n,n},0] - \Delta_{n+1}(\sigma_{n}^{r})^{-1} [0,B_{n,n},..,B_{n,1},I]
+        for i in xrange(1, n + 1):
+            A[..., i - 1] -= sp.dot(delta_err_r_inv, B[..., n - i])
+        A[..., n] = -delta_err_r_inv
+
+        # (8)
+        # B_{n+1} = [0,B_{n,n},..,B_{n,1},I] - \Delta_{n+1}^{T}(\sigma_{n}^{\epsilon})^{-1} [I,A_{n,1},..,A_{n,n},0]
+        for i in xrange(1, n + 1):
+            B[..., i - 1] -= sp.dot(deltaT_err_e_inv, AA[..., n - i])
+        B[..., n] = -deltaT_err_e_inv
+
+        # (10)
+        # \sigma_{n+1}^{\epsilon} = \sigma_{n}^{\epsilon} - \Delta_{n+1}(\sigma_{n}^{r})\Delta_{n+1}^{T}
+        err_e -= sp.dot(delta_err_r_inv, Delta.T)
+        # (11)
+        # \sigma_{n+1}^{r} = \sigma_{n}^{r} - \Delta_{n+1}^{T}(\sigma_{n}^{\epsilon})\Delta_{n+1}
+        err_r -= sp.dot(deltaT_err_e_inv, Delta)
+
+    # return
+    return A, err_e
 
 ##--- MAIN
 

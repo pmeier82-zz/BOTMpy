@@ -179,11 +179,11 @@ def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
     # checks
     a = sp.asarray(a)
     if b is None:
-        b = a.copy()
+        b = a
     else:
         b = sp.asarray(b)
     if not (a.ndim == b.ndim == 1):
-        raise ValueError('a.ndim == b.ndim == 1')
+        raise ValueError('a.ndim != b.ndim != 1')
     if a.size != b.size:
         raise ValueError('a.size != b.size')
     if a.size < 2:
@@ -193,22 +193,54 @@ def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
     if lag > a.size - 1:
         raise ValueError('lag > vector size - 1')
 
-    # inits
+    # init
     T = a.size
-    lagrange = xrange(int(-lag), int(lag) + 1)
-    rval = sp.zeros(len(lagrange), dtype=a.dtype)
+    lag_range = xrange(int(-lag), int(lag) + 1)
+    rval = sp.empty(len(lag_range), dtype=a.dtype)
 
     # calc
-    for tau in lagrange:
-        rval[lag + tau] = sp.dot(a[max(0, +tau):min(T, T + tau)],
-                                 b[max(0, -tau):min(T, T - tau)])
+    for tau in lag_range:
+        rval[lag + tau] = sp.dot(a[max(0, +tau):min(T, T + tau)], b[max(0, -tau):min(T, T - tau)])
 
     # normalise
     if normalise is True:
-        denom = sp.array([T] * len(lagrange))
+        denom = sp.array([T] * len(lag_range))
         if unbiased is True:
-            denom -= sp.absolute(lagrange)
+            denom -= sp.absolute(lag_range)
         rval /= denom
+
+    # return
+    return rval
+
+
+def xcorrv(a, b=None, lag=None, dtype=None):
+    """vectorial cross correlation by taking the expectation over an outer product"""
+
+    # checks
+    a = sp.asarray(a)
+    b = sp.asarray(b or a)
+    if not (a.ndim == b.ndim):
+        raise ValueError('a.ndim !== b.ndim')
+
+    #if a.size != b.size:
+    #    raise ValueError('a.size != b.size')
+    #if a.size < 2:
+    #    raise ValueError('a.size < 2')
+
+    if lag is None:
+        lag = int(a.shape[0] - 1)
+    if lag > a.shape[0] - 1:
+        raise ValueError('lag > vector len - 1')
+
+    # init
+    lag_range = xrange(int(-lag), int(lag) + 1)
+    rval = sp.empty((a.shape[1], b.shape[1], len(lag_range)), dtype=dtype or a.dtype)
+
+    # calc
+    for tau in lag_range:
+        prod = a.T[:, None, max(0, +tau):min(len(a), len(a) + tau)] *\
+               b.T[None, :, max(0, -tau):min(len(b), len(b) - tau)].conj()
+        rval[..., lag + tau] = prod.mean(axis=-1)
 
     # return
     return rval
