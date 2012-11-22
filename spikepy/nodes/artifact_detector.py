@@ -224,7 +224,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
 
     ## constructor
 
-    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=1000.0, nfft=256, en_func='encoeff', **kw):
+    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512, en_func='max_normed', **kw):
         """lala"""
 
         # super
@@ -255,14 +255,14 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
             psd_arr, freqs, times = specgram(x[:, c], NFFT=self.nfft, Fs=self.srate, noverlap=self.nfft / 2)
             mask = freqs < self.cutoff_hz
             for b in xrange(len(times)):
-                bin_s = int(times[0] * b * self.srate) - self.nfft / 2
-                bin_e = int(times[0] * b * self.srate) + self.nfft / 2
+                bin_s = b * self.nfft / 2 + self.nfft / 4
+                bin_e = bin_s + self.nfft / 2
                 
-                if self.en_func == 'enCoeff':
+                if self.en_func == 'mean_coeff':
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].mean() / psd_arr[mask == False, b].mean()
-                elif self.en_func == 'enMaxCoeff':
+                elif self.en_func == 'max_coeff':
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[mask == False, b].max()
-                elif self.en_func == 'enMaxNormed':
+                elif self.en_func == 'max_normed':
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[:, b].sum(axis = 0)
                 else:
                     raise RuntimeError('Energy function does not exist!')
@@ -283,7 +283,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
             epochs = sp.zeros((0, 2))
         else:
             epochs = merge_epochs(epochs, min_dist=self.nfft*3 + 1)
-            epochs = epochs[epochs[:, 1] - epochs[:, 0] > self.nfft * 2]
+            epochs = epochs[epochs[:, 1] - epochs[:, 0] > self.nfft]
         self.events = sp.asarray(epochs, dtype=INDEX_DTYPE)
         return x
 
