@@ -224,7 +224,9 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
 
     ## constructor
 
-    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512, en_func='max_normed', **kw):
+    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512, 
+                 en_func='max_normed', overlap=1, max_merge_dist = 6, 
+                 min_allowed_length = 2, **kw):
         """lala"""
 
         # super
@@ -237,6 +239,9 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         self.cutoff_hz = float(cutoff_hz)
         self.nfft = 1
         self.en_func = en_func
+        self.overlap = overlap # 0- No overlap, 1 - 50% overlap, 2 - 75% overlap
+        self.max_merge_dist = max_merge_dist
+        self.min_allowed_length = min_allowed_length
         
         while self.nfft < nfft:
             self.nfft <<= 1
@@ -251,12 +256,22 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
 
         rval = sp.zeros_like(x)
         ns, nc = x.shape
+        ov_samples = 0
+        offset = 0
+        if self.overlap == 1:
+            ov_samples = self.nfft * 0.5
+            offset = self.nfft / 4
+        elif self.overlap == 2:
+            ov_samples = self.nfft * 0.75
+            offset = self.nfft * 0.375
+        step = self.nfft - ov_samples
+
         for c in xrange(nc):
-            psd_arr, freqs, times = specgram(x[:, c], NFFT=self.nfft, Fs=self.srate, noverlap=self.nfft / 2)
+            psd_arr, freqs, times = specgram(x[:, c], NFFT=self.nfft, Fs=self.srate, noverlap=ov_samples)
             mask = freqs < self.cutoff_hz
             for b in xrange(len(times)):
-                bin_s = b * self.nfft / 2 + self.nfft / 4
-                bin_e = bin_s + self.nfft / 2
+                bin_s = b * step + offset
+                bin_e = bin_s + step
                 
                 if self.en_func == 'mean_coeff':
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].mean() / psd_arr[mask == False, b].mean()
@@ -274,6 +289,12 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         epochs = []
         self._calc_threshold()
 
+        if self.overlap == 0:
+            step = self.nfft
+        elif self.overlap == 1:
+            step = self.nfft / 2
+        else:
+            step = self.nfft / 4
         # per channel detection
         for c in xrange(self.nchan):
             ep = epochs_from_binvec(self.energy[:, c] > self.threshold[c])
@@ -282,8 +303,8 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         if len(epochs) == 0:
             epochs = sp.zeros((0, 2))
         else:
-            epochs = merge_epochs(epochs, min_dist=self.nfft*3 + 1)
-            epochs = epochs[epochs[:, 1] - epochs[:, 0] > self.nfft]
+            epochs = merge_epochs(epochs, min_dist=step * self.max_merge_dist + 1)
+            epochs = epochs[epochs[:, 1] - epochs[:, 0] >= step * self.min_allowed_length]
         self.events = sp.asarray(epochs, dtype=INDEX_DTYPE)
         return x
 
