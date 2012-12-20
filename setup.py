@@ -101,21 +101,23 @@ if __name__ == "__main__":
 
         # metadata
         author="Philipp Meier",
-        author_email="pmeier82@googlemail.com",
+        author_email="pmeier82@gmail.com",
         maintainer="Philipp Meier",
-        maintainer_email="pmeier82@googlemail.com",
+        maintainer_email="pmeier82@gmail.com",
         description=DESC_TITLE,
         long_description=DESC_LONG,
         license="MIT License",
         url='http://ni.tu-berlin.de',
         classifiers=[
-            'Development Status :: 4 - Beta',
+            'Development Status :: 5 - Production/Stable',
             'Intended Audience :: Science/Research',
-            'License :: OSI Approved :: MIT License',
+            'License :: OSI Approved :: University of Illinois/NCSA Open Source License',
             'Natural Language :: English',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
-            'Topic :: Scientific/Engineering :: Bio-Informatics'],
+            'Programming Language :: Cython',
+            'Topic :: Scientific/Engineering :: Bio-Informatics',
+            'Topic :: Scientific/Engineering :: Information Analysis'],
 
         # cython
         cmdclass={'build_ext': build_ext},
