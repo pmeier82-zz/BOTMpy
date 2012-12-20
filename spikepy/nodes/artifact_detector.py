@@ -57,6 +57,7 @@ __all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 ##--- IMPORTS
 
 import scipy as sp
+from matplotlib.mlab import specgram
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
 
@@ -155,6 +156,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
             mu = xings[self.window.size:-self.window.size].mean()
             xings[:self.window.size] = xings[-self.window.size:] = mu
             ep = epochs_from_binvec(xings < self.zcr_th)
+           
             epochs.append(ep)
 
         # pad and merge artifact epochs
@@ -167,6 +169,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
         # return
         self.events = self.events.astype(INDEX_DTYPE)
         return x
+
 
     ## evaluations
 
@@ -219,7 +222,9 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
 
     ## constructor
 
-    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=1000.0, nfft=256, **kw):
+    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512, 
+                 en_func='max_normed', overlap=1, max_merge_dist = 6, 
+                 min_allowed_length = 2, **kw):
         """lala"""
 
         # super
@@ -231,6 +236,11 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         self.wsize = None
         self.cutoff_hz = float(cutoff_hz)
         self.nfft = 1
+        self.en_func = en_func
+        self.overlap = overlap # 0- No overlap, 1 - 50% overlap, 2 - 75% overlap
+        self.max_merge_dist = max_merge_dist
+        self.min_allowed_length = min_allowed_length
+        
         while self.nfft < nfft:
             self.nfft <<= 1
 
@@ -244,16 +254,32 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
 
         rval = sp.zeros_like(x)
         ns, nc = x.shape
+        ov_samples = 0
+        offset = 0
+        if self.overlap == 1:
+            ov_samples = self.nfft * 0.5
+            offset = self.nfft / 4
+        elif self.overlap == 2:
+            ov_samples = self.nfft * 0.75
+            offset = self.nfft * 0.375
+        step = self.nfft - ov_samples
+
         for c in xrange(nc):
-            psd_arr, freqs, times = specgram(x[:, c], NFFT=self.nfft, Fs=self.srate, noverlap=self.nfft / 2)
+            psd_arr, freqs, times = specgram(x[:, c], NFFT=self.nfft, Fs=self.srate, noverlap=ov_samples)
             mask = freqs < self.cutoff_hz
             for b in xrange(len(times)):
-                bin_s = int(times[0] * b * self.srate) - self.nfft / 2
-                bin_e = int(times[0] * b * self.srate) + self.nfft / 2
-                # settled for mean of frequency bins [11/20/12]
-                rval[bin_s:bin_e, c] = psd_arr[mask == True, b].mean() / psd_arr[mask == False, b].mean()
-                #rval[bin_s:bin_e, c] = psd_arr[mask == True, b].sum() / psd_arr[mask == False, b].sum()
-                #rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[mask == False, b].max()
+                bin_s = b * step + offset
+                bin_e = bin_s + step
+                
+                if self.en_func == 'mean_coeff':
+                    rval[bin_s:bin_e, c] = psd_arr[mask == True, b].mean() / psd_arr[mask == False, b].mean()
+                elif self.en_func == 'max_coeff':
+                    rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[mask == False, b].max()
+                elif self.en_func == 'max_normed':
+                    rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[:, b].sum(axis = 0)
+                else:
+                    raise RuntimeError('Energy function does not exist!')
+
         return rval
 
     def _execute(self, x, *args, **kwargs):
@@ -261,15 +287,22 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         epochs = []
         self._calc_threshold()
 
+        if self.overlap == 0:
+            step = self.nfft
+        elif self.overlap == 1:
+            step = self.nfft / 2
+        else:
+            step = self.nfft / 4
         # per channel detection
         for c in xrange(self.nchan):
             ep = epochs_from_binvec(self.energy[:, c] > self.threshold[c])
             epochs.extend(ep)
+
         if len(epochs) == 0:
             epochs = sp.zeros((0, 2))
         else:
-            epochs = merge_epochs(epochs, min_dist=self.nfft + 1)
-            epochs = epochs[epochs[:, 1] - epochs[:, 0] > self.nfft * 2]
+            epochs = merge_epochs(epochs, min_dist=step * self.max_merge_dist + 1)
+            epochs = epochs[epochs[:, 1] - epochs[:, 0] >= step * self.min_allowed_length]
         self.events = sp.asarray(epochs, dtype=INDEX_DTYPE)
         return x
 
