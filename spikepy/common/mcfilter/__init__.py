@@ -4,7 +4,8 @@
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
 #
-# Developed by:	Neural Information Processing Group (NI)
+# Developed by:	Philipp Meier <pmeier82@gmail.com>
+#               Neural Information Processing Group (NI)
 #               School for Electrical Engineering and Computer Science
 #               Berlin Institute of Technology
 #               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
