@@ -106,6 +106,7 @@ if __name__ == '__main__':
                   'botmpy.common.mcfilter',
                   'botmpy.nodes'],
         requires=['scipy', 'mdp', 'sklearn'],
+        zip_safe=False,
 
         # metadata
         author='Philipp Meier',

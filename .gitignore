@@ -1,6 +1,1 @@
 *.c
-*.pyc
-*.egg-info
-doc/build
-build/
-dist/
