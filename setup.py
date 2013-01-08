@@ -46,22 +46,27 @@ __docformat__ = 'restructuredtext'
 
 ##---IMPORTS
 
-from distutils.core import setup
+# setup tools and cython
+from setuptools import setup, find_packages
+# Warning : do not import the distutils extension before setuptools
+# It does break the cythonize function calls
 from distutils.extension import Extension
 
 try:
     from Cython.Distutils import build_ext
 except ImportError:
     build_ext = None
+
+# other imports
 import numpy
 
 ##--HELPERS
 
 def find_version():
-    """read version from spikepy.__init__"""
+    """read version from botmpy.__init__"""
 
     try:
-        f = open('./spikepy/__init__.py', 'r')
+        f = open('./botmpy/__init__.py', 'r')
         try:
             for line in f:
                 if line.startswith('__version__'):
@@ -75,7 +80,7 @@ def find_version():
 
 ##---DEFINITIONS
 
-DESC_TITLE = 'SpikePy : spike sorting with linear filters'
+DESC_TITLE = 'BOTMpy : spike sorting using Bayes Optimal Template Matching in Python'
 DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
 
 ##---USE_CYTHON
@@ -84,20 +89,23 @@ ext_mod_list = []
 if build_ext is not None:
     ext_mod_list.append(
         Extension(
-            'spikepy.common.mcfilter.mcfilter_cy',
-            ['spikepy/common/mcfilter/mcfilter_cy.pyx'],
+            'botmpy.common.mcfilter.mcfilter_cy',
+            ['botmpy/common/mcfilter/mcfilter_cy.pyx'],
             include_dirs=[numpy.get_include()]))
 
 ##---MAIN
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     setup(
         #main
-        name="SpikePy",
+        name="BOTMpy",
         version=find_version(),
-        packages=['spikepy', 'spikepy.common', 'spikepy.common.datafile',
-                  'spikepy.common.mcfilter', 'spikepy.nodes'],
-        requires=['scipy', 'mdp', 'tables', 'scikits.learn'],
+        packages=['botmpy',
+                  'botmpy.common',
+                  'botmpy.common.datafile',
+                  'botmpy.common.mcfilter',
+                  'botmpy.nodes'],
+        requires=['scipy', 'mdp', 'sklearn'],
 
         # metadata
         author='Philipp Meier',
@@ -107,9 +115,9 @@ if __name__ == "__main__":
         description=DESC_TITLE,
         long_description=DESC_LONG,
         license='University of Illinois/NCSA Open Source License',
-        url='http://ni.tu-berlin.de',
+        url='http://www.ni.tu-berlin.de',
         classifiers=[
-            'Development Status :: 5 - Production/Stable',
+            'Development Status :: 4 - Beta',
             'Intended Audience :: Science/Research',
             'License :: OSI Approved :: University of Illinois/NCSA Open Source License',
             'Natural Language :: English',

@@ -46,7 +46,7 @@
 """filter related utility functions
 
 !! multichanneled crosscorrelation filtering implementations are outsourced
-to spikepy.common.mcfilter.py !!
+to botmpy.common.mcfilter !!
 """
 
 __docformat__ = 'restructuredtext'

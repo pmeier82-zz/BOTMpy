@@ -338,7 +338,6 @@ def main1():
     from tables import openFile
     #    from matplotlib import pyplot as P
 
-    #arc = openFile('C:/SVN/Python/SpikePy/posi/test.h5')
     arc = openFile('/home/ff/amplhist.h5')
     ampl = AmplitudeHistogram(
         ampl_range=(-.5, .2, .01),

@@ -43,10 +43,10 @@
 #
 
 
-"""spike sorter package from SpikePy"""
+"""spike sorter package from BOTMpy"""
 
 __docformat__ = 'restructuredtext'
-__version__ = '0.2.1'
+__version__ = '0.3.0'
 
 ##---IMPORTS
 

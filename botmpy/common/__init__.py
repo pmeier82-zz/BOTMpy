@@ -43,7 +43,7 @@
 #
 
 
-"""common functions for the spikepy package"""
+"""common functions for the BOTMpy package"""
 __docformat__ = 'restructuredtext'
 
 ##---PACKAGE
