@@ -78,12 +78,7 @@ def find_version():
         rval = '0'
     return rval
 
-##---DEFINITIONS
-
-DESC_TITLE = 'BOTMpy : spike sorting using Bayes Optimal Template Matching in Python'
-DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
-
-##---USE_CYTHON
+##---CYTHON
 
 ext_mod_list = []
 if build_ext is not None:
@@ -98,14 +93,14 @@ if build_ext is not None:
 if __name__ == '__main__':
     setup(
         #main
-        name="BOTMpy",
+        name='BOTMpy',
         version=find_version(),
         packages=['botmpy',
                   'botmpy.common',
                   'botmpy.common.datafile',
                   'botmpy.common.mcfilter',
                   'botmpy.nodes'],
-        requires=['scipy', 'mdp', 'sklearn'],
+        requires=['numpy', 'scipy', 'mdp', 'sklearn'],
         zip_safe=False,
 
         # metadata
@@ -113,8 +108,8 @@ if __name__ == '__main__':
         author_email='pmeier82@gmail.com',
         maintainer='Philipp Meier',
         maintainer_email='pmeier82@gmail.com',
-        description=DESC_TITLE,
-        long_description=DESC_LONG,
+        description=open('README', 'r').readline().strip(),
+        long_description=open('README', 'r').read(),
         license='University of Illinois/NCSA Open Source License',
         url='http://www.ni.tu-berlin.de',
         classifiers=[
