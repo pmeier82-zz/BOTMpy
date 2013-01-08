@@ -75,7 +75,7 @@ def find_version():
 
 ##---DEFINITIONS
 
-DESC_TITLE = 'SpikePy : online spike sorting with linear fitlers'
+DESC_TITLE = 'SpikePy : spike sorting with linear filters'
 DESC_LONG = ''.join([DESC_TITLE, '\n\n', open('README', 'r').read()])
 
 ##---USE_CYTHON
@@ -100,13 +100,13 @@ if __name__ == "__main__":
         requires=['scipy', 'mdp', 'tables', 'scikits.learn'],
 
         # metadata
-        author="Philipp Meier",
-        author_email="pmeier82@gmail.com",
-        maintainer="Philipp Meier",
-        maintainer_email="pmeier82@gmail.com",
+        author='Philipp Meier',
+        author_email='pmeier82@gmail.com',
+        maintainer='Philipp Meier',
+        maintainer_email='pmeier82@gmail.com',
         description=DESC_TITLE,
         long_description=DESC_LONG,
-        license="MIT License",
+        license='University of Illinois/NCSA Open Source License',
         url='http://ni.tu-berlin.de',
         classifiers=[
             'Development Status :: 5 - Production/Stable',
