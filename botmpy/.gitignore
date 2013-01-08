@@ -1,0 +1,4 @@
+*.c
+*.pyc
+*.pyx
+doc/build
