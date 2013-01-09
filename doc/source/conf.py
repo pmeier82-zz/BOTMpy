@@ -24,7 +24,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 # -- mocking modules for Read the Docs compatibility ---------------------------
 
-MOCK_LIST = ['scipy',
+MOCK_LIST = ['cython',
+             'scipy',
              'scipy.linalg',
              'scipy.signal',
              'scipy.stats',
