@@ -7,13 +7,15 @@ Welcome to BOTMpy's documentation!
 ==================================
 
 Contents:
---------
+---------
 
 .. toctree::
    :maxdepth: 2
 
    intro
    install
+   cython
+   getting_started
    apidoc/modules
 
 Indices and tables

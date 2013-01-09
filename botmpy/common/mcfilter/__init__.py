@@ -77,9 +77,8 @@ try:
 except ImportError, ex:
     from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
-    print ex
     warnings.warn('Cython implementation not found! Falling back to Python!',
-        ImportWarning)
+                  ImportWarning)
     USE_CYTHON = False
 
 ##---FUNCTIONS

@@ -245,7 +245,7 @@ if __name__ == '__main__':
 
 #    fname = '\\\\nr05\data_nr05\Felix\write_test.nas'
     fname = './test.nas'
-    from spikepy.common.datafile import GdfFile
+    from botmpy.common.datafile import GdfFile
 
     print 'Starting test...'
     headers = {}

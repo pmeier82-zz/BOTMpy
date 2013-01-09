@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 
 # -- mocking modules for Read the Docs compatibility ---------------------------
+# hopefully one day there will be a way for RTD to provide scipy and co!
 
 MOCK_LIST = ['cython',
              'scipy',
@@ -40,7 +41,9 @@ MOCK_LIST = ['cython',
              'sklearn.mixture',
              'sklearn.utils',
              'sklearn.utils.extmath',
-             'botmpy.common.mcfilter.mcfilter_cy', ]
+             #'botmpy.common.mcfilter.mcfilter_cy',
+]
+
 try:
     for mod_name in MOCK_LIST:
         __import__(mod_name, globals=globals(), locals=locals())
@@ -76,7 +79,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.todo',
               'sphinx.ext.pngmath',
               'sphinx.ext.ifconfig',
-              'sphinx.ext.viewcode']
+              'sphinx.ext.viewcode',
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
