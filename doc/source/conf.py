@@ -24,18 +24,20 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 # -- mocking modules for Read the Docs compatibility ---------------------------
 
-for mod_name in ['scipy',
-                 'scipy.signal',
-                 'mdp',
-                 'sklearn',
-                 'botmpy.common.mcfilter.mcfilter_cy', ]:
-    try:
+MOCK_LIST = ['scipy',
+             'scipy.signal',
+             'mdp',
+             'sklearn',
+             'botmpy.common.mcfilter.mcfilter_cy', ]
+try:
+    for mod_name in MOCK_LIST:
         __import__(mod_name, globals=globals(), locals=locals())
         print 'imported', mod_name
-    except ImportError:
-        print 'mocking', mod_name
-        from mock import MagicMock
+except ImportError:
+    print 'mocking!'
+    from mock import MagicMock
 
+    for mod_name in MOCK_LIST:
         sys.modules[mod_name] = MagicMock()
 
     class Node(object):
