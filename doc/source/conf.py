@@ -24,17 +24,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 # -- mocking modules for Read the Docs compatibility ---------------------------
 
-try:
-    import scipy
-    import numpy
-    import mdp
-    import sklearn
+for mod_name in ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot']:
+    try:
+        __import__(mod_name, globals=globals(), locals=locals())
+        print 'imported', mod_name
+    except ImportError:
+        from mock import MagicMock
 
-except ImportError:
-    from mock import MagicMock
-
-    MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot']
-    for mod_name in MOCK_MODULES:
         sys.modules[mod_name] = MagicMock()
 
 
