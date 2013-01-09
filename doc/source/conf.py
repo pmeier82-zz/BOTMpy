@@ -21,9 +21,6 @@ import sys, os
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
-# project imports
-import botmpy
-
 
 # -- mocking modules for Read the Docs compatibility ---------------------------
 
@@ -39,6 +36,12 @@ except ImportError:
     MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot']
     for mod_name in MOCK_MODULES:
         sys.modules[mod_name] = MagicMock()
+
+
+# -- project imports -----------------------------------------------------------
+
+import botmpy
+
 
 # -- general configuration -----------------------------------------------------
 
