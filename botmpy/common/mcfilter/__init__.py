@@ -56,8 +56,6 @@ Implementations are given in Python and alternatively as in Cython. On
 import the Cython function is being tried to load, on failure the python
 version is loaded as a fallback.
 """
-
-"""multi-channeled filtering package"""
 __docformat__ = 'restructuredtext'
 __all__ = ['mcfilter', 'mcfilter_hist', 'USE_CYTHON']
 

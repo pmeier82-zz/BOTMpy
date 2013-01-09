@@ -24,7 +24,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 # -- mocking modules for Read the Docs compatibility ---------------------------
 
-for mod_name in ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot']:
+for mod_name in ['scipy',
+                 'scipy.signal',
+                 'botmpy.common.mcfilter.mcfilter_cy']:
     try:
         __import__(mod_name, globals=globals(), locals=locals())
         print 'imported', mod_name
