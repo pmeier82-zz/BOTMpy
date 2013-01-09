@@ -25,16 +25,20 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 # -- mocking modules for Read the Docs compatibility ---------------------------
 
 MOCK_LIST = ['scipy',
+             'scipy.linalg',
              'scipy.signal',
              'scipy.stats',
              'scipy.stats.mstats',
-             'scipy.stats.mstats.mquantiles',
              'matplotlib',
              'matplotlib.mlab',
              'mdp',
              'mdp.nodes',
              'sklearn',
+             'sklearn.cluster',
+             'sklearn.metrics',
              'sklearn.mixture',
+             'sklearn.utils',
+             'sklearn.utils.exmath',
              'botmpy.common.mcfilter.mcfilter_cy', ]
 try:
     for mod_name in MOCK_LIST:
