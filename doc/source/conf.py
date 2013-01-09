@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 MOCK_LIST = ['scipy',
              'scipy.signal',
              'mdp',
+             'mdp.nodes',
              'sklearn',
              'botmpy.common.mcfilter.mcfilter_cy', ]
 try:
