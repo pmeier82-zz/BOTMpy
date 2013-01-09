@@ -26,6 +26,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 MOCK_LIST = ['scipy',
              'scipy.signal',
+             'scipy.stats',
+             'scipy.stats.mstats',
              'matplotlib',
              'matplotlib.mlab',
              'mdp',
