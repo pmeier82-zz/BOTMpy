@@ -11,6 +11,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+
 # -- import configuration ------------------------------------------------------
 
 import sys, os
@@ -22,6 +23,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 # project imports
 import botmpy
+
+
+# -- mocking modules for Read the Docs compatibility ---------------------------
+
+try:
+    import scipy
+    import numpy
+    import mdp
+    import sklearn
+
+except ImportError:
+    from mock import MagicMock
+
+    MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot']
+    for mod_name in MOCK_MODULES:
+        sys.modules[mod_name] = MagicMock()
 
 # -- general configuration -----------------------------------------------------
 
