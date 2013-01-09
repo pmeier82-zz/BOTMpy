@@ -29,6 +29,7 @@ for mod_name in ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot']:
         __import__(mod_name, globals=globals(), locals=locals())
         print 'imported', mod_name
     except ImportError:
+        print 'mocking', mod_name
         from mock import MagicMock
 
         sys.modules[mod_name] = MagicMock()
