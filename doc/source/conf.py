@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # BOTMpy documentation build configuration file, created by
-# sphinx-quickstart on Wed Jan  9 13:55:11 2013.
+# sphinx-quickstart on Wed Jan  9 14:48:25 2013.
 #
 # This file is execfile()d with the current directory set to its containing dir.
 #
@@ -25,7 +25,7 @@ import sys, os
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinx.ext.todo', 'sphinx.ext.coverage', 'sphinx.ext.pngmath', 'sphinx.ext.ifconfig', 'sphinx.ext.viewcode']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinx.ext.todo', 'sphinx.ext.pngmath', 'sphinx.ext.ifconfig', 'sphinx.ext.viewcode']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'BOTMpy'
-copyright = u'2013, Philipp Meier'
+copyright = u'2013, Philipp Meier and Berlin Institute of Technology'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -64,7 +64,7 @@ release = '0.3.0'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = []
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
@@ -184,7 +184,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'BOTMpy.tex', u'BOTMpy Documentation',
-   u'Philipp Meier', 'manual'),
+   u'Philipp Meier and Berlin Institute of Technology', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -214,7 +214,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'botmpy', u'BOTMpy Documentation',
-     [u'Philipp Meier'], 1)
+     [u'Philipp Meier and Berlin Institute of Technology'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -228,7 +228,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'BOTMpy', u'BOTMpy Documentation',
-   u'Philipp Meier', 'BOTMpy', 'One line description of project.',
+   u'Philipp Meier and Berlin Institute of Technology', 'BOTMpy', 'One line description of project.',
    'Miscellaneous'),
 ]
 
