@@ -34,6 +34,7 @@ MOCK_LIST = ['scipy',
              'mdp',
              'mdp.nodes',
              'sklearn',
+             'sklearn.mixture',
              'botmpy.common.mcfilter.mcfilter_cy', ]
 try:
     for mod_name in MOCK_LIST:
