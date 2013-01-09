@@ -38,6 +38,10 @@ for mod_name in ['scipy',
 
         sys.modules[mod_name] = MagicMock()
 
+    class Node(object):
+        pass
+
+    sys.modules['mdp'].Node = Node
 
 # -- project imports -----------------------------------------------------------
 
