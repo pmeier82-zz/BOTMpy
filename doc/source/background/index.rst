@@ -1,11 +1,5 @@
-Introduction
-============
-BOTMpy is a Python_ package that implements spike sorting with the `Bayes
-Optimal Template Matching`_ algorithm.
-
-
 Spike Sorting
--------------
+=============
 Spike sorting is a combined detection and classification task for transient
 patterns in biological timeseries, most prominently recordings from the brain.
 It is one of the pivotal tools to learn about the interaction of neuronal cell

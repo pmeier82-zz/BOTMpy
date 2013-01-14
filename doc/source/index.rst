@@ -3,8 +3,25 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to BOTMpy's documentation!
-==================================
+######################################################################
+BOTMpy : spike sorting using Bayes Optimal Template Matching in Python
+######################################################################
+
+<header here>
+
+This package implements spike sorting with the BOTM algorithm. It is intended
+provide as a tool for scientists in neuroscience to process time series data.
+It can be used to detect and classify action potentials of distinct single
+cells in voltage traces.
+
+For further information on the general topic of spike sorting:
+:ref:`spike_sorting/index`
+
+For information on the details of the linear filters and the BOTM method:
+:ref:``
+
+For pointers how to get started read the :ref:`` section.
+
 
 Contents:
 ---------
@@ -15,8 +32,16 @@ Contents:
    intro
    install
    cython
-   getting_started
-   apidoc/modules
+   spike_sorting/index
+
+
+APIDocs:
+--------
+
+.. toctree::
+   :maxdepth: 6
+
+   apidoc/botmpy
 
 Indices and tables
 ------------------
