@@ -1,3 +1,7 @@
+############
+Installation
+############
+
 Requirements
 ============
 BOTMpy can be used as a pure Python_ package. There are also some Cython_
@@ -42,6 +46,8 @@ it on your system by calling::
 
   $ python setup.py install
 
+References:
+===========
 
 .. _Python: http://python.org
 .. _python: http://python.org

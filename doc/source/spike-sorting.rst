@@ -1,9 +1,36 @@
+#############
 Spike Sorting
-=============
+#############
+
 Spike sorting is a combined detection and classification task for transient
-patterns in biological timeseries, most prominently recordings from the brain.
-It is one of the pivotal tools to learn about the interaction of neuronal cell
-populations in the nervous system of mammals.
+patterns in time series. In neuroscience this task is found when analysing
+voltage traces recorded from the brain of mammals. This kind of recording
+yields discrete time series of a differential voltage trace, recorded from the
+location in the cortex under consideration and a grounded electrode. Single
+cells in the cortex (neurons) communicate by means of electrical and chemical
+signals. These signals are called action potential (AP), the time course of the
+membrane potential during an AP, as measured in the voltage trace recorded, has
+a very distinct gestalt that gives rise to the term *spike*.
+
+The aim of the spike sorting task is to identify the points in time when an
+AP has occurred in the signal (spike detection) and to predict which of the
+neurons has emitted this spike (spike sorting).
+
+Extracellular recording
+=======================
+
+The leading paradigm to record an ensemble of neurons from the cortex is that
+of extracellular recording. An electrode will be
+
+.. _`fig-recording`:
+
+.. figure:: static/recording.png
+   :alt: cartoon of the experimental setup for extracellular recordings
+   :align: center
+   :figwidth: 80%
+   :height: 300px
+
+   Cartoon of the experimental setup for extracellular recordings.
 
 Voltage patterns correspnding to action potentials of single cells have to be
 found, and labeled as originating from that cell in a reliable manner. The
@@ -14,6 +41,7 @@ For further information about spike sorting please refer to the following
 publications *[Lewiki99]*, *[Scholarpedia]* and more recent and recommended
 *[Einevoll11]*.
 
+.. _template-matching:
 
 Template Matching
 -----------------
@@ -45,6 +73,8 @@ Donec et urna iaculis elit mollis venenatis. Maecenas a enim vitae arcu semper
 ultrices condimentum eu justo. In hac habitasse platea dictumst. Maecenas in
 felis quis enim malesuada laoreet.
 
+References:
+-----------
 
 .. _`Python`: http://python.org/
 .. _`Bayes Optimal Template Matching`:

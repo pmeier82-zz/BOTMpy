@@ -1,1 +1,2 @@
 mock
+-e hg+https://bitbucket.org/arjones6/sphinx-numfig#egg=sphinx-numfig

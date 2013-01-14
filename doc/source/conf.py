@@ -60,6 +60,7 @@ except ImportError:
 
     sys.modules['mdp'].Node = Node
 
+
 # -- project imports -----------------------------------------------------------
 
 import botmpy
@@ -81,6 +82,14 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.ifconfig',
               'sphinx.ext.viewcode',
 ]
+#try:
+#    import sphinx.ext.numfig
+#
+#    extensions += ['sphinx.ext.numfig']
+#    number_figures = True
+#    figure_caption_prefix = "Fig."
+#except ImportError:
+#    print 'sphinx-numfig not found!'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

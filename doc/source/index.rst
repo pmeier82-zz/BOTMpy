@@ -7,18 +7,24 @@
 BOTMpy : spike sorting using Bayes Optimal Template Matching in Python
 ######################################################################
 
-<header here>
+.. sidebar:: Details
+
+    :Release: |release|
+    :Date: |today|
+    :Authors: **Philipp Meier**
+    :Target: users and developers
+    :status: mature
 
 This package implements spike sorting with the BOTM algorithm. It is intended
-provide as a tool for scientists in neuroscience to process time series data.
-It can be used to detect and classify action potentials of distinct single
-cells in voltage traces.
+as a tool for scientists in neuroscience to process time series data. It can be
+used to detect and classify action potentials of distinct single cells in
+voltage traces.
 
 For further information on the general topic of spike sorting:
-:ref:`spike_sorting/index`
+:doc:`spike-sorting`
 
 For information on the details of the linear filters and the BOTM method:
-:ref:``
+:doc:`botm`
 
 For pointers how to get started read the :ref:`` section.
 
@@ -27,12 +33,12 @@ Contents:
 ---------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-   intro
    install
    cython
-   spike_sorting/index
+   spike-sorting
+   botm
 
 
 APIDocs:
