@@ -13,8 +13,6 @@ It is intended as a tool for neuro-scientists to process time series data. It
 can be used to detect and classify action potentials of distinct single cells
 in voltage traces recorded from the brain.
 
-.. todoList::
-
 Part 1: Getting Started
 -----------------------
 
@@ -50,8 +48,20 @@ Part 4: BOTMpy Reference
 
    apidoc/botmpy
 
+Appendix
+--------
+
+.. toctree::
+  :maxdepth: 2
+
+  apidoc/modules
+  references
+  playground
+
 Indices and tables
 ------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
+
+.. todoList::

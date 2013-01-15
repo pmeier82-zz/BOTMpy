@@ -1,1 +1,3 @@
-mock
+sphinx
+-e bzr+https://code.launchpad.net/~ero-sennin/pybtex/trunk#egg=pybtex
+-e git://github.com/pmeier82/sphinx-natbib.git#egg=sphinx-natbib

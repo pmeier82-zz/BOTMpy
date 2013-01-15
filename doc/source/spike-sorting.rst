@@ -24,7 +24,8 @@ the voltage trace recorded, has a very distinct gestalt, motivating the term
 
 The aim of the spike sorting task is to identify the points in time when an
 AP has occurred in the signal (spike detection) and to predict which of the
-neurons present has emitted this spike (spike sorting).
+neurons present has emitted this spike (spike sorting). For further detail
+please be referred to [ScholarpediaIR]_
 
 .. todo:: might need references
 
@@ -32,8 +33,8 @@ Intracellular Recordings
 ========================
 
 Voltage recordings from the inside of the neuron are called *intracellular
-recordings*. This kind of recording can help to understand the intracellular
-current dynamics. In general the detection of the AP for intracellular
+recordings*. This kind of recording can help to understand intracellular
+current dynamics. In general the detection of the AP from intracellular
 recordings does not pose a challenge, so that this kind of recording will not
 be considered in detail here.
 
@@ -60,7 +61,7 @@ cortex under consideration and record from the local neuronal population.
 
 
 For further information about spike sorting please refer to the following
-publications [Lewiki99]_, [Scholarpedia]_ and more recent and recommended
+publications [Lewiki99]_, [ScholarpediaSS]_ and more recent and recommended
 [Einevoll11]_.
 
 .. _template-matching:
@@ -103,20 +104,3 @@ References:
 .. _`Python`: http://python.org/
 .. _`Bayes Optimal Template Matching`:
   http://opus.kobv.de/tuberlin/volltexte/2012/3387/
-
-.. rubric:: Publications
-
-.. [Lewiki99]
-  "A review of methods for spike sorting: the detection and
-  classification of neural action potentials"
-  M. S. Lewicki (1998), Network: Computation in Neural Systems,
-  Vol. 9, No. 4. (1998), pp. 53-78
-
-.. [Scholarpedia]
-  Rodrigo Quian Quiroga (2007) Spike sorting. Scholarpedia, 2(12):3583.
-
-.. [Einevoll11]
-  "Towards reliable spike-train recordings from thousands of neurons with
-  multielectrodes."
-  Einevoll GT, Franke F, Hagen E, Pouzat C, Harris KD (2011),
-  Curr Opin Neurobiol. 2011 Oct 22.

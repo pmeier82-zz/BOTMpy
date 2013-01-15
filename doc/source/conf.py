@@ -25,40 +25,56 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 # -- mocking modules for Read the Docs compatibility ---------------------------
 # hopefully one day there will be a way for RTD to provide scipy and co!
 
-MOCK_LIST = ['cython',
-             'scipy',
-             'scipy.linalg',
-             'scipy.signal',
-             'scipy.stats',
-             'scipy.stats.mstats',
-             'matplotlib',
-             'matplotlib.mlab',
-             'mdp',
-             'mdp.nodes',
-             'sklearn',
-             'sklearn.cluster',
-             'sklearn.metrics',
-             'sklearn.mixture',
-             'sklearn.utils',
-             'sklearn.utils.extmath',
-             #'botmpy.common.mcfilter.mcfilter_cy',
-]
-
-try:
-    for mod_name in MOCK_LIST:
-        __import__(mod_name, globals=globals(), locals=locals())
-        print 'imported', mod_name
-except ImportError:
-    print 'mocking!'
-    from mock import MagicMock
-
-    for mod_name in MOCK_LIST:
-        sys.modules[mod_name] = MagicMock()
-
-    class Node(object):
+class Mock(object):
+    def __init__(self, *args, **kwargs):
         pass
 
-    sys.modules['mdp'].Node = Node
+    def __call__(self, *args, **kwargs):
+        return Mock()
+
+    @classmethod
+    def __getattr__(cls, name):
+        if name in ('__file__', '__path__'):
+            return '/dev/null'
+        elif name[0] == name[0].upper():
+            mockType = type(name, (), {})
+            mockType.__module__ = __name__
+            return mockType
+        else:
+            return Mock()
+
+MOCK_MODULES = ['cython',
+                'scipy',
+                'scipy.linalg',
+                'scipy.signal',
+                'scipy.stats',
+                'scipy.stats.mstats',
+                'matplotlib',
+                'matplotlib.mlab',
+                'mdp',
+                'mdp.nodes',
+                'sklearn',
+                'sklearn.cluster',
+                'sklearn.metrics',
+                'sklearn.mixture',
+                'sklearn.utils',
+                'sklearn.utils.extmath',
+                'peter.pan',
+                #'botmpy.common.mcfilter.mcfilter_cy',
+]
+
+for mod_name in MOCK_MODULES:
+    try:
+        __import__(mod_name, globals=globals(), locals=locals())
+        print 'imported', mod_name
+    except ImportError:
+        print 'mocking', mod_name
+        sys.modules[mod_name] = Mock()
+        if mod_name == 'mdp':
+            class Node(object):
+                pass
+
+            sys.modules['mdp'].Node = Node
 
 
 # -- project imports -----------------------------------------------------------
@@ -74,13 +90,15 @@ import botmpy
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.doctest',
-              'sphinx.ext.intersphinx',
+              'sphinx.ext.autosummary',
               'sphinx.ext.coverage',
-              'sphinx.ext.todo',
-              'sphinx.ext.pngmath',
+              'sphinx.ext.doctest',
               'sphinx.ext.ifconfig',
+              'sphinx.ext.intersphinx',
+              'sphinx.ext.pngmath',
+              'sphinx.ext.todo',
               'sphinx.ext.viewcode',
+              'natbib',
 ]
 #try:
 #    import sphinx.ext.numfig
@@ -311,10 +329,36 @@ texinfo_documents = [
 # -- options for Sphinx extensions ---------------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'http://docs.python.org/': None}
+intersphinx_mapping = {
+    'http://docs.python.org/': None,
+    'http://docs.scipy.org/doc/numpy': None,
+    'http://docs.scipy.org/doc/scipy/reference': None,
+}
 
 # show .. todo:: items
 todo_include_todos = True
+
+# autodocs
+autodoc_default_flags = ['show-inheritance']
+
+# natbib config
+natbib = {
+    # Required: The bibtex file to use. This should be a string representing
+    # the path to the bibtex file that contains references.
+    'file': './library.bib',
+    # Open and closing brackets to use in citations, default '()'.
+    'brackets': '[]',
+    # Character to use between multiple citations, default ';'.
+    'separator': ';',
+    # The global style for citations, default 'authoryear'. The other possible
+    # values are 'numbers' or 'super'.
+    'style': 'authoryear',
+    # Whether or not to sort multiple citations in the same order in which they
+    # appear in the list of references, default False.
+    'sort': True,
+    # The same as 'sort', but compresses citations if possible, default False.
+    'sort_compress': True,
+}
 
 
 # -- EOF -----------------------------------------------------------------------
