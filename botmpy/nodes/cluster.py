@@ -298,6 +298,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     print self._gof[idx], model.converged_
 
     ## gmm (variational inference bias)
+    # FIXME: broken due to sklearn interface change
 
     def _fit_vbgmm(self, x):
         # clustering
@@ -333,6 +334,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     print self._gof[idx], model.converged_
 
     ## gmm (Dirichlet process fitting)
+    # FIXME: broken due to sklearn interface changes
 
     def _fit_dpgmm(self, x):
         # clustering
@@ -383,8 +385,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
         # clustering
         fit_func = {'kmeans': self._fit_kmeans,
                     'gmm': self._fit_gmm,
-                    'vbgmm': self._fit_vbgmm,
-                    'dpgmm': self._fit_dpgmm,
+                    #'vbgmm': self._fit_vbgmm,
+                    #'dpgmm': self._fit_dpgmm,
                     'spectral': self._fit_spectral}[self.clus_type]
         fit_func(x)
 

@@ -12,7 +12,7 @@
 # serve to show the default.
 
 
-# -- import configuration ------------------------------------------------------
+# -- import configuration -----------------------------------------------------
 
 import sys, os
 
@@ -22,7 +22,7 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
 
-# -- mocking modules for Read the Docs compatibility ---------------------------
+# -- mocking modules for Read the Docs compatibility --------------------------
 # hopefully one day there will be a way for RTD to provide scipy and co!
 
 class Mock(object):
@@ -77,12 +77,12 @@ for mod_name in MOCK_MODULES:
             sys.modules['mdp'].Node = Node
 
 
-# -- project imports -----------------------------------------------------------
+# -- project imports ----------------------------------------------------------
 
 import botmpy
 
 
-# -- general configuration -----------------------------------------------------
+# -- general configuration ----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #needs_sphinx = '1.1.2'
@@ -170,7 +170,7 @@ pygments_style = 'sphinx'
 #modindex_common_prefix = []
 
 
-# -- options for HTML output ---------------------------------------------------
+# -- options for HTML output --------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
@@ -250,7 +250,7 @@ html_static_path = ['static']
 htmlhelp_basename = 'BOTMpydoc'
 
 
-# -- options for LaTeX output --------------------------------------------------
+# -- options for LaTeX output -------------------------------------------------
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
@@ -291,7 +291,7 @@ latex_documents = [
 #latex_domain_indices = True
 
 
-# -- options for manual page output --------------------------------------------
+# -- options for manual page output -------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
@@ -304,7 +304,7 @@ man_pages = [
 #man_show_urls = False
 
 
-# -- options for Texinfo output ------------------------------------------------
+# -- options for Texinfo output -----------------------------------------------
 
 # Grouping the document tree into Texinfo files. List of tuples
 # (source start file, target name, title, author,
@@ -343,22 +343,12 @@ autodoc_default_flags = ['show-inheritance']
 
 # natbib config
 natbib = {
-    # Required: The bibtex file to use. This should be a string representing
-    # the path to the bibtex file that contains references.
-    'file': './library.bib',
-    # Open and closing brackets to use in citations, default '()'.
+    'file': 'doc/source/library.bib',
     'brackets': '[]',
-    # Character to use between multiple citations, default ';'.
-    'separator': ';',
-    # The global style for citations, default 'authoryear'. The other possible
-    # values are 'numbers' or 'super'.
-    'style': 'authoryear',
-    # Whether or not to sort multiple citations in the same order in which they
-    # appear in the list of references, default False.
+    'separator': ',',
+    'style': 'numbers',
     'sort': True,
-    # The same as 'sort', but compresses citations if possible, default False.
-    'sort_compress': True,
 }
 
 
-# -- EOF -----------------------------------------------------------------------
+# -- EOF ----------------------------------------------------------------------

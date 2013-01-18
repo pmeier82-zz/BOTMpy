@@ -74,8 +74,10 @@ from .filter_bank import FilterBankError, FilterBankNode
 from .prewhiten import PrewhiteningNode2
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
-    overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc,
-    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile,
+    overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
+    shifted_matrix_sub, mcvec_to_conc,
+    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
+    get_cut, GdfFile,
     MxRingBuffer, mcvec_from_conc, extract_spikes)
 
 ##---CONSTANTS
@@ -182,12 +184,14 @@ class FilterBankSortingNode(FilterBankNode):
             clen -= self._chunk_offset
 
             # generate data chunk and process
-            self._chunk = self._data[self._chunk_offset:self._chunk_offset + clen]
+            self._chunk = self._data[
+                          self._chunk_offset:self._chunk_offset + clen]
             self._fout = sp.empty((clen, self.nf))
 
             # filtering
             self._pre_filter()
-            self._fout = super(FilterBankSortingNode, self)._execute(self._chunk)
+            self._fout = super(FilterBankSortingNode, self)._execute(
+                self._chunk)
             self._post_filter()
 
             # sorting
@@ -235,12 +239,14 @@ class FilterBankSortingNode(FilterBankNode):
         :type u: int
         :param u: index of the filter # CHECK THIS
         :type mc: bool
-        :param mc: if True, return spikes multi-channeled, else return spikes concatenated
+        :param mc: if True, return spikes multi-channeled,
+        else return spikes concatenated
             Default=True
         :type exclude_overlaps: bool
         :param exclude_overlaps: if True, exclude overlap spike
         :type overlap_window: int
-        :param overlap_window: if `exclude_overlaps` is True, this will define the overlap range,
+        :param overlap_window: if `exclude_overlaps` is True,
+        this will define the overlap range,
             if None set overlap_window=self._tf.
             Default=None
         """
@@ -258,7 +264,8 @@ class FilterBankSortingNode(FilterBankNode):
             rval = sp.zeros(size)
         else:
             ep, st_dict[u] = epochs_from_spiketrain(
-                st_dict[u], self._tf, end=self._data.shape[0], with_corrected_st=True)
+                st_dict[u], self._tf, end=self._data.shape[0],
+                with_corrected_st=True)
             if ep.size == 0:
                 rval = sp.zeros(size)
             else:
@@ -288,7 +295,8 @@ class FilterBankSortingNode(FilterBankNode):
             return None
 
         # check
-        if self._data is None or self.rval is None or len(self._idx_active_set) == 0:
+        if self._data is None or self.rval is None or len(
+            self._idx_active_set) == 0:
             warnings.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -315,7 +323,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # plot mcdata
         return mcdata(self._data, other=other, events=ev,
-            plot_handle=ph, colours=cols, show=show)
+                      plot_handle=ph, colours=cols, show=show)
 
     def plot_sorting_waveforms(self, ph=None, show=False):
         """plot the waveforms of the sorting of the last data chunk
@@ -333,7 +341,8 @@ class FilterBankSortingNode(FilterBankNode):
             return None
 
         # check
-        if self._data is None or self.rval is None or len(self._idx_active_set) == 0:
+        if self._data is None or self.rval is None or len(
+            self._idx_active_set) == 0:
             warnings.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -362,9 +371,9 @@ class FilterBankSortingNode(FilterBankNode):
               filename=None, show=True):
         """
         return waveforms(wf, samples_per_second=None, tf=self._tf,
-            plot_mean=True, templates=temps,
-            plot_single_waveforms=True, set_y_range=False,
-            plot_separate=True, plot_handle=ph, show=show)
+                         plot_mean=True, templates=temps,
+                         plot_single_waveforms=True, set_y_range=False,
+                         plot_separate=True, plot_handle=ph, show=show)
 
     def sorting2gdf(self, fname):
         """yield the gdf representing the current sorting"""
@@ -501,7 +510,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             TODO:
         """
 
-        # inits
+        # init
         if self.nf == 0:
             return
         spk_ep = epochs_from_binvec(
@@ -510,11 +519,13 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             return
         l, r = get_cut(self._tf)
         for i in xrange(spk_ep.shape[0]):
-            # FIX: for now we just continue for empty epochs, where do they come from anyways?!
+            # FIX: for now we just continue for empty epochs,
+            # where do they come from anyways?!
             if spk_ep[i, 1] - spk_ep[i, 0] < 1:
                 continue
             mc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].argmax(0).argmax()
-            s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[i, 0]
+            s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[
+                                                                     i, 0]
             spk_ep[i] = [s - l, s + r]
 
         # check epochs
@@ -546,7 +557,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         ep_t + my_oc_idx[2] + self._chunk_offset)
 
             #
-            # method: subtractive interference cancelation
+            # method: subtractive interference cancellation
             #
             else:
                 ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :]
@@ -592,13 +603,16 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                             spk_ep[i, 1] + self._chunk_offset,
                                             niter))
                                 ax1 = f.add_subplot(211)
-                                ax1.set_color_cycle(['k'] + COLOURS[:self.nf] * 2)
-                                ax1.plot(x_range, sp.zeros_like(x_range), ls='--')
+                                ax1.set_color_cycle(
+                                    ['k'] + COLOURS[:self.nf] * 2)
+                                ax1.plot(x_range, sp.zeros_like(x_range),
+                                         ls='--')
                                 ax1.plot(x_range, ep_disc, label='pre_sub')
                                 ax1.axvline(x_range[ep_t], c='k')
                                 ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
                                 ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
-                                ax2.plot(x_range, sp.zeros_like(x_range), ls='--')
+                                ax2.plot(x_range, sp.zeros_like(x_range),
+                                         ls='--')
                                 ax2.plot(x_range, sub)
                                 ax2.axvline(x_range[ep_t], c='k')
                             except ImportError:
@@ -606,7 +620,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         ep_disc += sub + self._lpr_s
                         if self.verbose.has_plot:
                             try:
-                                ax1.plot(x_range, ep_disc, ls=':', lw=2, label='post_sub')
+                                ax1.plot(x_range, ep_disc, ls=':', lw=2,
+                                         label='post_sub')
                                 ax1.legend(loc=2)
                             except ImportError:
                                 pass
@@ -669,11 +684,13 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             return sp.zeros((len(obs), 1))
 
         # calc log probs
-        lpr = log_multivariate_normal_density(data, comps, sigma, 'tied') + prior
+        lpr = log_multivariate_normal_density(data, comps, sigma,
+                                              'tied') + prior
         logprob = logsumexp(lpr, axis=1)
         return sp.exp(lpr - logprob[:, sp.newaxis])
 
-    def component_divergence(self, obs, with_noise=False, loading=False, subdim=None):
+    def component_divergence(self, obs, with_noise=False, loading=False,
+                             subdim=None):
         """component probabilities under the model
 
         :type obs: ndarray
@@ -732,8 +749,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 t = sp.finfo(self._ce.dtype).eps * len(sv) * svd[1].max()
                 sv[sv < t] = 0.0
                 sigma_inv = sp.dot(svd[0][:, :subdim],
-                    sp.dot(sp.diag(1. / sv[:subdim]),
-                        svd[2][:subdim]))
+                                   sp.dot(sp.diag(1. / sv[:subdim]),
+                                          svd[2][:subdim]))
         except:
             return sp.ones((len(obs), 1)) * sp.inf
 
@@ -748,7 +765,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 # for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
 
-class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode):
+class AdaptiveBayesOptimalTemplateMatchingNode(
+    BayesOptimalTemplateMatchingNode):
     """Adaptive BOTM Node
 
     tries to match parallel detection with sorting to find new units.
@@ -827,10 +845,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
     def get_det(self):
         if self._det is None:
             self._det = self._det_cls(tf=self._tf, *self._det_params[0],
-                **self._det_params[1])
+                                      **self._det_params[1])
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                dimension=(self._tf * self._nc),
-                dtype=self.dtype)
+                                         dimension=(self._tf * self._nc),
+                                         dtype=self.dtype)
             if self.verbose.has_print:
                 print 'build detector:', self._det_cls, self._det_params
         return self._det
@@ -853,19 +871,26 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
                 at = disc_at - win_half_span, disc_at + win_half_span
                 evts = {0: [ev - at[0]], 1: [disc_at - at[0]]}
                 mcdata(
-                    data=self._chunk[at[0] - self.tf:at[1]], other=self._disc[at[0]:at[1]], events=evts,
+                    data=self._chunk[at[0] - self.tf:at[1]],
+                    other=self._disc[at[0]:at[1]], events=evts,
                     x_offset=at[0],
-                    title='det@%s(%s) disc@%s' % (ev, self._learn_templates, disc_at), show=False)
+                    title='det@%s(%s) disc@%s' % (
+                        ev, self._learn_templates, disc_at), show=False)
             except ImportError:
                 pass
-        return self._disc[disc_at - win_half_span:disc_at + win_half_span, :].max() >= 0.0
+        return self._disc[disc_at - win_half_span:disc_at + win_half_span,
+               :].max() >= 0.0
 
     def _post_sort(self):
         self.det.reset()
         self.det(self._chunk)
-        print '_post_sort, self._learn_templates:', self._learn_templates
-        spks = self.det.get_extracted_events(mc=False, kind='min', align_at=self._learn_templates)
-        spks_explained = sp.array([self._event_explained(e) for e in self.det.events])
+        spks = self.det.get_extracted_events(mc=False, kind='min',
+                                             align_at=self._learn_templates)
+        spks_explained = sp.array(
+            [self._event_explained(e) for e in self.det.events])
+        if self.verbose.has_print:
+            print '_post_sort, spks_not_explained:', (
+            spks_explained == False).sum()
         if len(spks[spks_explained == False]) > 0:
             self._det_buf.extend(spks[spks_explained == False])
 
@@ -916,7 +941,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
             # processing chain
             pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
             clus = HomoscedasticClusteringNode(
-                clus_type='dpgmm',
+                clus_type='gmm',
                 cvtype='tied',
                 debug=self.verbose.has_print,
                 alpha=16.0,
@@ -958,7 +983,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(BayesOptimalTemplateMatchingNode)
                 if len(self.det.events) > 0:
                     nep = self.det.get_epochs(merge=True, invert=True)
             else:
-                raise ValueError('unrecognised value for learn_noise: %s' % str(self._learn_noise))
+                raise ValueError('unrecognised value for learn_noise: %s' % str(
+                    self._learn_noise))
             self._ce.update(self._data, epochs=nep)
 
     def _adapt_filter_current(self):

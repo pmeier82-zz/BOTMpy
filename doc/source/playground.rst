@@ -21,7 +21,13 @@ HLIST
 Citations
 =========
 
-yadda yadda yadda :cite:p:`Einevoll2012` yadda yadda
+yadda yadda yadda t :cite:t:`Einevoll2012` yadda yadda
+
+yadda yadda yadda p :cite:p:`Einevoll2012` yadda yadda
+
+yadda yadda yadda ts :cite:ts:`Einevoll2012` yadda yadda
+
+yadda yadda yadda ps :cite:ps:`Einevoll2012` yadda yadda
 
 References
 ==========
