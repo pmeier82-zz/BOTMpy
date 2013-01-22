@@ -222,7 +222,7 @@ class ThresholdDetectorNode(ResetNode):
             self.energy = sp.atleast_2d(self.energy).T
         self.size, self.nchan = self.energy.shape
 
-    def _execute(self, x):
+    def _execute(self, x, **kwargs):
         """calls self._apply_threshold() and return the events found"""
 
         # assert energy and threshold

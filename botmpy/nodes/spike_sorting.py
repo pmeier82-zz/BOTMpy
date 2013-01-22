@@ -83,9 +83,9 @@ from ..common import (
 ##---CONSTANTS
 
 MTEO_DET = SDMteoNode
-MTEO_PARAMS = tuple(), {'kvalues': [3, 9, 15, 21],
-                        'threshold_factor': 0.98,
-                        'min_dist': 32}
+MTEO_PARAMS = {'kvalues': [3, 9, 15, 21],
+               'threshold_factor': 0.98,
+               'min_dist': 32}
 
 ##---CLASSES
 
@@ -120,8 +120,8 @@ class FilterBankSortingNode(FilterBankNode):
             bank, this must be a subclass of 'FilterNode'.
             Default=MatchedFilterNode
         :type rb_cap: int
-        :keyword rb_cap: capacity of the ringbuffer that stored observations
-            for the filters to calculate the mean template.
+        :keyword rb_cap: capacity of the ringbuffer that stores observations
+            to calculate the mean template.
             Default=350
         :type chunk_size: int
         :keyword chunk_size: if input data will be longer than chunk_size, the
@@ -239,14 +239,14 @@ class FilterBankSortingNode(FilterBankNode):
         :type u: int
         :param u: index of the filter # CHECK THIS
         :type mc: bool
-        :param mc: if True, return spikes multi-channeled,
-        else return spikes concatenated
+        :param mc: if True, return spikes multi-channeled, else return spikes
+            concatenated
             Default=True
         :type exclude_overlaps: bool
         :param exclude_overlaps: if True, exclude overlap spike
         :type overlap_window: int
-        :param overlap_window: if `exclude_overlaps` is True,
-        this will define the overlap range,
+        :param overlap_window: if `exclude_overlaps` is True, this will define
+            the overlap range,
             if None set overlap_window=self._tf.
             Default=None
         """
@@ -804,9 +804,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         learn_templates_pval = kwargs.pop('learn_templates_pval', 0.05)
         learn_templates = kwargs.pop('learn_templates', -1)
         learn_noise = kwargs.pop('learn_noise', None)
-        det_cls = kwargs.pop('det_cls', MTEO_DET)
+        det_cls = kwargs.pop('det_cls')
+        if det_cls is None:
+            det_cls = MTEO_DET
+        det_params = kwargs.pop('det_params')
+        if det_params is None:
+            det_params = MTEO_PARAMS
         det_limit = kwargs.pop('det_limit', 2000)
-        det_params = kwargs.pop('det_params', MTEO_PARAMS)
 
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
@@ -844,13 +848,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
     def get_det(self):
         if self._det is None:
-            self._det = self._det_cls(tf=self._tf, *self._det_params[0],
-                                      **self._det_params[1])
+            self._det = self._det_cls(tf=self._tf, **self._det_params)
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
                                          dimension=(self._tf * self._nc),
                                          dtype=self.dtype)
             if self.verbose.has_print:
                 print 'build detector:', self._det_cls, self._det_params
+                print self._det
         return self._det
 
     det = property(get_det)
@@ -875,22 +879,25 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     other=self._disc[at[0]:at[1]], events=evts,
                     x_offset=at[0],
                     title='det@%s(%s) disc@%s' % (
-                        ev, self._learn_templates, disc_at), show=False)
+                        ev, self._learn_templates, disc_at), show=True)
             except ImportError:
                 pass
         return self._disc[disc_at - win_half_span:disc_at + win_half_span,
                :].max() >= 0.0
 
     def _post_sort(self):
+        """check the spike sorting against multi unit"""
+
         self.det.reset()
-        self.det(self._chunk)
+        self.det(self._chunk, bound_low=self._chunk_offset,
+                 bound_hgh=self._chunk_offset + len(self._chunk))
         spks = self.det.get_extracted_events(mc=False, kind='min',
                                              align_at=self._learn_templates)
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
         if self.verbose.has_print:
             print '_post_sort, spks_not_explained:', (
-            spks_explained == False).sum()
+                spks_explained == False).sum()
         if len(spks[spks_explained == False]) > 0:
             self._det_buf.extend(spks[spks_explained == False])
 
