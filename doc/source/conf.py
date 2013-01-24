@@ -333,6 +333,7 @@ intersphinx_mapping = {
     'http://docs.python.org/': None,
     'http://docs.scipy.org/doc/numpy': None,
     'http://docs.scipy.org/doc/scipy/reference': None,
+    'http://scikit-learn.org/stable': None,
 }
 
 # show .. todo:: items
@@ -341,19 +342,19 @@ todo_include_todos = True
 # autodocs
 autodoc_default_flags = ['show-inheritance']
 
+# natbib config
 print
 if os.environ.get('READTHEDOCS', None) == 'True':
     print 'RTD:', os.getcwd()
 else:
     print 'XXX:', os.getcwd()
-fname = os.path.join(os.getcwd(), 'library.bib')
-print 'bib-file:', fname
+bib_file = os.path.join(os.getcwd(), 'library.bib')
+print 'bib-file:', bib_file
 print
 
-# natbib config
 natbib = {
     #'file': 'doc/source/library.bib',
-    'file': fname,
+    'file': bib_file,
     'brackets': '[]',
     'separator': ',',
     'style': 'numbers',
