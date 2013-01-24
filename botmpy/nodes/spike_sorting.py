@@ -83,7 +83,7 @@ from ..common import (
 ##---CONSTANTS
 
 MTEO_DET = SDMteoNode
-MTEO_PARAMS = {'kvalues': [3, 9, 15, 21],
+MTEO_KWARGS = {'kvalues': [3, 9, 15, 21],
                'threshold_factor': 0.98,
                'min_dist': 32}
 
@@ -592,6 +592,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
                         if self.verbose.has_plot:
                             try:
+                                raise
                                 from spikeplot import xvf_tensor, plt, COLOURS
 
                                 x_range = sp.arange(
@@ -615,15 +616,16 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                          ls='--')
                                 ax2.plot(x_range, sub)
                                 ax2.axvline(x_range[ep_t], c='k')
-                            except ImportError:
+                            except:
                                 pass
                         ep_disc += sub + self._lpr_s
                         if self.verbose.has_plot:
                             try:
+                                raise
                                 ax1.plot(x_range, ep_disc, ls=':', lw=2,
                                          label='post_sub')
                                 ax1.legend(loc=2)
-                            except ImportError:
+                            except:
                                 pass
                         fid = self.get_idx_for(ep_c)
                         self.rval[fid].append(
@@ -794,10 +796,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :keyword det_limit: capacity of the ringbuffer to hold the detection
             spikes.
             Default=2000
-        :type det_params: dict
-        :keyword det_params: parameters for the spike detector that will be
+        :type det_kwargs: dict
+        :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
-            Default=MTEO_PARAMS
+            Default=MTEO_KWARGS
         """
 
         # kwargs
@@ -807,9 +809,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         det_cls = kwargs.pop('det_cls')
         if det_cls is None:
             det_cls = MTEO_DET
-        det_params = kwargs.pop('det_params')
-        if det_params is None:
-            det_params = MTEO_PARAMS
+        det_kwargs = kwargs.pop('det_kwargs')
+        if det_kwargs is None:
+            det_kwargs = MTEO_KWARGS
         det_limit = kwargs.pop('det_limit', 2000)
 
         # check det_cls
@@ -829,7 +831,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         # members
         self._det = None
         self._det_cls = det_cls
-        self._det_params = det_params
+        self._det_kwargs = det_kwargs
         self._det_limit = int(det_limit)
         self._det_buf = None
         self._learn_noise = learn_noise
@@ -848,12 +850,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
     def get_det(self):
         if self._det is None:
-            self._det = self._det_cls(tf=self._tf, **self._det_params)
+            self._det = self._det_cls(tf=self._tf, **self._det_kwargs)
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
                                          dimension=(self._tf * self._nc),
                                          dtype=self.dtype)
             if self.verbose.has_print:
-                print 'build detector:', self._det_cls, self._det_params
                 print self._det
         return self._det
 
@@ -861,28 +862,36 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
     ## filter bank sorting interface
 
-    def _event_explained(self, ev, win_half_span=15):
+    def _event_explained(self, ev, padding=15):
         """check event for explanation by the filter bank"""
 
+        # early exit if no discriminants are present
         if not self._disc.size:
             return False
-        cut = self._learn_templates, self.tf - self._learn_templates
-        disc_at = ev + cut[1] - 1
+
+        # cut relevant piece of the discriminants
+        data_ep = ev - self._learn_templates,\
+                  ev + self.tf - self._learn_templates
+        disc_ep = data_ep[0] + self._tf / 2,\
+                  data_ep[1] + self._tf / 2
         if self.verbose.has_plot:
             try:
                 from spikeplot import mcdata
 
-                at = disc_at - win_half_span, disc_at + win_half_span
-                evts = {0: [ev - at[0]], 1: [disc_at - at[0]]}
+                ep = data_ep[0] - padding, disc_ep[1] + padding
                 mcdata(
-                    data=self._chunk[at[0] - self.tf:at[1]],
-                    other=self._disc[at[0]:at[1]], events=evts,
-                    x_offset=at[0],
+                    data=self._chunk[ep[0]:ep[1]],
+                    #other=self._disc[at[0]:at[1]], events=evts,
+                    other=self._disc[ep[0]:ep[1]],
+                    x_offset=ep[0],
+                    events={0: [ev, ev + self._tf / 2]},
+                    epochs=sp.array([data_ep, disc_ep]),
                     title='det@%s(%s) disc@%s' % (
-                        ev, self._learn_templates, disc_at), show=True)
+                        ev, self._learn_templates, ev + self._tf / 2),
+                    show=True)
             except ImportError:
                 pass
-        return self._disc[disc_at - win_half_span:disc_at + win_half_span,
+        return self._disc[disc_ep[0] - padding:disc_ep[1] + padding,
                :].max() >= 0.0
 
     def _post_sort(self):
@@ -891,8 +900,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self.det.reset()
         self.det(self._chunk, bound_low=self._chunk_offset,
                  bound_hgh=self._chunk_offset + len(self._chunk))
-        spks = self.det.get_extracted_events(mc=False, kind='min',
-                                             align_at=self._learn_templates)
+        spks = self.det.get_extracted_events(
+            mc=False, kind='min', align_at=self._learn_templates)
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
         if self.verbose.has_print:

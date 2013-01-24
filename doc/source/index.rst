@@ -15,10 +15,10 @@ Contents
 .. toctree::
   :maxdepth: 2
 
-  getting-started
+  install
   spike-sorting
-  botm-algorithm
   references
+
   playground
 
 Indices and tables

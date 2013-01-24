@@ -1,6 +1,5 @@
-#############
 Spike Sorting
-#############
+=============
 
 Spike sorting is a combined detection and classification task for transient
 patterns in time series. In neuroscience this task is found when analysing
@@ -24,13 +23,12 @@ the voltage trace recorded, has a very distinct gestalt, motivating the term
 
 The aim of the spike sorting task is to identify the points in time when an
 AP has occurred in the signal (spike detection) and to predict which of the
-neurons present has emitted this spike (spike sorting). For further detail
-please be referred to [ScholarpediaIR]_
+neurons present has emitted this spike (spike sorting).
 
 .. todo:: might need references
 
 Intracellular Recordings
-========================
+------------------------
 
 Voltage recordings from the inside of the neuron are called *intracellular
 recordings*. This kind of recording can help to understand intracellular
@@ -41,7 +39,7 @@ be considered in detail here.
 .. todo:: might need references
 
 Extracellular recording
-=======================
+-----------------------
 
 The leading paradigm to record ensembles of neurons from the cortex is that
 of extracellular recording. An electrode will be placed in the part of the
@@ -58,31 +56,16 @@ cortex under consideration and record from the local neuronal population.
 
    Cartoon of the experimental setup for extracellular recordings.
 
-
+Literature Introduction
+-----------------------
 
 For further information about spike sorting please refer to the following
 publications [Lewiki99]_, [ScholarpediaSS]_ and more recent and recommended
 [Einevoll11]_.
 
-.. _template-matching:
-
-Template Matching
------------------
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi bibendum, neque
-eu hendrerit scelerisque, orci nisl auctor risus, pulvinar congue augue turpis
-fermentum odio. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
-venenatis lacinia elit, id aliquet dolor ultricies non. Sed quam massa,
-ullamcorper sit amet scelerisque et, volutpat nec erat. Curabitur tincidunt
-scelerisque dolor sit amet bibendum. Class aptent taciti sociosqu ad litora
-torquent per conubia nostra, per inceptos himenaeos. Cras fermentum hendrerit
-mattis. Nam ullamcorper nisl lacinia tortor suscipit sed iaculis augue
-dignissim. Integer magna leo, pulvinar a pellentesque in, tincidunt quis lacus.
-Donec et urna iaculis elit mollis venenatis. Maecenas a enim vitae arcu semper
-ultrices condimentum eu justo. In hac habitasse platea dictumst. Maecenas in
-felis quis enim malesuada laoreet.
-
 Bayes Optimal Template Matching
--------------------------------
+===============================
+
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi bibendum, neque
 eu hendrerit scelerisque, orci nisl auctor risus, pulvinar congue augue turpis
 fermentum odio. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
@@ -96,11 +79,7 @@ Donec et urna iaculis elit mollis venenatis. Maecenas a enim vitae arcu semper
 ultrices condimentum eu justo. In hac habitasse platea dictumst. Maecenas in
 felis quis enim malesuada laoreet.
 
-References:
------------
+.. ############################################################################
+.. link targets
 
-.. rubric:: Weblinks
-
-.. _`Python`: http://python.org/
-.. _`Bayes Optimal Template Matching`:
-  http://opus.kobv.de/tuberlin/volltexte/2012/3387/
+.. _python: http://python.org
