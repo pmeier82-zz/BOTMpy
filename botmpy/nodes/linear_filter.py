@@ -53,6 +53,7 @@ import scipy as sp
 from .base_nodes import Node
 from ..common import (mcfilter_hist, mcvec_from_conc, mcvec_to_conc,
                       TimeSeriesCovE, MxRingBuffer, snr_maha)
+from collections import deque
 
 ##---CLASSES
 
@@ -105,7 +106,8 @@ class FilterNode(Node):
         super(FilterNode, self).__init__(output_dim=1, dtype=dtype)
 
         # members
-        self._xi_buf = MxRingBuffer(capacity=rb_cap or 350, dimension=(tf, nc), dtype=self.dtype)
+        self._xi_buf = MxRingBuffer(capacity=rb_cap or 350, dimension=(tf, nc),
+                                    dtype=self.dtype)
         self._ce = None
         self._f = None
         self._hist = sp.zeros((tf - 1, nc), dtype=self.dtype)
@@ -320,7 +322,7 @@ class MatchedFilterNode(FilterNode):
         icmx = ce.get_icmx(tf=tf, chan_set=cs)
         f = sp.dot(mcvec_to_conc(xi), icmx)
         return sp.ascontiguousarray(mcvec_from_conc(f, nc=nc),
-            dtype=xi.dtype)
+                                    dtype=xi.dtype)
 
 
 class NormalisedMatchedFilterNode(FilterNode):
@@ -345,45 +347,52 @@ class NormalisedMatchedFilterNode(FilterNode):
         f = sp.dot(mcvec_to_conc(xi), icmx)
         norm_factor = sp.dot(mcvec_to_conc(xi), f)
         return sp.ascontiguousarray(mcvec_from_conc(f / norm_factor, nc=nc),
-            dtype=sp.float32)
+                                    dtype=sp.float32)
 
 
 class RateEstimator(object):
     def __init__(self, *args, **kwargs):
-        self._spike_count = 0
-        self._sample_count = 0
-        self._n_updates_since = 0
-        self._sample_rate = float(kwargs.pop('sample_rate', 32000.0))
+        self._spike_count = deque()
+        self._sample_count = deque()
+        self._n_sample_max = int(kwargs.get('n_sample_max', 2500000))
+        self._sample_rate = float(kwargs.get('sample_rate', 32000.0))
 
     def estimate(self):
-        return self._sample_rate * self._spike_count / self._sample_count
+        return self._sample_rate * sum(self._spike_count) /\
+               float(self.sample_count)
 
     def observation(self, nobs, tlen):
-        self._spike_count += nobs
-        self._sample_count += tlen
-        if nobs > 0:
-            self._n_updates_since = 0
-        else:
-            self._n_updates_since += 1
+        self._spike_count.append(nobs)
+        self._sample_count.append(tlen)
+
+        while sum(self._sample_count) > self._n_sample_max:
+            self._spike_count.popleft()
+            self._sample_count.popleft()
 
     def reset(self):
-        self._spike_count = 0
-        self._sample_count = 0
-        self._n_updates_since = 0
+        self._spike_count.clear()
+        self._sample_count.clear()
+
+    def get_sample_size(self):
+        return sum(self._sample_count)
+
+    sample_size = property(get_sample_size)
 
 
 class REMF(MatchedFilterNode):
     def __init__(self, *args, **kwargs):
         srate = kwargs.pop('sample_rate', 32000.0)
+        nsample = kwargs.pop('n_sample_max', sp.inf)
         super(REMF, self).__init__(*args, **kwargs)
-        self.rate = RateEstimator(srate)
+        self.rate = RateEstimator(srate, nsample)
 
 
 class RENMF(NormalisedMatchedFilterNode):
     def __init__(self, *args, **kwargs):
         srate = kwargs.pop('sample_rate', 32000.0)
+        nsample = kwargs.pop('n_sample_max', sp.inf)
         super(RENMF, self).__init__(*args, **kwargs)
-        self.rate = RateEstimator(srate)
+        self.rate = RateEstimator(srate, nsample)
 
 ##---MAIN
 

@@ -341,9 +341,19 @@ todo_include_todos = True
 # autodocs
 autodoc_default_flags = ['show-inheritance']
 
+print
+if os.environ.get('READTHEDOCS', None) == 'True':
+    print 'RTD:', os.getcwd()
+else:
+    print 'XXX:', os.getcwd()
+fname = os.path.join(os.getcwd(), 'library.bib')
+print 'bib-file:', fname
+print
+
 # natbib config
 natbib = {
-    'file': 'doc/source/library.bib',
+    #'file': 'doc/source/library.bib',
+    'file': fname,
     'brackets': '[]',
     'separator': ',',
     'style': 'numbers',

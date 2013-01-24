@@ -939,10 +939,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 except:
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
-                if self.bank[u].rate.estimate() < 1.0:
-                    if self.bank[u].rate._n_updates_since == 10:
-                        self.deactivate(u)
-                        warnings.warn('deactivating filter %s, rate' % str(u))
+                if self.bank[u].rate.estimate() < 0.1:
+                    self.deactivate(u)
+                    warnings.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
 
     def _adapt_filter_new(self):
@@ -972,6 +971,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 if self.verbose.has_print:
                     print 'checking new unit:',
                 spks_i = spks[lbls == i]
+
                 # TODO: parametrise this
                 if len(spks_i) < 50:
                     self._det_buf.extend(spks_i)
