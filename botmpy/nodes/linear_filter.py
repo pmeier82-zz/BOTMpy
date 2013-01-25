@@ -359,7 +359,7 @@ class RateEstimator(object):
 
     def estimate(self):
         return self._sample_rate * sum(self._spike_count) /\
-               float(self.sample_count)
+               float(self.sample_size)
 
     def observation(self, nobs, tlen):
         self._spike_count.append(nobs)
