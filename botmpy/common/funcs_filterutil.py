@@ -93,7 +93,7 @@ def xi_vs_f(xi, f, nc=4):
     if tf != round(float(xi.shape[1]) / float(nc)):
         raise ValueError('sample count does not match to nc: xi(%s), nc(%s)' %
                          (xi.shape[1], nc))
-    pad_len = get_cut(tf)[0]
+    pad_len = get_cut(tf)
     pad = sp.zeros((pad_len, nc))
     rval = sp.zeros((n, n, 2 * tf - 1))
 

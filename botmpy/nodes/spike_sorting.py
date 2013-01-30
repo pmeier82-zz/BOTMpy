@@ -42,7 +42,7 @@
 #_____________________________________________________________________________
 #
 
-"""implementation of spike sorting with optimal linear filters
+"""implementation of spike sorting with matched filters
 
 See:
 [1] F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
@@ -61,13 +61,11 @@ __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
 import copy
 import scipy as sp
 from scipy import linalg as sp_la
-
-try:
-    from sklearn.mixture import log_multivariate_normal_density
-except ImportError:
-    from sklearn.mixture import lmvnpdf as log_multivariate_normal_density
-from sklearn.utils.extmath import logsumexp
 import warnings
+
+from sklearn.mixture import log_multivariate_normal_density
+from sklearn.utils.extmath import logsumexp
+
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode

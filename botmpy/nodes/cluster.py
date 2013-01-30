@@ -116,43 +116,58 @@ class HomoscedasticClusteringNode(ClusteringNode):
 
     ## constructor
 
-    def __init__(self, clus_type='kmeans', crange=range(1, 16), repeats=4, sigma_factor=4.0,
-                 max_iter=None, conv_thresh=None, alpha=None, cvtype='tied', gof_type='bic',
-                 dtype=None, debug=False):
+    def __init__(
+            self, clus_type='kmeans', crange=range(1, 16), repeats=4,
+            sigma_factor=4.0, max_iter=None, conv_thresh=None, alpha=None,
+            cvtype='tied', gof_type='bic', dtype=None, debug=False):
         """
         :type clus_type: str
         :param clus_type: clustering algorithm to use. Must be one of:
             'kmeans', 'gmm'
+
             Default='kmeans'
         :type crange: list
         :param crange: cluster count to test for
+
             Default=range(1,16)
         :type repeats: int
         :param repeats: repeat this many times per cluster count
+
             Default=4
         :type sigma_factor: float
         :param sigma_factor: variance factor for the spherical covariance
+
             Default=4.0
         :type max_iter: int
         :param max_iter: upper bound for the iterations per run
+
             Default=None
         :type conv_thresh: float
         :param conv_thresh: convergence threshold.
+
             Default=None
         :type alpha: float
-        :param alpha: alpha value for the variational inference based gmm algorithms
+        :param alpha: alpha value for the variational inference based gmm
+            algorithms
+
             Default=None
         :type cvtype: str
-        :param cvtype: covariance type, one of {'spherical', 'diag', 'tied', 'full'}
+        :param cvtype: covariance type, one of {'spherical', 'diag', 'tied',
+            'full'}
+
             Default='tied'
         :type dtype: dtype resolvable
         :param dtype: dtype for internal calculations
+
             Default=None
         :type gof_type: str
         :param gof_type: goodness of fit criterion to use, one of {'aic', 'bic'}
+
             Default='bic'
         :type debug: bool
         :param debug: if True, announce progress to stdout.
+
+            Default=False
         """
 
         # super
@@ -164,9 +179,9 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._winner = None
         self.clus_type = str(clus_type)
         self.gof_type = str(gof_type)
-        if self.clus_type not in ['kmeans', 'gmm', 'dpgmm', 'vbgmm', 'spectral']:
+        if self.clus_type not in ['kmeans', 'gmm']:
             raise ValueError(
-                'clus_type must be one of: \'kmeans\', \'gmm\', \'vbgmm\' or \'dpgmm\'!')
+                'clus_type must be one of: \'kmeans\', \'gmm\'!')
         self.cvtype = str(cvtype)
         self.crange = list(crange)
         self.repeats = int(repeats)
@@ -174,7 +189,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self.debug = bool(debug)
 
         self.clus_kwargs = {}
-        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm', 'dpgmm']:
+        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm',
+                                                  'dpgmm']:
             self.clus_kwargs.update(max_iter=max_iter)
         if conv_thresh is not None and clus_type in ['kmeans', 'gmm', 'dpgmm']:
             self.clus_kwargs.update(conv_thresh=conv_thresh)
@@ -202,7 +218,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
             for r in xrange(self.repeats):
                 # init
                 if self.debug is True:
-                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
+                    print '\t[%s][c:%d][r:%d]' % (
+                        self.clus_type, self.crange[c], r + 1),
                 idx = c * self.repeats + r
 
                 # evaluate model
@@ -223,7 +240,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
             for r in xrange(self.repeats):
                 # info
                 if self.debug is True:
-                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
+                    print '\t[%s][c:%d][r:%d]' % (
+                        self.clus_type, self.crange[c], r + 1),
                 idx = c * self.repeats + r
 
                 # fit kmeans model
@@ -238,8 +256,10 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 # build equivalent gmm
                 model_gmm = GMM(n_components=k, covariance_type='spherical')
                 model_gmm.means_ = model.cluster_centers_
-                model_gmm.covars_ = sp.ones((k, self.input_dim)) * self.sigma_factor
-                model_gmm.weights_ = sp.array([(self._labels[idx] == i).sum() for i in xrange(k)])
+                model_gmm.covars_ = sp.ones(
+                    (k, self.input_dim)) * self.sigma_factor
+                model_gmm.weights_ = sp.array(
+                    [(self._labels[idx] == i).sum() for i in xrange(k)])
 
                 # evaluate goodness of fit
                 self._ll[idx] = model_gmm.score(x).sum()
@@ -307,7 +327,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
             for r in xrange(self.repeats):
                 # info
                 if self.debug is True:
-                    print '\t[%s][c:%d][r:%d]' % (self.clus_type, self.crange[c], r + 1),
+                    print '\t[%s][c:%d][r:%d]' % (
+                        self.clus_type, self.crange[c], r + 1),
                 idx = c * self.repeats + r
 
                 # fit and evaluate model
@@ -316,7 +337,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     model_kwargs.update(alpha=self.clus_kwargs['alpha'])
                 if 'conv_thresh' in self.clus_kwargs:
                     model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
-                model = VBGMM(n_components=k, covariance_type=self.cvtype, **model_kwargs)
+                model = VBGMM(n_components=k, covariance_type=self.cvtype,
+                              **model_kwargs)
                 model.n_features = self.input_dim
                 fit_kwargs = {}
                 if 'max_iter' in self.clus_kwargs:
@@ -350,7 +372,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model_kwargs.update(alpha=self.clus_kwargs['alpha'])
             if 'conv_thresh' in self.clus_kwargs:
                 model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
-            model = DPGMM(n_components=k, covariance_type=self.cvtype, **model_kwargs)
+            model = DPGMM(n_components=k, covariance_type=self.cvtype,
+                          **model_kwargs)
             model.n_features = self.input_dim
             fit_kwargs = {}
             if 'max_iter' in self.clus_kwargs:
@@ -377,9 +400,9 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._labels = sp.zeros((len(self.crange) * self.repeats,
                                  x.shape[0]), dtype=int) - 1
         self._gof = sp.zeros(len(self.crange) * self.repeats,
-            dtype=self.dtype)
+                             dtype=self.dtype)
         self._ll = sp.zeros(len(self.crange) * self.repeats,
-            dtype=self.dtype)
+                            dtype=self.dtype)
         self._parameters = [None] * len(self.crange) * self.repeats
 
         # clustering
@@ -413,7 +436,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         axg = fig.add_subplot(212)
         ncmp = int(self.labels.max() + 1)
         cdata = dict(zip(xrange(ncmp),
-            [data[self.labels == c] for c in xrange(ncmp)]))
+                         [data[self.labels == c] for c in xrange(ncmp)]))
 
         # plot clustering
         for v in xrange(views):
@@ -430,7 +453,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
         axg.plot(self._gof, ls='steps')
         for i in xrange(1, len(self.crange)):
             axg.axvline(i * self.repeats - 0.5, c='y', ls='--')
-        axg.axvspan(self._winner - 0.5, self._winner + 0.5, fc='gray', alpha=0.2)
+        axg.axvspan(self._winner - 0.5, self._winner + 0.5, fc='gray',
+                    alpha=0.2)
         labels = []
         for k in self.crange:
             labels += ['%d' % k]
