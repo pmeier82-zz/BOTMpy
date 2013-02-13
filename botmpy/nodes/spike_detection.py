@@ -54,8 +54,8 @@ discrimination.
 """
 
 __docformat__ = 'restructuredtext'
-__all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
-           'SDSqrNode', 'SDMteoNode', 'SDKteoNode', 'SDIntraNode']
+__all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDPeakNode', 'SDAbsNode',
+           'SDSqrNode', 'SDMteoNode', 'SDIntraNode']
 
 ##--- IMPORTS
 
@@ -406,6 +406,22 @@ class ThresholdDetectorNode(ResetNode):
 
 ## spike detector implementations
 
+class SDPeakNode(ThresholdDetectorNode):
+    """spike detector
+    
+    energy : signal itself
+    threshold: signal.std    
+    """
+    
+    def __init__(self,algo_specific_args = {},**kwargs):
+
+        kwargs.update(threshold_base='signal',
+                      threshold_func=sp.std)
+        super(SDPeakNode, self).__init__(**kwargs)
+        
+    def _threshold_func(self,x):
+        return self.th_fac * x.std(axis=0)
+
 class SDAbsNode(ThresholdDetectorNode):
     """spike detector
 
@@ -413,7 +429,7 @@ class SDAbsNode(ThresholdDetectorNode):
     threshold: signal.std
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self,algo_specific_args = {}, **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
@@ -436,7 +452,7 @@ class SDSqrNode(ThresholdDetectorNode):
     threshold: signal.var
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self,algo_specific_args = {}, **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
@@ -456,7 +472,7 @@ class SDMteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalues=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
+    def __init__(self, algo_specific_args = {}, **kwargs):
         """
         :type kvalues: list
         :param kvalues: integers determining the kteo detectors to build the multiresolution teo from.
@@ -473,8 +489,9 @@ class SDMteoNode(ThresholdDetectorNode):
         super(SDMteoNode, self).__init__(**kwargs)
 
         # members
+        kvalues = algo_specific_args.get('kvalues',[3, 9, 15, 21])
         self.kvalues = map(int, kvalues)
-        self.quantile = quantile
+        self.quantile = algo_specific_args.get('quantile', 0.98)
 
     def _energy_func(self, x):
         return sp.vstack([mteo(x[:, c], kvalues=self.kvalues, condense=True)
@@ -491,7 +508,7 @@ class SDKteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalue=1, quantile=0.98, **kwargs):
+    def __init__(self, algo_specific_args = {}, **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
@@ -509,8 +526,8 @@ class SDKteoNode(ThresholdDetectorNode):
         super(SDKteoNode, self).__init__(**kwargs)
 
         # members
-        self.kvalue = int(kvalue)
-        self.quantile = quantile
+        self.kvalue = algo_specific_args.get('kvalue',1)
+        self.quantile = algo_specific_args.get('quantile',0.98)
 
     def _energy_func(self, x):
         return sp.vstack([kteo(x[:, c], k=self.kvalue)
