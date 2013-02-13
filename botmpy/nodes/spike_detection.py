@@ -55,7 +55,7 @@ discrimination.
 
 __docformat__ = 'restructuredtext'
 __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDPeakNode', 'SDAbsNode',
-           'SDSqrNode', 'SDMteoNode', 'SDKteoNode', 'SDIntraNode']
+           'SDSqrNode', 'SDMteoNode', 'SDIntraNode']
 
 ##--- IMPORTS
 
@@ -413,8 +413,8 @@ class SDPeakNode(ThresholdDetectorNode):
     threshold: signal.std    
     """
     
-    def __init__(self,**kwargs):
-        
+    def __init__(self,algo_specific_args = {},**kwargs):
+
         kwargs.update(threshold_base='signal',
                       threshold_func=sp.std)
         super(SDPeakNode, self).__init__(**kwargs)
@@ -429,7 +429,7 @@ class SDAbsNode(ThresholdDetectorNode):
     threshold: signal.std
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self,algo_specific_args = {}, **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
@@ -452,7 +452,7 @@ class SDSqrNode(ThresholdDetectorNode):
     threshold: signal.var
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self,algo_specific_args = {}, **kwargs):
         """
         :Parameters:
             see ThresholdDetectorNode
