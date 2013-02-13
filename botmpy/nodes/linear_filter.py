@@ -358,8 +358,11 @@ class RateEstimator(object):
         self._sample_rate = float(kwargs.get('sample_rate', 32000.0))
 
     def estimate(self):
-        return self._sample_rate * sum(self._spike_count) /\
-               float(self.sample_size)
+        try:
+            return self._sample_rate * sum(self._spike_count) /\
+                   float(self.sample_size)
+        except ZeroDivisionError:
+            return 0.0
 
     def observation(self, nobs, tlen):
         self._spike_count.append(nobs)
