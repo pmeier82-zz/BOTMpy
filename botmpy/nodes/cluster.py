@@ -57,6 +57,26 @@ from .base_nodes import ResetNode
 
 ##---CLASSES
 
+class FitlerbankParameters(object):
+    """collection of initial parameters for a filterbank
+
+    holds templates, the length of templates in samples, number of channels,
+    the covariance matrix and the templates itself.
+    """
+
+    def __init__(self):
+        """
+
+        :return:
+        :rtype:
+        """
+
+        self.tf = None
+        self.nc = None
+        self.templates = None
+        self.covest = None
+
+
 class ClusteringNode(ResetNode):
     """interface for clustering algorithms"""
 

@@ -400,19 +400,29 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             template overlap cases with the given tau values will be created
             and evaluated. If None a greedy subtractive interference
             cancellation (SIC) approach will be used.
+
             Default=None
         :type spk_pr: float
         :keyword spk_pr: spike prior value
+
             Default=1e-6
         :type noi_pr: float
         :keyword noi_pr: noise prior value
+
             Default=1e0
+        :type spk_pr_bias: tuple
+        :keyword spk_pr_bias: will only be used when the resolution method is
+            'sic'. After a spike has been found in a spike epoch, its
+            discriminant will be biased by the `bias` for `extend` samples.
+
+            Default=None
         """
 
-        #kwargs
+        # kwargs
         ovlp_taus = kwargs.pop('ovlp_taus', None)
         noi_pr = kwargs.pop('noi_pr', 1e0)
         spk_pr = kwargs.pop('spk_pr', 1e-6)
+        spk_pr_bias = kwargs.pop('spk_pr', None)
 
         # super
         super(BayesOptimalTemplateMatchingNode, self).__init__(**kwargs)
@@ -431,9 +441,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._lpr_n = None
         self._pr_s = None
         self._lpr_s = None
+        self._pr_s_b = None
         self._oc_idx = None
         self.noise_prior = noi_pr
         self.spike_prior = spk_pr
+        self.spike_prior_bias = spk_pr_bias
 
     ## properties
 
@@ -462,6 +474,21 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._lpr_s = sp.log(self._pr_s)
 
     spike_prior = property(get_spike_prior, set_spike_prior)
+
+    def get_spike_prior_bias(self):
+        return self._pr_s_b
+
+    def set_spike_prior_bias(self, value):
+        if value is None:
+            return
+        if len(value) != 2:
+            raise ValueError('expecting tuple of length 2')
+        value = float(value[0]), int(value[1])
+        if value[1] < 1:
+            raise ValueError('extend cannot be non-positive')
+        self._pr_s_b = value
+
+    spike_prior_bias = property(get_spike_prior_bias, set_spike_prior_bias)
 
     ## filter bank sorting interface
 
@@ -576,7 +603,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         if niter > 2 * self.nf:
                             break
 
-                    # find spike classes
+                    # find epoch details
                     ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
                     ep_c = sp.nanargmax(ep_disc[ep_t])
 
@@ -588,6 +615,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                     # apply subtrahend
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
+                        ## DEBUG
+
                         if self.verbose.has_plot:
                             try:
                                 raise
@@ -616,7 +645,17 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                 ax2.axvline(x_range[ep_t], c='k')
                             except:
                                 pass
+
+                        ## BUGED
+
                         ep_disc += sub + self._lpr_s
+                        if self._pr_s_b is not None:
+                            bias, extend = self._pr_s_b
+                            ep_disc[ep_t:min(ep_t + extend,
+                                             ep_disc.shape[0]), ep_c] -= bias
+
+                        ## DEBUG
+
                         if self.verbose.has_plot:
                             try:
                                 raise
@@ -625,6 +664,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                 ax1.legend(loc=2)
                             except:
                                 pass
+
+                        ## BUGED
+
                         fid = self.get_idx_for(ep_c)
                         self.rval[fid].append(
                             spk_ep[i, 0] + ep_t + self._chunk_offset)
