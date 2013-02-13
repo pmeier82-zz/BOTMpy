@@ -74,26 +74,27 @@ def xi_vs_f(xi, f, nc=4):
     :param f: The filters, one concatenated filter per row.
     :type nc: int
     :param nc: The channel count for the concatenated patterns and filters.
+
         Default=4
     :returns: ndarray - The tensor of cross-correlation for each pattern
         with each filter. Dimensions as [xi, f, xcorr].
     """
 
-    # inits and checks
+    # init and checks
     xi = sp.asarray(xi)
     f = sp.asarray(f)
     if xi.shape[0] != f.shape[0]:
         raise ValueError('count of xi and f does not match: xi(%s), f(%s)'
-        % (xi.shape[0], f.shape[0]))
+                         % (xi.shape[0], f.shape[0]))
     if xi.shape[1] != f.shape[1]:
         raise ValueError('sample count mismatch: xi(%s), f(%s)'
-        % (xi.shape[1], f.shape[1]))
+                         % (xi.shape[1], f.shape[1]))
     n = xi.shape[0]
     tf = int(xi.shape[1] / nc)
     if tf != round(float(xi.shape[1]) / float(nc)):
         raise ValueError('sample count does not match to nc: xi(%s), nc(%s)' %
                          (xi.shape[1], nc))
-    pad_len = get_cut(tf)
+    pad_len = get_cut(tf)[0]
     pad = sp.zeros((pad_len, nc))
     rval = sp.zeros((n, n, 2 * tf - 1))
 
