@@ -617,9 +617,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
                         ## DEBUG
 
-                        if self.verbose.has_plot:
+                        if self.verbose.get_has_plot(1):
                             try:
-                                raise
                                 from spikeplot import xvf_tensor, plt, COLOURS
 
                                 x_range = sp.arange(
@@ -656,9 +655,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                         ## DEBUG
 
-                        if self.verbose.has_plot:
+                        if self.verbose.get_has_plot(1):
                             try:
-                                raise
                                 ax1.plot(x_range, ep_disc, ls=':', lw=2,
                                          label='post_sub')
                                 ax1.legend(loc=2)
@@ -911,7 +909,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # cut relevant piece of the discriminants
         data_ep = ev - self._learn_templates,\
-                  ev + self.tf - self._learn_templates
+                  ev - self._learn_templates + self.tf
         disc_ep = data_ep[0] + self._tf / 2,\
                   data_ep[1] + self._tf / 2
         if self.verbose.has_plot:
@@ -924,10 +922,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     #other=self._disc[at[0]:at[1]], events=evts,
                     other=self._disc[ep[0]:ep[1]],
                     x_offset=ep[0],
-                    events={0: [ev, ev + self._tf / 2]},
-                    epochs=sp.array([data_ep, disc_ep]),
+                    events={0: [ev], 1: [data_ep[0] + self._tf]},
+                    epochs={0: [data_ep], 1: [disc_ep]},
                     title='det@%s(%s) disc@%s' % (
-                        ev, self._learn_templates, ev + self._tf / 2),
+                        ev, self._learn_templates, ev + self._tf),
                     show=True)
             except ImportError:
                 pass
