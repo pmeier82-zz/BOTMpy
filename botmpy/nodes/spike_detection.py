@@ -55,7 +55,7 @@ discrimination.
 
 __docformat__ = 'restructuredtext'
 __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
-           'SDSqrNode', 'SDMteoNode', 'SDKteoNode', 'SDIntraNode']
+           'SDSqrNode', 'SDMteoNode', 'SDKteoNode', 'SDIntraNode', 'SDPeakNode']
 
 ##--- IMPORTS
 
@@ -456,7 +456,7 @@ class SDMteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalues=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
+    def __init__(self, kvalues = [1, 3, 5, 7, 9], quantile=0.98, **kwargs):
         """
         :type kvalues: list
         :param kvalues: integers determining the kteo detectors to build the multiresolution teo from.
@@ -483,7 +483,29 @@ class SDMteoNode(ThresholdDetectorNode):
     def _threshold_func(self, x):
         return mquantiles(x, prob=[self.quantile])[0]
 
+class SDPeakNode(ThresholdDetectorNode):
+    
+    """spike detector
 
+    energy: absolute of the signal
+    threshold: signal.std
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :Parameters:
+            see ThresholdDetectorNode
+        """
+
+        # super
+        kwargs.update(threshold_base='signal',
+            threshold_func=sp.std)
+        super(SDPeakNode, self).__init__(**kwargs)
+
+    def _threshold_func(self, x):
+        return self.th_fac * x.std(axis=0)
+    
+    
 class SDKteoNode(ThresholdDetectorNode):
     """spike detector
 
