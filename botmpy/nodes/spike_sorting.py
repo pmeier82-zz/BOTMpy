@@ -42,7 +42,7 @@
 #_____________________________________________________________________________
 #
 
-"""implementation of spike sorting with optimal linear filters
+"""implementation of spike sorting with matched filters
 
 See:
 [1] F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
@@ -61,13 +61,13 @@ __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
 import copy
 import scipy as sp
 from scipy import linalg as sp_la
-
-try:
-    from sklearn.mixture import log_multivariate_normal_density
-except ImportError:
-    from sklearn.mixture import lmvnpdf as log_multivariate_normal_density
-from sklearn.utils.extmath import logsumexp
 import warnings
+import sys
+import collections
+
+from sklearn.mixture import log_multivariate_normal_density
+from sklearn.utils.extmath import logsumexp
+
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
@@ -402,19 +402,29 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             template overlap cases with the given tau values will be created
             and evaluated. If None a greedy subtractive interference
             cancellation (SIC) approach will be used.
+
             Default=None
         :type spk_pr: float
         :keyword spk_pr: spike prior value
+
             Default=1e-6
         :type noi_pr: float
         :keyword noi_pr: noise prior value
+
             Default=1e0
+        :type spk_pr_bias: tuple
+        :keyword spk_pr_bias: will only be used when the resolution method is
+            'sic'. After a spike has been found in a spike epoch, its
+            discriminant will be biased by the `bias` for `extend` samples.
+
+            Default=None
         """
 
-        #kwargs
+        # kwargs
         ovlp_taus = kwargs.pop('ovlp_taus', None)
         noi_pr = kwargs.pop('noi_pr', 1e0)
         spk_pr = kwargs.pop('spk_pr', 1e-6)
+        spk_pr_bias = kwargs.pop('spk_pr_bias', None)
 
         # super
         super(BayesOptimalTemplateMatchingNode, self).__init__(**kwargs)
@@ -433,9 +443,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._lpr_n = None
         self._pr_s = None
         self._lpr_s = None
+        self._pr_s_b = None
         self._oc_idx = None
         self.noise_prior = noi_pr
         self.spike_prior = spk_pr
+        self.spike_prior_bias = spk_pr_bias
 
     ## properties
 
@@ -464,6 +476,21 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._lpr_s = sp.log(self._pr_s)
 
     spike_prior = property(get_spike_prior, set_spike_prior)
+
+    def get_spike_prior_bias(self):
+        return self._pr_s_b
+
+    def set_spike_prior_bias(self, value):
+        if value is None:
+            return
+        if len(value) != 2:
+            raise ValueError('expecting tuple of length 2')
+        value = float(value[0]), int(value[1])
+        if value[1] < 1:
+            raise ValueError('extend cannot be non-positive')
+        self._pr_s_b = value
+
+    spike_prior_bias = property(get_spike_prior_bias, set_spike_prior_bias)
 
     ## filter bank sorting interface
 
@@ -578,7 +605,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         if niter > 2 * self.nf:
                             break
 
-                    # find spike classes
+                    # find epoch details
                     ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
                     ep_c = sp.nanargmax(ep_disc[ep_t])
 
@@ -590,9 +617,10 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                     # apply subtrahend
                     if ep_fout_norm > sp_la.norm(ep_fout + sub):
-                        if self.verbose.has_plot:
+                        ## DEBUG
+
+                        if self.verbose.get_has_plot(1):
                             try:
-                                raise
                                 from spikeplot import xvf_tensor, plt, COLOURS
 
                                 x_range = sp.arange(
@@ -618,15 +646,27 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                 ax2.axvline(x_range[ep_t], c='k')
                             except:
                                 pass
+
+                        ## BUGED
+
                         ep_disc += sub + self._lpr_s
-                        if self.verbose.has_plot:
+                        if self._pr_s_b is not None:
+                            bias, extend = self._pr_s_b
+                            ep_disc[ep_t:min(ep_t + extend,
+                                             ep_disc.shape[0]), ep_c] -= bias
+
+                        ## DEBUG
+
+                        if self.verbose.get_has_plot(1):
                             try:
-                                raise
                                 ax1.plot(x_range, ep_disc, ls=':', lw=2,
                                          label='post_sub')
                                 ax1.legend(loc=2)
                             except:
                                 pass
+
+                        ## BUGED
+
                         fid = self.get_idx_for(ep_c)
                         self.rval[fid].append(
                             spk_ep[i, 0] + ep_t + self._chunk_offset)
@@ -793,9 +833,24 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             this must be a subclass of 'ThresholdDetectorNode'.
             Default=MTEO_DET
         :type det_limit: int
-        :keyword det_limit: capacity of the ringbuffer to hold the detection
+        :keyword det_limit: capacity of the ringbuffer to hold the unexplained
             spikes.
             Default=2000
+        :type det_forget: int
+        :keyword det_forget: Unexplained spikes that are older than this
+            amount of samples will be forgotten. A reclustering to find
+            new nodes will be started if ``det_limit`` unexplained spikes
+            are found during ``det_forget`` samples.
+            Default=1000000
+        :type det_num_reclus: int or list
+        :type det_num_reclus: Number of clusters that will be used in a
+            reclustering of unexplained spikes.
+            Default: 20
+        :type det_min_reclus: int
+        :keyword det_min_reclus: Minimum number of spikes in a cluster of
+            unexplained spikes for a new unit to be created from that cluster
+            during reclustering.
+            Default=50
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -834,9 +889,16 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_kwargs = det_kwargs
         self._det_limit = int(det_limit)
         self._det_buf = None
+        self._det_samples = None
         self._learn_noise = learn_noise
         self._learn_templates = learn_templates
         self._learn_templates_pval = learn_templates_pval
+        self._sample_offset = 0  # Count how often the sorting was executed
+        # Number of samples before unexplained spikes are ignored
+        self._forget_samples = kwargs.pop('det_forget', 4000000)
+        self._min_new_cluster_size = kwargs.pop('det_min_reclus', 50)
+        self._det_num_reclus = kwargs.pop('det_num_reclus', 20)
+
 
         # align at (learn_templates)
         if self._learn_templates < 0:
@@ -854,6 +916,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             self._det_buf = MxRingBuffer(capacity=self._det_limit,
                                          dimension=(self._tf * self._nc),
                                          dtype=self.dtype)
+            # Saves (global) samples of unexplained spike events
+            self._det_samples = collections.deque(maxlen=self._det_limit)
             if self.verbose.has_print:
                 print self._det
         return self._det
@@ -871,7 +935,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # cut relevant piece of the discriminants
         data_ep = ev - self._learn_templates,\
-                  ev + self.tf - self._learn_templates
+                  ev - self._learn_templates + self.tf
         disc_ep = data_ep[0] + self._tf / 2,\
                   data_ep[1] + self._tf / 2
         if self.verbose.has_plot:
@@ -884,10 +948,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     #other=self._disc[at[0]:at[1]], events=evts,
                     other=self._disc[ep[0]:ep[1]],
                     x_offset=ep[0],
-                    events={0: [ev, ev + self._tf / 2]},
-                    epochs=sp.array([data_ep, disc_ep]),
+                    events={0: [ev], 1: [data_ep[0] + self._tf]},
+                    epochs={0: [data_ep], 1: [disc_ep]},
                     title='det@%s(%s) disc@%s' % (
-                        ev, self._learn_templates, ev + self._tf / 2),
+                        ev, self._learn_templates, ev + self._tf),
                     show=True)
             except ImportError:
                 pass
@@ -909,6 +973,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 spks_explained == False).sum()
         if len(spks[spks_explained == False]) > 0:
             self._det_buf.extend(spks[spks_explained == False])
+            self._det_samples.extend(self._sample_offset +
+                                     self.det.events[spks_explained == False])
 
     def _execute(self, x):
         # call super to get sorting
@@ -920,6 +986,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._adapt_filter_current()
         self._adapt_filter_new()
         # learn slow noise statistic changes
+        self._sample_offset += x.shape[0]  # Increase sample offset
         return rval
 
     ## ABOTM interface
@@ -945,13 +1012,24 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._check_internals()
 
     def _adapt_filter_new(self):
-        if self._det_buf.is_full:
+        #warnings.warn(len(self._det_samples))
+        #forget = self._sample_offset - self._forget_samples
+        index = 0
+        #print >> sys.stderr, 'Current:', self._sample_offset, '- First:', self._det_samples[0], '-Forget:', forget
+        for i, v in enumerate(self._det_samples):
+            if v > self._sample_offset - self._forget_samples:
+                index = i
+                break
+        print >> sys.stderr, 'Full:', self._det_buf.is_full, '- Index:', index
+        if self._det_buf.is_full and \
+                self._det_samples[0] > self._sample_offset - self._forget_samples:
             if self.verbose.has_print:
                 print 'det_buf is full!'
 
             # get all spikes and clear buffer
             spks = self._det_buf[:].copy()
             self._det_buf.clear()
+            self._det_samples.clear()
 
             # processing chain
             pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
@@ -960,7 +1038,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 cvtype='tied',
                 debug=self.verbose.has_print,
                 alpha=16.0,
-                crange=[20],
+                crange=[self._det_num_reclus],
                 max_iter=2096)
             spks_pp = pre_pro(spks)
             clus(spks_pp)
@@ -972,8 +1050,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     print 'checking new unit:',
                 spks_i = spks[lbls == i]
 
-                # TODO: parametrise this
-                if len(spks_i) < 50:
+                if len(spks_i) < self._min_new_cluster_size:
                     self._det_buf.extend(spks_i)
                     if self.verbose.has_print:
                         print 'rejected, only %d spikes' % len(spks_i)

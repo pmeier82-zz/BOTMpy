@@ -163,13 +163,13 @@ class VERBOSE(object):
 
     is_verbose = property(get_is_verbose)
 
-    def get_has_print(self):
-        return self.level >= self.PRINT
+    def get_has_print(self, n=0):
+        return self.level >= self.PRINT + n
 
     has_print = property(get_has_print)
 
-    def get_has_plot(self):
-        return  self.level >= self.PLOT
+    def get_has_plot(self, n=0):
+        return  self.level >= self.PLOT + n
 
     has_plot = property(get_has_plot)
 
