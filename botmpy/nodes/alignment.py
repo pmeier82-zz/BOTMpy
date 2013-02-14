@@ -143,6 +143,7 @@ class AlignmentNode(ResetNode):
                 axis=1
             )
             self.max_tau *= self.resample_factor
+            self.max_tau = int(self.max_tau)
             if self.debug is True:
                 print 'upsampled size: %d, maxtau: %d' % (self.spikes
                                                           .shape[1],

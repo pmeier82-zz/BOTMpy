@@ -356,6 +356,7 @@ class RateEstimator(object):
         self._sample_count = deque()
         self._n_sample_max = int(kwargs.get('n_sample_max', 2500000))
         self._sample_rate = float(kwargs.get('sample_rate', 32000.0))
+        self._filled = False
 
     def estimate(self):
         try:
@@ -369,12 +370,19 @@ class RateEstimator(object):
         self._sample_count.append(tlen)
 
         while sum(self._sample_count) > self._n_sample_max:
+            self._filled = True
             self._spike_count.popleft()
             self._sample_count.popleft()
 
     def reset(self):
         self._spike_count.clear()
         self._sample_count.clear()
+        self._filled = False
+
+    def is_filled(self):
+        return self._filled
+
+    filled = property(is_filled)
 
     def get_sample_size(self):
         return sum(self._sample_count)

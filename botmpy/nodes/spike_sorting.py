@@ -867,7 +867,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         det_kwargs = kwargs.pop('det_kwargs')
         if det_kwargs is None:
             det_kwargs = MTEO_KWARGS
-        det_limit = kwargs.pop('det_limit', 2000)
+        det_limit = kwargs.pop('det_limit', 4000)
 
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
@@ -995,7 +995,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         nsmpl = self._data.shape[0]
         for u in list(self._idx_active_set):
             # 1) snr drop below 0.5
-            if self.bank[u].get_snr < 0.5:
+            if self.bank[u].snr < 0.2:
                 self.deactivate(u)
                 warnings.warn('deactivating filter %s, snr' % str(u))
 
@@ -1006,7 +1006,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 except:
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
-                if self.bank[u].rate.estimate() < 0.1:
+                if self.bank[u].rate.filled and self.bank[u].rate.estimate() < 0.1:
                     self.deactivate(u)
                     warnings.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
@@ -1032,13 +1032,14 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             self._det_samples.clear()
 
             # processing chain
+            #aligned =
             pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
             clus = HomoscedasticClusteringNode(
                 clus_type='gmm',
                 cvtype='tied',
                 debug=self.verbose.has_print,
                 alpha=16.0,
-                crange=[self._det_num_reclus],
+                crange=range(2, self._det_num_reclus),
                 max_iter=2096)
             spks_pp = pre_pro(spks)
             clus(spks_pp)
@@ -1050,7 +1051,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     print 'checking new unit:',
                 spks_i = spks[lbls == i]
 
-                if len(spks_i) < self._min_new_cluster_size:
+                if len(spks_i) < 20:  #self._min_new_cluster_size:
                     self._det_buf.extend(spks_i)
                     if self.verbose.has_print:
                         print 'rejected, only %d spikes' % len(spks_i)
