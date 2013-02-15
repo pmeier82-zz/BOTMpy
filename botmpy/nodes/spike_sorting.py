@@ -965,7 +965,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self.det(self._chunk, bound_low=self._chunk_offset,
                  bound_hgh=self._chunk_offset + len(self._chunk))
         spks = self.det.get_extracted_events(
-            mc=False, kind='min', align_at=self._learn_templates)
+            mc=False, kind='min', align_at=self._learn_templates,
+            rsf=4.0) # resampling factor
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
         if self.verbose.has_print:

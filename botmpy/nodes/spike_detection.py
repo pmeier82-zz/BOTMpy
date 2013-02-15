@@ -84,9 +84,11 @@ class ThresholdDetectorNode(ResetNode):
     row).
 
     The output will be a timeseries of detected feature in the input signal.
-    To find the features, the input signal is transformed by applying an operator
+    To find the features, the input signal is transformed by applying an
+    operator
     (called the energy function from here on) that produces an
-    representation of the input signal, which should optimize the SNR of the features vs the
+    representation of the input signal, which should optimize the SNR of the
+    features vs the
     remainder of the input signal. A threshold is then applied to this energy
     representation of the input signal to find the feature epochs.
 
@@ -297,7 +299,8 @@ class ThresholdDetectorNode(ResetNode):
             rval = rval.astype(INDEX_DTYPE)
         return rval
 
-    def get_extracted_events(self, mc=False, align_at=-1, kind='min', buffer=False):
+    def get_extracted_events(self, mc=False, align_at=-1, kind='min',
+                             rsf=1.0, buffer=False):
         """yields the extracted spikes
 
         :type mc: bool
@@ -313,6 +316,8 @@ class ThresholdDetectorNode(ResetNode):
         :param kind: one of "min", "max", "energy" or "none". method
             to use for alignment, will be passed to the alignment function.
             Default='min'
+        :type rsf: float
+        :param rsf: resampling factor (use integer values of powers of 2)
         :type buffer: bool
         :param buffer: if True, write to buffer regardless of current buffer
             state.
@@ -335,7 +340,8 @@ class ThresholdDetectorNode(ResetNode):
                     align_at *= self.tf
                 align_at = int(align_at)
             self.extracted_events, self.events = get_aligned_spikes(
-                self.data, self.events, align_at=align_at, tf=self.tf, mc=mc, kind=kind)
+                self.data, self.events, align_at=align_at, tf=self.tf, mc=mc,
+                kind=kind, rsf=rsf)
 
         # return extracted events
         return self.extracted_events
@@ -393,7 +399,7 @@ class ThresholdDetectorNode(ResetNode):
             return None
 
         fig = mcdata(self.data, other=self.energy, events={0: self.events},
-            show=False)
+                     show=False)
         for i, th in enumerate(self.threshold):
             fig.axes[-1].axhline(th, c=COLOURS[i % len(COLOURS)])
         self._plot_additional(fig)
@@ -421,8 +427,8 @@ class SDAbsNode(ThresholdDetectorNode):
 
         # super
         kwargs.update(energy_func=sp.absolute,
-            threshold_base='signal',
-            threshold_func=sp.std)
+                      threshold_base='signal',
+                      threshold_func=sp.std)
         super(SDAbsNode, self).__init__(**kwargs)
 
     def _threshold_func(self, x):
@@ -444,8 +450,8 @@ class SDSqrNode(ThresholdDetectorNode):
 
         # super
         kwargs.update(energy_func=sp.square,
-            threshold_base='signal',
-            threshold_func=sp.var)
+                      threshold_base='signal',
+                      threshold_func=sp.var)
         super(SDSqrNode, self).__init__(**kwargs)
 
 
@@ -456,12 +462,14 @@ class SDMteoNode(ThresholdDetectorNode):
     threshold: energy.std
     """
 
-    def __init__(self, kvalues = [1, 3, 5, 7, 9], quantile=0.98, **kwargs):
+    def __init__(self, kvalues=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
         """
         :type kvalues: list
-        :param kvalues: integers determining the kteo detectors to build the multiresolution teo from.
+        :param kvalues: integers determining the kteo detectors to build the
+        multiresolution teo from.
         :type quantile: float
-        :param quantile: quantile of the MTeo output to use for threshold calculation.
+        :param quantile: quantile of the MTeo output to use for threshold
+        calculation.
         """
 
         # super
@@ -483,8 +491,8 @@ class SDMteoNode(ThresholdDetectorNode):
     def _threshold_func(self, x):
         return mquantiles(x, prob=[self.quantile])[0]
 
+
 class SDPeakNode(ThresholdDetectorNode):
-    
     """spike detector
 
     energy: absolute of the signal
@@ -499,13 +507,13 @@ class SDPeakNode(ThresholdDetectorNode):
 
         # super
         kwargs.update(threshold_base='signal',
-            threshold_func=sp.std)
+                      threshold_func=sp.std)
         super(SDPeakNode, self).__init__(**kwargs)
 
     def _threshold_func(self, x):
         return self.th_fac * x.std(axis=0)
-    
-    
+
+
 class SDKteoNode(ThresholdDetectorNode):
     """spike detector
 
