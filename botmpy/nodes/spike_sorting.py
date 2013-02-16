@@ -820,46 +820,55 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :keyword learn_templates: if non-negative integer, adapt the filters
             with the found events aligned at that sample. If negative,
             calculate the alignment samples as int(.25*self.tf)
+
             Default=-1
         :type learn_noise: str or None
         :keyword learn_noise: if not None, adapt the noise covariance matrix
             with from the noise epochs. This has to be either 'sort' to
             learn from the non overlapping sorting events,
             or 'det' to lean from the detection. Else, do not learn the noise.
+
             Default='sort'
         :type det_cls: ThresholdDetectorNode
         :keyword det_cls: the class of detector node to use for the spike
             detection running in parallel to the sorting,
             this must be a subclass of 'ThresholdDetectorNode'.
+
             Default=MTEO_DET
         :type det_limit: int
         :keyword det_limit: capacity of the ringbuffer to hold the unexplained
             spikes.
+
             Default=2000
         :type det_forget: int
         :keyword det_forget: Unexplained spikes that are older than this
             amount of samples will be forgotten. A reclustering to find
             new nodes will be started if ``det_limit`` unexplained spikes
             are found during ``det_forget`` samples.
+
             Default=1000000
         :type det_num_reclus: int or list
         :type det_num_reclus: Number of clusters that will be used in a
             reclustering of unexplained spikes.
+
             Default: 20
         :type det_min_reclus: int
         :keyword det_min_reclus: Minimum number of spikes in a cluster of
             unexplained spikes for a new unit to be created from that cluster
             during reclustering.
+
             Default=50
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
+
             Default=MTEO_KWARGS
         """
 
         # kwargs
         learn_templates = kwargs.pop('learn_templates', -1)
         learn_templates_rsf = kwargs.pop('learn_templates_rsf', 1.0)
+        print 'learn_templates_rsf:', learn_templates_rsf
         learn_noise = kwargs.pop('learn_noise', None)
         det_cls = kwargs.pop('det_cls')
         if det_cls is None:
