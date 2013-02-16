@@ -45,8 +45,8 @@
 
 """spikes alignment functions"""
 __docformat__ = 'restructuredtext'
-__all__ = ['get_tau_for_alignment', 'get_tau_align_min', 'get_tau_align_max',
-           'get_tau_align_energy', 'get_aligned_spikes']
+__all__ = ['sinc_interp1d', 'get_tau_for_alignment', 'get_tau_align_min',
+           'get_tau_align_max', 'get_tau_align_energy', 'get_aligned_spikes']
 
 ##--- IMPORTS
 
@@ -55,6 +55,40 @@ from .util import INDEX_DTYPE
 from .funcs_spike import epochs_from_spiketrain, get_cut, extract_spikes
 
 ##---FUNCTIONS
+
+def sinc_interp1d(x, s, r):
+    """Interpolates `x`, sampled at times `s`
+    Output `y` is sampled at times `r`
+
+    inspired from from Matlab:
+    http://phaseportrait.blogspot.com/2008/06/sinc-interpolation-in-matlab.html
+
+    :param ndarray x: input data time series
+    :param ndarray s: input sampling time series (regular sample interval)
+    :param ndarray r: output sampling time series
+    :return ndarray: output data time series (regular sample interval)
+    """
+
+    # init
+    s = sp.asarray(s)
+    r = sp.asarray(r)
+    x = sp.asarray(x)
+    if x.ndim == 1:
+        x = sp.atleast_2d(x)
+    else:
+        if x.shape[0] == len(s):
+            x = x.T
+        else:
+            if x.shape[1] != s.shape[0]:
+                raise ValueError('x and s must be same temporal extend')
+    if sp.allclose(s, r):
+        return x.T
+    T = s[1] - s[0]
+
+    # resample
+    sincM = sp.tile(r, (len(s), 1)) - sp.tile(s[:, sp.newaxis], (1, len(r)))
+    return sp.vstack([sp.dot(xx, sp.sinc(sincM / T)) for xx in x]).T
+
 
 def get_tau_for_alignment(spikes, align_at):
     """return the per spike offset in samples (taus) of the maximum values to
@@ -81,7 +115,8 @@ get_tau_align_min = lambda spks, ali: get_tau_for_alignment(-spks, ali)
 get_tau_align_max = lambda spks, ali: get_tau_for_alignment(spks, ali)
 get_tau_align_energy = lambda spks, ali: get_tau_for_alignment(spks * spks, ali)
 
-def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True, kind='none'):
+def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
+                       kind='none', rsf=1.):
     """return the set of aligned spikes waveforms and the aligned spike train
 
     :type data: ndarray
@@ -98,17 +133,29 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True, kind='non
     :type kind: str
     :param kind: String giving the type of alignment to conduct. One of:
 
-            - "max"    - align on maximum of the waveform
-            - "min"    - align on minimum of the waveform
-            - "energy" - align on peak of energy
-            - "none"   - no alignment
+        - "max"    - align on maximum of the waveform
+        - "min"    - align on minimum of the waveform
+        - "energy" - align on peak of energy
+        - "none"   - no alignment
 
         Default='none'
+    :type rsf: float
+    :param rsf: resampling factor (use integer values of powers of 2)
     :rtype: ndarray, ndarray
     :returns: stacked spike events, spike train with events corrected for
         alignment
     """
 
+    # resample?
+    if rsf != 1.0:
+        from scipy.signal import resample
+
+        data = resample(data, rsf * data.shape[0])
+        tf *= rsf
+        align_at *= rsf
+        spike_train *= rsf
+
+    # init
     cut = align_at, tf - align_at
     ep, st = epochs_from_spiketrain(
         spike_train,
@@ -116,9 +163,12 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True, kind='non
         end=data.shape[0],
         with_corrected_st=True)
 
+    # align spikes
     if ep.shape[0] > 0:
         if kind in ['min', 'max', 'energy']:
             spikes = extract_spikes(data, ep, mc=True)
+            if rsf != 1.0:
+                print spikes.shape
             tau = {'min': get_tau_align_min,
                    'max': get_tau_align_max,
                    'energy': get_tau_align_energy}[kind](spikes, align_at)
@@ -136,6 +186,13 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True, kind='non
         else:
             size = 0, sum(cut) * data.shape[1]
         spikes = sp.zeros(size)
+
+    # re-resample?
+    if rsf != 1.0:
+        spikes = resample(spikes, spikes.shape[1] * 1. / rsf, axis=1)
+        st *= 1. / rsf
+
+    # return
     return spikes, st
 
 ##--- MAIN
