@@ -858,8 +858,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         """
 
         # kwargs
-        learn_templates_pval = kwargs.pop('learn_templates_pval', 0.05)
         learn_templates = kwargs.pop('learn_templates', -1)
+        learn_templates_rsf = kwargs.pop('learn_templates_rsf', 1.0)
         learn_noise = kwargs.pop('learn_noise', None)
         det_cls = kwargs.pop('det_cls')
         if det_cls is None:
@@ -892,7 +892,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples = None
         self._learn_noise = learn_noise
         self._learn_templates = learn_templates
-        self._learn_templates_pval = learn_templates_pval
+        self._learn_templates_rsf = learn_templates_rsf
         self._sample_offset = 0  # Count how often the sorting was executed
         # Number of samples before unexplained spikes are ignored
         self._forget_samples = kwargs.pop('det_forget', 4000000)
@@ -907,6 +907,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             if 0.0 <= self._learn_templates <= 1.0:
                 self._learn_templates *= self.tf
             self._learn_templates = int(self._learn_templates)
+
+        # for initialisation set correct self._cluster method
+        self._cluster = self._cluster_init
 
     ## properties
 
@@ -965,8 +968,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self.det(self._chunk, bound_low=self._chunk_offset,
                  bound_hgh=self._chunk_offset + len(self._chunk))
         spks = self.det.get_extracted_events(
-            mc=False, kind='min', align_at=self._learn_templates,
-            rsf=4.0) # resampling factor
+            mc=False, kind='min',
+            align_at=self._learn_templates,
+            rsf=self._learn_templates_rsf)
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
         if self.verbose.has_print:
@@ -1007,7 +1011,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 except:
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
-                if self.bank[u].rate.filled and self.bank[u].rate.estimate() < 0.1:
+                if self.bank[u].rate.filled and\
+                   self.bank[u].rate.estimate() < 0.1:
                     self.deactivate(u)
                     warnings.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
@@ -1016,52 +1021,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         #warnings.warn(len(self._det_samples))
         #forget = self._sample_offset - self._forget_samples
         index = 0
-        #print >> sys.stderr, 'Current:', self._sample_offset, '- First:', self._det_samples[0], '-Forget:', forget
+        #print >> sys.stderr, 'Current:', self._sample_offset, '- First:',
+        # self._det_samples[0], '-Forget:', forget
         for i, v in enumerate(self._det_samples):
             if v > self._sample_offset - self._forget_samples:
                 index = i
                 break
         print >> sys.stderr, 'Full:', self._det_buf.is_full, '- Index:', index
-        if self._det_buf.is_full and \
-                self._det_samples[0] > self._sample_offset - self._forget_samples:
+        if self._det_buf.is_full and\
+           self._det_samples[0] > self._sample_offset - self._forget_samples:
             if self.verbose.has_print:
                 print 'det_buf is full!'
-
-            # get all spikes and clear buffer
-            spks = self._det_buf[:].copy()
-            self._det_buf.clear()
-            self._det_samples.clear()
-
-            # processing chain
-            #aligned =
-            pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
-            clus = HomoscedasticClusteringNode(
-                clus_type='gmm',
-                cvtype='tied',
-                debug=self.verbose.has_print,
-                alpha=16.0,
-                crange=range(2, self._det_num_reclus),
-                max_iter=2096)
-            spks_pp = pre_pro(spks)
-            clus(spks_pp)
-            lbls = clus.labels
-            if self.verbose.has_plot:
-                clus.plot(spks_pp, show=True)
-            for i in sp.unique(lbls):
-                if self.verbose.has_print:
-                    print 'checking new unit:',
-                spks_i = spks[lbls == i]
-
-                if len(spks_i) < 20:  #self._min_new_cluster_size:
-                    self._det_buf.extend(spks_i)
-                    if self.verbose.has_print:
-                        print 'rejected, only %d spikes' % len(spks_i)
-                else:
-                    spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-                    self.create_filter(spk_i)
-                    if self.verbose.has_print:
-                        print 'accepted, with %d spikes' % len(spks_i)
-            del pre_pro, clus, spks, spks_pp
+            self._cluster()
         else:
             if self.verbose.has_print:
                 print 'det_buf:', self._det_buf
@@ -1097,6 +1068,89 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             self.bank[u].extend_xi_buf(spks_u)
             self.bank[u].rate.observation(spks_u.shape[0], self._data.shape[0])
         print [(u, f.rate.estimate()) for (u, f) in self.bank.items()]
+
+    def _cluster_init(self):
+        """cluster step for initialisation"""
+
+        # get all spikes and clear buffer
+        spks = self._det_buf[:].copy()
+        self._det_buf.clear()
+        self._det_samples.clear()
+
+        # processing chain
+        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
+        """clus_type='kmeans',
+        crange=range(1, 16), repeats=4,
+                   sigma_factor=4.0, max_iter=None, conv_thresh=None,
+                   alpha=None,
+                   cvtype='tied', gof_type='bic', dtype=None, debug=False
+        """
+        clus = HomoscedasticClusteringNode(
+            clus_type='gmm',
+            cvtype='tied',
+            debug=self.verbose.has_print,
+            sigma_factor=4.0,
+            crange=range(1, 20),
+            max_iter=256)
+        spks_pp = pre_pro(spks)
+        clus(spks_pp)
+        lbls = clus.labels
+        if self.verbose.has_plot:
+            clus.plot(spks_pp, show=True)
+        for i in sp.unique(lbls):
+            if self.verbose.has_print:
+                print 'checking new unit:',
+            spks_i = spks[lbls == i]
+
+            if len(spks_i) < 20:  #self._min_new_cluster_size:
+                self._det_buf.extend(spks_i)
+                if self.verbose.has_print:
+                    print 'rejected, only %d spikes' % len(spks_i)
+            else:
+                spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+                self.create_filter(spk_i)
+                if self.verbose.has_print:
+                    print 'accepted, with %d spikes' % len(spks_i)
+        del pre_pro, clus, spks, spks_pp
+        self._cluster = self._cluster_base
+
+    def _cluster_base(self):
+        """cluster step for normal operation"""
+
+        # get all spikes and clear buffer
+        spks = self._det_buf[:].copy()
+        self._det_buf.clear()
+        self._det_samples.clear()
+
+        # processing chain
+        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
+        clus = HomoscedasticClusteringNode(
+            clus_type='gmm',
+            cvtype='tied',
+            debug=self.verbose.has_print,
+            sigma_factor=4.0,
+            crange=range(2, self._det_num_reclus),
+            max_iter=256)
+        spks_pp = pre_pro(spks)
+        clus(spks_pp)
+        lbls = clus.labels
+        if self.verbose.has_plot:
+            clus.plot(spks_pp, show=True)
+        for i in sp.unique(lbls):
+            if self.verbose.has_print:
+                print 'checking new unit:',
+            spks_i = spks[lbls == i]
+
+            if len(spks_i) < 20:  #self._min_new_cluster_size:
+                self._det_buf.extend(spks_i)
+                if self.verbose.has_print:
+                    print 'rejected, only %d spikes' % len(spks_i)
+            else:
+                spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+                self.create_filter(spk_i)
+                if self.verbose.has_print:
+                    print 'accepted, with %d spikes' % len(spks_i)
+        del pre_pro, clus, spks, spks_pp
 
 ABOTMNode = AdaptiveBayesOptimalTemplateMatchingNode
 
