@@ -869,6 +869,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             det_kwargs = MTEO_KWARGS
         det_limit = kwargs.pop('det_limit', 4000)
 
+        self._forget_samples = kwargs.pop('det_forget', 4000000)
+        self._min_new_cluster_size = kwargs.pop('det_min_reclus', 30)
+        self._det_num_reclus = kwargs.pop('det_num_reclus', 4)
+        self._det_num_iniclus = kwargs.pop('det_num_init_clus', 16)
+
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
             raise TypeError(
@@ -895,11 +900,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._learn_templates_rsf = learn_templates_rsf
         self._sample_offset = 0  # Count how often the sorting was executed
         # Number of samples before unexplained spikes are ignored
-        self._forget_samples = kwargs.pop('det_forget', 4000000)
-        self._min_new_cluster_size = kwargs.pop('det_min_reclus', 30)
-        self._det_num_reclus = kwargs.pop('det_num_reclus', 4)
-        self._det_num_iniclus = kwargs.pop('det_num_init_clus', 16)
-
 
         # align at (learn_templates)
         if self._learn_templates < 0:
@@ -1029,8 +1029,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 index = i
                 break
         print >> sys.stderr, 'Full:', self._det_buf.is_full, '- Index:', index
-        if self._det_buf.is_full and\
-           self._det_samples[0] > self._sample_offset - self._forget_samples:
+        if self._det_buf.is_full and (self._cluster == self._cluster_init or
+           self._det_samples[0] > self._sample_offset - self._forget_samples):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
