@@ -313,8 +313,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model = GMM(
                     n_components=k,
                     covariance_type=self.cvtype,
-                    params='wm',
-                    init_params='wm',
+                    params='wmc',
+                    init_params='wmc',
                     **model_kwargs)
                 model.covars_ = {'spherical': sp.ones((k, self.input_dim)),
                                  'diag': sp.ones((k, self.input_dim)),
