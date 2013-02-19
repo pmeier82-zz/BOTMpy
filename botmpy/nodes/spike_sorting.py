@@ -75,10 +75,9 @@ from .prewhiten import PrewhiteningNode2
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
-    shifted_matrix_sub, mcvec_to_conc,
-    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
-    get_cut, GdfFile,
-    MxRingBuffer, mcvec_from_conc, extract_spikes)
+    shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
+    matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
+    mcvec_from_conc, extract_spikes, get_aligned_spikes)
 
 ##---CONSTANTS
 
@@ -226,6 +225,7 @@ class FilterBankSortingNode(FilterBankNode):
         pass
 
     def _combine_results(self):
+        # get the sorting results
         self.rval = dict_list_to_ndarray(self.rval)
         correct = int(self._tf / 2)
         for k in self.rval:
@@ -233,7 +233,8 @@ class FilterBankSortingNode(FilterBankNode):
 
     ## result access
 
-    def spikes_u(self, u, mc=True, exclude_overlaps=True, overlap_window=None):
+    def spikes_u(self, u, mc=True, exclude_overlaps=True, overlap_window=None,
+                 align_at=-1, align_kind='min', align_rsf=1.):
         """yields the spike for the u-th filter
 
         :type u: int
@@ -261,21 +262,20 @@ class FilterBankSortingNode(FilterBankNode):
 
         # extract spikes
         if u not in self.rval:
-            rval = sp.zeros(size)
+            return sp.zeros(size)
         else:
-            ep, st_dict[u] = epochs_from_spiketrain(
-                st_dict[u], self._tf, end=self._data.shape[0],
-                with_corrected_st=True)
-            if ep.size == 0:
-                rval = sp.zeros(size)
-            else:
-                rval = extract_spikes(self._data, ep, mc=mc)
-                if exclude_overlaps is True:
-                    ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
-                    rval = rval[ovlp_info[u] == False]
-
-        return rval
-
+            spks, st = get_aligned_spikes(
+                self._data,
+                st_dict[u],
+                align_at=align_at,
+                tf=self._tf,
+                mc=mc,
+                kind=align_kind,
+                rsf=align_rsf)
+            if exclude_overlaps is True:
+                ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
+                spks = spks[ovlp_info[u] == False]
+            return spks
 
     ## plotting methods
 
@@ -908,7 +908,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._min_new_cluster_size = kwargs.pop('det_min_reclus', 50)
         self._det_num_reclus = kwargs.pop('det_num_reclus', 20)
 
-
         # align at (learn_templates)
         if self._learn_templates < 0:
             self._learn_templates = .25
@@ -1073,7 +1072,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # adapt filters with found waveforms
         for u in self.rval:
-            spks_u = self.spikes_u(u, mc=True, exclude_overlaps=True)
+            spks_u = self.spikes_u(u, mc=True, exclude_overlaps=True,
+                                   align_at=self._learn_templates or -1,
+                                   align_kind='min',
+                                   align_rsf=self._learn_templates_rsf)
             if spks_u.size == 0:
                 continue
             self.bank[u].extend_xi_buf(spks_u)
