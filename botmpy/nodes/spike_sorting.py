@@ -976,6 +976,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self.det.reset()
         self.det(self._chunk, bound_low=self._chunk_offset,
                  bound_hgh=self._chunk_offset + len(self._chunk))
+        if self.det.events is None:
+            return
         spks = self.det.get_extracted_events(
             mc=False, kind='min',
             align_at=self._learn_templates,
