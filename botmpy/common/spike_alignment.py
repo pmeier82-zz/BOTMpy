@@ -116,7 +116,7 @@ get_tau_align_max = lambda spks, ali: get_tau_for_alignment(spks, ali)
 get_tau_align_energy = lambda spks, ali: get_tau_for_alignment(spks * spks, ali)
 
 def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
-                       kind='none', rsf=1.):
+                       kind='none', rsf=1., sample_back=True):
     """return the set of aligned spikes waveforms and the aligned spike train
 
     :type data: ndarray
@@ -141,6 +141,7 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
         Default='none'
     :type rsf: float
     :param rsf: resampling factor (use integer values of powers of 2)
+    :param bool sample_back: if True, resample spikes to original length after resampling
     :rtype: ndarray, ndarray
     :returns: stacked spike events, spike train with events corrected for
         alignment
@@ -188,7 +189,7 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
         spikes = sp.zeros(size)
 
     # re-resample?
-    if rsf != 1.0:
+    if sample_back and rsf != 1.0:
         spikes = resample(spikes, spikes.shape[1] * 1. / rsf, axis=1)
         st *= 1. / rsf
 

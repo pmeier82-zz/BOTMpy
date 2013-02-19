@@ -77,7 +77,7 @@ from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
     shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
-    mcvec_from_conc, extract_spikes, get_aligned_spikes)
+    mcvec_from_conc, extract_spikes, get_aligned_spikes, vec2ten)
 
 ##---CONSTANTS
 
@@ -225,7 +225,6 @@ class FilterBankSortingNode(FilterBankNode):
         pass
 
     def _combine_results(self):
-        # get the sorting results
         self.rval = dict_list_to_ndarray(self.rval)
         correct = int(self._tf / 2)
         for k in self.rval:
@@ -276,6 +275,7 @@ class FilterBankSortingNode(FilterBankNode):
                 ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
                 spks = spks[ovlp_info[u] == False]
             return spks
+
 
     ## plotting methods
 
@@ -852,12 +852,22 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             reclustering of unexplained spikes.
 
             Default: 20
-        :type det_min_reclus: int
-        :keyword det_min_reclus: Minimum number of spikes in a cluster of
+        :type clus_min_size: int
+        :keyword clus_min_size: Minimum number of spikes in a cluster of
             unexplained spikes for a new unit to be created from that cluster
             during reclustering.
 
             Default=50
+        :type clus_use_amplitudes: bool
+        :keyword clus_use_amplitudes: Determines if amplitudes (max-min) for
+            each channel are used in addition to PCA features for clustering.
+
+            Default=True
+        :type clus_pca_features: int
+        :keyword clus_pca_features: The number of PCA features to use during
+            clustering.
+
+            Default=10
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -868,7 +878,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         # kwargs
         learn_templates = kwargs.pop('learn_templates', -1)
         learn_templates_rsf = kwargs.pop('learn_templates_rsf', 1.0)
-        print 'learn_templates_rsf:', learn_templates_rsf
         learn_noise = kwargs.pop('learn_noise', None)
         det_cls = kwargs.pop('det_cls')
         if det_cls is None:
@@ -877,6 +886,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         if det_kwargs is None:
             det_kwargs = MTEO_KWARGS
         det_limit = kwargs.pop('det_limit', 4000)
+
+        self._forget_samples = kwargs.pop('det_forget', 4000000)
+        self._min_new_cluster_size = kwargs.pop('clus_min_size', 30)
+        self._num_reclus = kwargs.pop('clus_num_reclus', 4)
+        self._num_iniclus = kwargs.pop('clus_num_init_clus', 14)
+        self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
+        self._pca_features = kwargs.pop('clus_pca_features', 6)
 
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
@@ -904,9 +920,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._learn_templates_rsf = learn_templates_rsf
         self._sample_offset = 0  # Count how often the sorting was executed
         # Number of samples before unexplained spikes are ignored
-        self._forget_samples = kwargs.pop('det_forget', 4000000)
-        self._min_new_cluster_size = kwargs.pop('det_min_reclus', 50)
-        self._det_num_reclus = kwargs.pop('det_num_reclus', 20)
 
         # align at (learn_templates)
         if self._learn_templates < 0:
@@ -1038,8 +1051,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 index = i
                 break
         print >> sys.stderr, 'Full:', self._det_buf.is_full, '- Index:', index
-        if self._det_buf.is_full and\
-           self._det_samples[0] > self._sample_offset - self._forget_samples:
+        if self._det_buf.is_full and (self._cluster == self._cluster_init or
+           self._det_samples[0] > self._sample_offset - self._forget_samples):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
@@ -1091,39 +1104,108 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples.clear()
 
         # processing chain
-        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
+        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=self._pca_features)
         """clus_type='kmeans',
         crange=range(1, 16), repeats=4,
                    sigma_factor=4.0, max_iter=None, conv_thresh=None,
                    alpha=None,
                    cvtype='tied', gof_type='bic', dtype=None, debug=False
         """
+        sigma_factor = 4.0
         clus = HomoscedasticClusteringNode(
             clus_type='gmm',
-            cvtype='tied',
+            cvtype='full',
             debug=self.verbose.has_print,
-            sigma_factor=4.0,
-            crange=range(1, 20),
-            max_iter=256)
-        spks_pp = pre_pro(spks)
+            sigma_factor=sigma_factor,
+            crange=range(1, self._num_iniclus + 1),
+            max_iter=256, repeats=10)
+
+        # create features
+        if self._use_amplitudes:
+            n_spikes = spks.shape[0]
+            spks_pp = sp.zeros((n_spikes, self._pca_features + self._nc))
+            spks_pp[:, :self._pca_features] = pre_pro(spks)
+
+            all = vec2ten(spks, self._nc)
+            all_amp = all.max(axis=1) - all.min(axis=1)
+
+            # Scale amplitude features to a level near pca features
+            all_amp *= sigma_factor * 5 / all_amp.max()
+            spks_pp[:, self._pca_features:] = all_amp
+        else:
+            spks_pp = pre_pro(spks)
+
+        # cluster
         clus(spks_pp)
         lbls = clus.labels
+
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)
+
+        # resample and realign means to check distance
+        means = {}
+        for i in sp.unique(lbls):
+            spks_i = spks[lbls == i]
+            means[i] = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+
+        rsf = 16
+        if rsf != 1:
+            for u in means.iterkeys():
+                means[u] = sp.signal.resample(
+                    means[u], rsf * means[u].shape[0])
+
+                tau = get_tau_for_alignment(
+                    -sp.array([means[u]]), self._learn_templates * rsf)
+
+                # Realignment shouldn't need to be drastic
+                max_dist = 2 * rsf
+                l = means[u].shape[0]
+                if abs(tau) > max_dist:
+                    print ('Could not realign %s, distance: %d ' %
+                           (u.name, tau))
+                    tau = 0
+                means[u] = means[u][max_dist + tau:l - max_dist + tau,:]
+
+        for u in means.iterkeys():
+            means[u] = mcvec_to_conc(means[u])
+
+        # Calculate distance between all resampled mean pairs
+        dist = {u:{} for u in means.keys()}
+        for i1, u1 in enumerate(means.keys()):
+            for i2, u2 in enumerate(means.keys()):
+                if u1>=u2:
+                    continue
+
+                d = sp.spatial.distance.cdist(
+                    sp.atleast_2d(means[u1]), sp.atleast_2d(means[u2]),
+                    'euclidean')
+                dist[i1][i2] = d
+                #dist[i2][i1] = d
+
         for i in sp.unique(lbls):
             if self.verbose.has_print:
                 print 'checking new unit:',
             spks_i = spks[lbls == i]
 
-            if len(spks_i) < 20:  #self._min_new_cluster_size:
+            if len(spks_i) < self._min_new_cluster_size:
                 self._det_buf.extend(spks_i)
                 if self.verbose.has_print:
-                    print 'rejected, only %d spikes' % len(spks_i)
+                    print '%d rejected, only %d spikes' % (i, len(spks_i))
             else:
-                spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-                self.create_filter(spk_i)
-                if self.verbose.has_print:
-                    print 'accepted, with %d spikes' % len(spks_i)
+                merged = False
+                for inner in sp.unique(lbls):
+                    if i >= inner:
+                        continue
+                    if dist[i][inner] <= 100.0:
+                        lbls[lbls == i] = inner
+                        merged = True
+                        print 'Merged', i, 'and', inner, '-', dist[i][inner]
+                        break
+                if not merged:
+                    spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+                    self.create_filter(spk_i)
+                    if self.verbose.has_print:
+                        print '%d accepted, with %d spikes' % (i, len(spks_i))
         del pre_pro, clus, spks, spks_pp
         self._cluster = self._cluster_base
 
@@ -1142,7 +1224,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             cvtype='tied',
             debug=self.verbose.has_print,
             sigma_factor=4.0,
-            crange=range(2, self._det_num_reclus),
+            crange=range(1, self._num_reclus + 1),
             max_iter=256)
         spks_pp = pre_pro(spks)
         clus(spks_pp)
@@ -1154,7 +1236,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 print 'checking new unit:',
             spks_i = spks[lbls == i]
 
-            if len(spks_i) < 20:  #self._min_new_cluster_size:
+            if len(spks_i) < self._min_new_cluster_size:
                 self._det_buf.extend(spks_i)
                 if self.verbose.has_print:
                     print 'rejected, only %d spikes' % len(spks_i)

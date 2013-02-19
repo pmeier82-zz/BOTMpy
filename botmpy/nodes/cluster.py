@@ -199,7 +199,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._winner = None
         self.clus_type = str(clus_type)
         self.gof_type = str(gof_type)
-        if self.clus_type not in ['kmeans', 'gmm']:
+        if self.clus_type not in ['kmeans', 'gmm', 'dpgmm']:
             raise ValueError(
                 'clus_type must be one of: \'kmeans\', \'gmm\'!')
         self.cvtype = str(cvtype)
@@ -313,8 +313,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model = GMM(
                     n_components=k,
                     covariance_type=self.cvtype,
-                    params='wm',
-                    init_params='wm',
+                    params='wmc',
+                    init_params='wmc',
                     **model_kwargs)
                 model.covars_ = {'spherical': sp.ones((k, self.input_dim)),
                                  'diag': sp.ones((k, self.input_dim)),
@@ -380,7 +380,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
 
     def _fit_dpgmm(self, x):
         # clustering
-        k = self.crange[0]
+        k = max(self.crange)
         for r in xrange(self.repeats):
             # info
             if self.debug is True:
@@ -392,24 +392,26 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 model_kwargs.update(alpha=self.clus_kwargs['alpha'])
             if 'conv_thresh' in self.clus_kwargs:
                 model_kwargs.update(thresh=self.clus_kwargs['conv_thresh'])
+            if 'max_iter' in self.clus_kwargs:
+                model_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
+
             model = DPGMM(n_components=k, covariance_type=self.cvtype,
                           **model_kwargs)
-            model.n_features = self.input_dim
-            fit_kwargs = {}
-            if 'max_iter' in self.clus_kwargs:
-                fit_kwargs.update(n_iter=self.clus_kwargs['max_iter'])
-            model.fit(x, params='wmc', init_params='wmc', **fit_kwargs)
             model.fit(x)
             self._labels[r] = model.predict(x)
-            self._parameters[r] = model.means
-            self._ll[r] = model.score(x).sum()
+            self._parameters[r] = model.means_
+            #self._ll[r] = model.score(x).sum()
 
             # evaluate goodness of fit for this run
-            self._gof[r] = self.gof(x, self._ll[r], k)
+            #self._gof[r] = self.gof(x, self._ll[r], k)
+            if self.gof_type == 'aic':
+                self._gof[r] = model.aic(x)
+            if self.gof_type == 'bic':
+                self._gof[r] = model.bic(x)
 
             # debug
             if self.debug is True:
-                print self._gof[r], model.converged_
+                print self._gof[r], model.n_components, model.weights_.shape[0]
 
     ## mdp.node interface
 
@@ -429,7 +431,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         fit_func = {'kmeans': self._fit_kmeans,
                     'gmm': self._fit_gmm,
                     #'vbgmm': self._fit_vbgmm,
-                    #'dpgmm': self._fit_dpgmm,
+                    'dpgmm': self._fit_dpgmm,
                     'spectral': self._fit_spectral}[self.clus_type]
         fit_func(x)
 
