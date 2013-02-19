@@ -75,7 +75,7 @@ from .prewhiten import PrewhiteningNode2
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
-    shifted_matrix_sub, mcvec_to_conc,
+    shifted_matrix_sub, mcvec_to_conc, vec2ten,
     epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
     get_cut, GdfFile, get_tau_for_alignment,
     MxRingBuffer, mcvec_from_conc, extract_spikes)
@@ -846,11 +846,19 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :type det_num_reclus: Number of clusters that will be used in a
             reclustering of unexplained spikes.
             Default: 20
-        :type det_min_reclus: int
-        :keyword det_min_reclus: Minimum number of spikes in a cluster of
+        :type clus_min_size: int
+        :keyword clus_min_size: Minimum number of spikes in a cluster of
             unexplained spikes for a new unit to be created from that cluster
             during reclustering.
             Default=50
+        :type clus_use_amplitudes: bool
+        :keyword clus_use_amplitudes: Determines if amplitudes (max-min) for
+            each channel are used in addition to PCA features for clustering.
+            Default=True
+        :type clus_pca_features: int
+        :keyword clus_pca_features: The number of PCA features to use during
+            clustering.
+            Default=10
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -870,9 +878,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         det_limit = kwargs.pop('det_limit', 4000)
 
         self._forget_samples = kwargs.pop('det_forget', 4000000)
-        self._min_new_cluster_size = kwargs.pop('det_min_reclus', 30)
-        self._det_num_reclus = kwargs.pop('det_num_reclus', 4)
-        self._det_num_iniclus = kwargs.pop('det_num_init_clus', 16)
+        self._min_new_cluster_size = kwargs.pop('clus_min_size', 30)
+        self._num_reclus = kwargs.pop('clus_num_reclus', 4)
+        self._num_iniclus = kwargs.pop('clus_num_init_clus', 14)
+        self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
+        self._pca_features = kwargs.pop('clus_pca_features', 6)
 
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
@@ -1079,27 +1089,45 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples.clear()
 
         # processing chain
-        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
+        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=self._pca_features)
         """clus_type='kmeans',
         crange=range(1, 16), repeats=4,
                    sigma_factor=4.0, max_iter=None, conv_thresh=None,
                    alpha=None,
                    cvtype='tied', gof_type='bic', dtype=None, debug=False
         """
+        sigma_factor = 4.0
         clus = HomoscedasticClusteringNode(
             clus_type='gmm',
             cvtype='full',
             debug=self.verbose.has_print,
-            sigma_factor=4.0,
-            crange=range(1, self._det_num_iniclus + 1),
-            max_iter=256)
-        spks_pp = pre_pro(spks)
+            sigma_factor=sigma_factor,
+            crange=range(1, self._num_iniclus + 1),
+            max_iter=256, repeats=10)
+
+        # create features
+        if self._use_amplitudes:
+            n_spikes = spks.shape[0]
+            spks_pp = sp.zeros((n_spikes, self._pca_features + self._nc))
+            spks_pp[:, :self._pca_features] = pre_pro(spks)
+
+            all = vec2ten(spks, self._nc)
+            all_amp = all.max(axis=1) - all.min(axis=1)
+
+            # Scale amplitude features to a level near pca features
+            all_amp *= sigma_factor * 5 / all_amp.max()
+            spks_pp[:, self._pca_features:] = all_amp
+        else:
+            spks_pp = pre_pro(spks)
+
+        # cluster
         clus(spks_pp)
         lbls = clus.labels
+
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)
 
-        # Resample and realign means to check distance
+        # resample and realign means to check distance
         means = {}
         for i in sp.unique(lbls):
             spks_i = spks[lbls == i]
@@ -1181,7 +1209,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             cvtype='tied',
             debug=self.verbose.has_print,
             sigma_factor=4.0,
-            crange=range(1, self._det_num_reclus + 1),
+            crange=range(1, self._num_reclus + 1),
             max_iter=256)
         spks_pp = pre_pro(spks)
         clus(spks_pp)
