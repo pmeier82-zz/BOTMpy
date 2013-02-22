@@ -882,7 +882,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._num_reclus = kwargs.pop('clus_num_reclus', 4)
         self._num_iniclus = kwargs.pop('clus_num_init_clus', 14)
         self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
-        self._pca_features = kwargs.pop('clus_pca_features', 6)
+        self._pca_features = kwargs.pop('clus_pca_features', 10)
 
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
