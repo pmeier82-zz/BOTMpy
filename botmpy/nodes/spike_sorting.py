@@ -75,10 +75,9 @@ from .prewhiten import PrewhiteningNode2
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
-    shifted_matrix_sub, mcvec_to_conc, vec2ten,
-    epochs_from_binvec, merge_epochs, matrix_argmax, dict_list_to_ndarray,
-    get_cut, GdfFile, get_tau_for_alignment,
-    MxRingBuffer, mcvec_from_conc, extract_spikes)
+    shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
+    matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
+    mcvec_from_conc, extract_spikes, get_aligned_spikes, vec2ten)
 
 ##---CONSTANTS
 
@@ -233,7 +232,8 @@ class FilterBankSortingNode(FilterBankNode):
 
     ## result access
 
-    def spikes_u(self, u, mc=True, exclude_overlaps=True, overlap_window=None):
+    def spikes_u(self, u, mc=True, exclude_overlaps=True, overlap_window=None,
+                 align_at=-1, align_kind='min', align_rsf=1.):
         """yields the spike for the u-th filter
 
         :type u: int
@@ -261,20 +261,20 @@ class FilterBankSortingNode(FilterBankNode):
 
         # extract spikes
         if u not in self.rval:
-            rval = sp.zeros(size)
+            return sp.zeros(size)
         else:
-            ep, st_dict[u] = epochs_from_spiketrain(
-                st_dict[u], self._tf, end=self._data.shape[0],
-                with_corrected_st=True)
-            if ep.size == 0:
-                rval = sp.zeros(size)
-            else:
-                rval = extract_spikes(self._data, ep, mc=mc)
-                if exclude_overlaps is True:
-                    ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
-                    rval = rval[ovlp_info[u] == False]
-
-        return rval
+            spks, st = get_aligned_spikes(
+                self._data,
+                st_dict[u],
+                align_at=align_at,
+                tf=self._tf,
+                mc=mc,
+                kind=align_kind,
+                rsf=align_rsf)
+            if exclude_overlaps is True:
+                ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
+                spks = spks[ovlp_info[u] == False]
+            return spks
 
 
     ## plotting methods
@@ -820,48 +820,58 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :keyword learn_templates: if non-negative integer, adapt the filters
             with the found events aligned at that sample. If negative,
             calculate the alignment samples as int(.25*self.tf)
+
             Default=-1
         :type learn_noise: str or None
         :keyword learn_noise: if not None, adapt the noise covariance matrix
             with from the noise epochs. This has to be either 'sort' to
             learn from the non overlapping sorting events,
             or 'det' to lean from the detection. Else, do not learn the noise.
+
             Default='sort'
         :type det_cls: ThresholdDetectorNode
         :keyword det_cls: the class of detector node to use for the spike
             detection running in parallel to the sorting,
             this must be a subclass of 'ThresholdDetectorNode'.
+
             Default=MTEO_DET
         :type det_limit: int
         :keyword det_limit: capacity of the ringbuffer to hold the unexplained
             spikes.
+
             Default=2000
         :type det_forget: int
         :keyword det_forget: Unexplained spikes that are older than this
             amount of samples will be forgotten. A reclustering to find
             new nodes will be started if ``det_limit`` unexplained spikes
             are found during ``det_forget`` samples.
+
             Default=1000000
         :type det_num_reclus: int or list
         :type det_num_reclus: Number of clusters that will be used in a
             reclustering of unexplained spikes.
+
             Default: 20
         :type clus_min_size: int
         :keyword clus_min_size: Minimum number of spikes in a cluster of
             unexplained spikes for a new unit to be created from that cluster
             during reclustering.
+
             Default=50
         :type clus_use_amplitudes: bool
         :keyword clus_use_amplitudes: Determines if amplitudes (max-min) for
             each channel are used in addition to PCA features for clustering.
+
             Default=True
         :type clus_pca_features: int
         :keyword clus_pca_features: The number of PCA features to use during
             clustering.
+
             Default=10
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
+
             Default=MTEO_KWARGS
         """
 
@@ -978,6 +988,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self.det.reset()
         self.det(self._chunk, bound_low=self._chunk_offset,
                  bound_hgh=self._chunk_offset + len(self._chunk))
+        if self.det.events is None:
+            return
         spks = self.det.get_extracted_events(
             mc=False, kind='min',
             align_at=self._learn_templates,
@@ -1073,7 +1085,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # adapt filters with found waveforms
         for u in self.rval:
-            spks_u = self.spikes_u(u, mc=True, exclude_overlaps=True)
+            spks_u = self.spikes_u(u, mc=True, exclude_overlaps=True,
+                                   align_at=self._learn_templates or -1,
+                                   align_kind='min',
+                                   align_rsf=self._learn_templates_rsf)
             if spks_u.size == 0:
                 continue
             self.bank[u].extend_xi_buf(spks_u)
