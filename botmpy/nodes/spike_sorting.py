@@ -77,7 +77,8 @@ from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
     shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
-    mcvec_from_conc, extract_spikes, get_aligned_spikes, vec2ten)
+    mcvec_from_conc, extract_spikes, get_aligned_spikes, vec2ten,
+    get_tau_for_alignment)
 
 ##---CONSTANTS
 
@@ -1118,7 +1119,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             debug=self.verbose.has_print,
             sigma_factor=sigma_factor,
             crange=range(1, self._num_iniclus + 1),
-            max_iter=256, repeats=10)
+            max_iter=256, repeats=4)
 
         # create features
         if self._use_amplitudes:
@@ -1164,16 +1165,16 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     print ('Could not realign %s, distance: %d ' %
                            (u.name, tau))
                     tau = 0
-                means[u] = means[u][max_dist + tau:l - max_dist + tau,:]
+                means[u] = means[u][max_dist + tau:l - max_dist + tau, :]
 
         for u in means.iterkeys():
             means[u] = mcvec_to_conc(means[u])
 
         # Calculate distance between all resampled mean pairs
-        dist = {u:{} for u in means.keys()}
+        dist = {u: {} for u in means.keys()}
         for i1, u1 in enumerate(means.keys()):
             for i2, u2 in enumerate(means.keys()):
-                if u1>=u2:
+                if u1 >= u2:
                     continue
 
                 d = sp.spatial.distance.cdist(
