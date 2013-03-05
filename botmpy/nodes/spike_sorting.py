@@ -58,12 +58,13 @@ __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
 
 ##---IMPORTS
 
+import collections
 import copy
+import logging
+import sys
+
 import scipy as sp
 from scipy import linalg as sp_la
-import warnings
-import sys
-import collections
 
 from sklearn.mixture import log_multivariate_normal_density
 from sklearn.utils.extmath import logsumexp
@@ -298,7 +299,7 @@ class FilterBankSortingNode(FilterBankNode):
         # check
         if self._data is None or self.rval is None or len(
             self._idx_active_set) == 0:
-            warnings.warn('not initialised properly to plot a sorting!')
+            logging.warn('not initialised properly to plot a sorting!')
             return None
 
         # create events
@@ -344,7 +345,7 @@ class FilterBankSortingNode(FilterBankNode):
         # check
         if self._data is None or self.rval is None or len(
             self._idx_active_set) == 0:
-            warnings.warn('not initialised properly to plot a sorting!')
+            logging.warn('not initialised properly to plot a sorting!')
             return None
 
         # inits
@@ -597,7 +598,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     # warn on spike overflow
                     niter += 1
                     if niter > self.nf:
-                        warnings.warn(
+                        logging.warn(
                             'more spikes than filters found! '
                             'epoch: [%d:%d] %d' % (
                                 spk_ep[i][0] + self._chunk_offset,
@@ -987,8 +988,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         """check the spike sorting against multi unit"""
 
         self.det.reset()
-        self.det(self._chunk, bound_low=self._chunk_offset,
-                 bound_hgh=self._chunk_offset + len(self._chunk))
+        self.det(self._chunk, ck0=self._chunk_offset,
+                 ck1=self._chunk_offset + len(self._chunk))
         if self.det.events is None:
             return
         spks = self.det.get_extracted_events(
@@ -997,10 +998,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             rsf=self._learn_templates_rsf)
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
+        ne_spks = (spks_explained == False).sum()
         if self.verbose.has_print:
-            print '_post_sort, spks_not_explained:', (
-                spks_explained == False).sum()
-        if len(spks[spks_explained == False]) > 0:
+            print '_post_sort, spks_explained:', ne_spks
+        if ne_spks > 0:
             self._det_buf.extend(spks[spks_explained == False])
             self._det_samples.extend(self._sample_offset +
                                      self.det.events[spks_explained == False])
@@ -1026,7 +1027,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             # 1) snr drop below 0.5
             if self.bank[u].snr < 0.2:
                 self.deactivate(u)
-                warnings.warn('deactivating filter %s, snr' % str(u))
+                logging.warn('deactivating filter %s, snr' % str(u))
 
             # 2) rate drop below 0.1
             if hasattr(self.bank[u], 'rate'):
@@ -1038,11 +1039,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 if self.bank[u].rate.filled and\
                    self.bank[u].rate.estimate() < 0.1:
                     self.deactivate(u)
-                    warnings.warn('deactivating filter %s, rate' % str(u))
+                    logging.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
 
     def _adapt_filter_new(self):
-        #warnings.warn(len(self._det_samples))
+        #logging.warn(len(self._det_samples))
         #forget = self._sample_offset - self._forget_samples
         index = 0
         #print >> sys.stderr, 'Current:', self._sample_offset, '- First:',
@@ -1053,7 +1054,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 break
         print >> sys.stderr, 'Full:', self._det_buf.is_full, '- Index:', index
         if self._det_buf.is_full and (self._cluster == self._cluster_init or
-           self._det_samples[0] > self._sample_offset - self._forget_samples):
+                                      self._det_samples[
+                                      0] > self._sample_offset - self
+                                      ._forget_samples):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
@@ -1105,7 +1108,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples.clear()
 
         # processing chain
-        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=self._pca_features)
+        pre_pro = PrewhiteningNode2(self._ce) +\
+                  PCANode(output_dim=self._pca_features)
         """clus_type='kmeans',
         crange=range(1, 16), repeats=4,
                    sigma_factor=4.0, max_iter=None, conv_thresh=None,

@@ -53,8 +53,8 @@ __all__ = ['FilterBankError', 'FilterBankNode']
 
 ##---IMPORTS
 
+import logging
 import scipy as sp
-import warnings
 from .base_nodes import Node
 from .linear_filter import FilterNode, REMF
 from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
@@ -297,7 +297,7 @@ class FilterBankNode(Node):
             if check is True:
                 self._check_internals()
         else:
-            warnings.warn('no idx=%s in filter bank!' % idx)
+            logging.warn('no idx=%s in filter bank!' % idx)
 
     def activate(self, idx, check=False):
         """activates a filter in the filter bank
@@ -315,7 +315,7 @@ class FilterBankNode(Node):
             if check is True:
                 self._check_internals()
         else:
-            warnings.warn('no idx=%s in filter bank!' % idx)
+            logging.warn('no idx=%s in filter bank!' % idx)
 
     def _check_internals(self):
         """triggers filter recalculation and rebuild xcorr tensor"""
@@ -365,7 +365,7 @@ class FilterBankNode(Node):
 
         # check
         if self.nf == 0:
-            warnings.warn('skipping plot, no active units!')
+            logging.warn('skipping plot, no active units!')
             return None
 
         # init
@@ -385,7 +385,7 @@ class FilterBankNode(Node):
 
         # checks
         if self.nf == 0:
-            warnings.warn('skipping plot, no active units!')
+            logging.warn('skipping plot, no active units!')
             return None
 
         # init
@@ -412,7 +412,7 @@ class FilterBankNode(Node):
 
         # checks
         if self.nf == 0:
-            warnings.warn('skipping plot, no active units!')
+            logging.warn('skipping plot, no active units!')
             return None
 
         # init
@@ -442,7 +442,7 @@ class FilterBankNode(Node):
 
         # checks
         if self.nf == 0:
-            warnings.warn('skipping plot, no active units!')
+            logging.warn('skipping plot, no active units!')
             return None
 
         # init

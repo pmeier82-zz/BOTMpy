@@ -180,9 +180,10 @@ class ThresholdDetectorNode(ResetNode):
         self.threshold = None
         self.size = None
         self.nchan = None
-        self.events = None
         self.extracted_events = None
         self.ch_sep = bool(ch_separate)
+        # properties handles
+        self._events = None
 
         # energy function
         if energy_func is not None:
@@ -191,6 +192,22 @@ class ThresholdDetectorNode(ResetNode):
         # threshold function
         if threshold_func is not None:
             self._threshold_func = threshold_func
+
+    ## properties
+
+    def _get_events(self):
+        return self._events
+
+    def get_events(self):
+        return  self._get_events()
+
+    def _set_events(self, value):
+        self._events = value
+
+    def set_events(self, value):
+        self._set_events(value)
+
+    events = property(get_events, set_events)
 
     ## node implementations
 
