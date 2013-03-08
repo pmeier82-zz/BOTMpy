@@ -45,12 +45,17 @@
 """constants for the common package"""
 __docformat__ = 'restructuredtext'
 __all__ = ['INDEX_DTYPE', 'SI8MAX', 'SI16MAX', 'SI32MAX', 'SI64MAX', 'UI8MAX',
-           'UI16MAX', 'UI32MAX', 'UI64MAX', 'deprecated', 'VERBOSE']
+           'UI16MAX', 'UI32MAX', 'UI64MAX', 'deprecated', 'VERBOSE', 'log']
 
 ##---IMPORTS
 
-import warnings
+import logging
 import scipy as sp
+
+##---PACKAGE-LOGGING
+
+logging.basicConfig(level=logging.DEBUG, format='')
+log = logging.getLogger('BOTMpy')
 
 ##---CONSTANTS
 
@@ -103,10 +108,10 @@ def deprecated(replacement=None):
 
     def outer(oldfun):
         def inner(*args, **kwargs):
-            msg = "%s is deprecated" % oldfun.__name__
+            msg = '%s is deprecated' % oldfun.__name__
             if replacement is not None:
-                msg += "; use %s instead" % (replacement.__name__)
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+                msg += '; use %s instead' % (replacement.__name__)
+            logging.warning(msg, DeprecationWarning, stacklevel=2)
             if replacement is not None:
                 return replacement(*args, **kwargs)
             else:

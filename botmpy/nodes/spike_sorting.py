@@ -103,15 +103,14 @@ class FilterBankSortingNode(FilterBankNode):
 
     def __init__(self, **kwargs):
         """
-        :type templates: ndarray
-        :keyword templates: templates to initialise the filter stack.
-            [ntemps][tf][nc] a tensor of templates
-            Required
         :type ce: TimeSeriesCovE
         :keyword ce: covariance estimator instance, if None a new instance
             will be created and initialised with the identity matrix
             corresponding to the template size.
             Required
+        :type templates: ndarray
+        :keyword templates: templates to initialise the filter stack.
+            [ntemps][tf][nc] a tensor of templates
         :type chan_set: tuple
         :keyword chan_set: tuple of int designating the subset of channels
             this filter bank operates on.
@@ -262,22 +261,19 @@ class FilterBankSortingNode(FilterBankNode):
         st_dict = copy.deepcopy(self.rval)
 
         # extract spikes
-        if u not in self.rval:
-            return sp.zeros(size)
-        else:
-            spks, st = get_aligned_spikes(
-                self._data,
-                st_dict[u],
-                align_at=align_at,
-                tf=self._tf,
-                mc=mc,
-                kind=align_kind,
-                rsf=align_rsf)
-            if exclude_overlaps is True:
+        spks, st_dict[u] = get_aligned_spikes(
+            self._data,
+            st_dict[u],
+            align_at=align_at,
+            tf=self._tf,
+            mc=mc,
+            kind=align_kind,
+            rsf=align_rsf)
+        if exclude_overlaps is True:
+            if st_dict[u].size > 0:
                 ovlp_info = overlaps(st_dict, overlap_window or self._tf)[0]
                 spks = spks[ovlp_info[u] == False]
-            return spks
-
+        return spks
 
     ## plotting methods
 
@@ -327,7 +323,7 @@ class FilterBankSortingNode(FilterBankNode):
         return mcdata(self._data, other=other, events=ev,
                       plot_handle=ph, colours=cols, show=show)
 
-    def plot_sorting_waveforms(self, ph=None, show=False):
+    def plot_sorting_waveforms(self, ph=None, show=False, **kwargs):
         """plot the waveforms of the sorting of the last data chunk
 
         :type ph: plot handle
@@ -348,23 +344,22 @@ class FilterBankSortingNode(FilterBankNode):
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
-        # inits
+        # init
         wf = {}
         temps = {}
-        #if self._data is None or self.rval is None:
-        #    return
         cut = get_cut(self._tf)
 
-
-        # adapt filters with found waveforms
-        nunits = 0
+        # build waveforms
         for u in self.rval:
-            spks_u = self.spikes_u(u, mc=False)
+            spks_u = self.spikes_u(
+                u, exclude_overlaps=False, align_kind='min',
+                align_at=getattr(self, '_learn_templates', -1),
+                align_rsf=getattr(self, '_learn_templates_rsf', 1.))
+            temps[u] = self.bank[u].xi_conc
             if spks_u.size > 0:
                 wf[u] = self.spikes_u(u)
-                temps[u] = self.bank[u].xi_conc
-                nunits += 1
-        print 'waveforms for units:', nunits
+            else:
+                wf[u] = temps[u]
 
         """
         waveforms(waveforms, samples_per_second=None, tf=None, plot_mean=False,
@@ -1000,7 +995,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             [self._event_explained(e) for e in self.det.events])
         ne_spks = (spks_explained == False).sum()
         if self.verbose.has_print:
-            print '_post_sort, spks_explained:', ne_spks
+            print '_post_sort, spks not explained:', ne_spks
         if ne_spks > 0:
             self._det_buf.extend(spks[spks_explained == False])
             self._det_samples.extend(self._sample_offset +

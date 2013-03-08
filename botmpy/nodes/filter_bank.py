@@ -43,6 +43,7 @@
 #
 
 """implementation of a filter bank consisting of a set of filters"""
+
 from Queue import Queue
 import ctypes as ctypes
 import platform
