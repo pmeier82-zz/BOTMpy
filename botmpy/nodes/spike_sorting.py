@@ -1052,7 +1052,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             if v > self._sample_offset - self._forget_samples:
                 index = i
                 break
-        print >> sys.stderr, 'Full:', self._det_buf.is_full, '- Index:', index
+
+        if self.verbose.has_print:
+            print 'det_buf - Full:', self._det_buf.is_full, '- Index:', index
+
         if self._det_buf.is_full and (self._cluster == self._cluster_init or
                                       self._det_samples[
                                       0] > self._sample_offset - self
