@@ -1068,11 +1068,16 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             if self._learn_noise == 'sort':
                 if len(self.rval) > 0:
                     nep = epochs_from_spiketrain_set(
-                        self.rval, cut=self._tf,
+                        self.rval,
+                        cut=(self._learn_templates,
+                             self._tf - self._learn_templates),
                         end=self._data.shape[0])['noise']
             elif self._learn_noise == 'det':
                 if len(self.det.events) > 0:
-                    nep = self.det.get_epochs(merge=True, invert=True)
+                    nep = self.det.get_epochs(
+                        cut=(self._learn_templates,
+                             self._tf - self._learn_templates),
+                        merge=True, invert=True)
             else:
                 raise ValueError('unrecognised value for learn_noise: %s' % str(
                     self._learn_noise))
