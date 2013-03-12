@@ -892,9 +892,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._pca_features = kwargs.pop('clus_pca_features', 10)
 
         # check det_cls
-        if not issubclass(det_cls, ThresholdDetectorNode):
-            raise TypeError(
-                '\'det_cls\' of type ThresholdDetectorNode is required!')
+        #if not issubclass(det_cls, ThresholdDetectorNode):
+        #    raise TypeError(
+        #        '\'det_cls\' of type ThresholdDetectorNode is required!')
         if learn_noise is not None:
             if learn_noise not in ['det', 'sort']:
                 learn_noise = None
@@ -959,7 +959,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                   ev - self._learn_templates + self.tf
         disc_ep = data_ep[0] + self._tf / 2,\
                   data_ep[1] + self._tf / 2
-        if self.verbose.has_plot:
+        #if self.verbose.has_plot:
+        if self.se_cnt < 10:
             try:
                 from spikeplot import mcdata
 
@@ -976,6 +977,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     show=True)
             except ImportError:
                 pass
+            self.se_cnt += 1
         return self._disc[disc_ep[0] - padding:disc_ep[1] + padding,
                :].max() >= 0.0
 
@@ -987,19 +989,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                  ck1=self._chunk_offset + len(self._chunk))
         if self.det.events is None:
             return
-        spks = self.det.get_extracted_events(
-            mc=False, kind='min',
-            align_at=self._learn_templates,
-            rsf=self._learn_templates_rsf)
+        self.se_cnt = 0
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
-        ne_spks = (spks_explained == False).sum()
         if self.verbose.has_print:
-            print '_post_sort, spks not explained:', ne_spks
-        if ne_spks > 0:
-            self._det_buf.extend(spks[spks_explained == False])
-            self._det_samples.extend(self._sample_offset +
-                                     self.det.events[spks_explained == False])
+            print 'spks not explained:', (spks_explained == False).sum()
+        if (spks_explained == False).sum() > 0:
+            spks, st = get_aligned_spikes(
+                self._chunk, self.det.events[spks_explained == False],
+                tf=self._tf, mc=False, kind='min',
+                align_at=self._learn_templates, rsf=self._learn_templates_rsf)
+            self._det_buf.extend(spks)
+            self._det_samples.extend(self._sample_offset + st)
 
     def _execute(self, x):
         # call super to get sorting
@@ -1075,6 +1076,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             elif self._learn_noise == 'det':
                 if len(self.det.events) > 0:
                     nep = self.det.get_epochs(
+                        ## this must not be the correct cut for the
+                        ## detection events! best would be to do an
+                        # alignment here!
                         cut=(self._learn_templates,
                              self._tf - self._learn_templates),
                         merge=True, invert=True)
