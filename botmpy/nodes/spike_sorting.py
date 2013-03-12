@@ -890,6 +890,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._num_iniclus = kwargs.pop('clus_num_init_clus', 14)
         self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
         self._pca_features = kwargs.pop('clus_pca_features', 10)
+        self._cluster_algo = kwargs.pop('clus_algo', 'gmm')
 
         # check det_cls
         if not issubclass(det_cls, ThresholdDetectorNode):
@@ -991,6 +992,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             mc=False, kind='min',
             align_at=self._learn_templates,
             rsf=self._learn_templates_rsf)
+
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
         ne_spks = (spks_explained == False).sum()
@@ -1121,7 +1123,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         """
         sigma_factor = 4.0
         clus = HomoscedasticClusteringNode(
-            clus_type='gmm',
+            clus_type=self._cluster_algo,
             cvtype='full',
             debug=self.verbose.has_print,
             sigma_factor=sigma_factor,
@@ -1146,6 +1148,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         # cluster
         clus(spks_pp)
         lbls = clus.labels
+
+        print lbls
 
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)
