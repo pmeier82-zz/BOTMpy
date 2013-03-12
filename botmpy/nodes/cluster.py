@@ -430,7 +430,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
             model.fit(x)
             self._labels[r] = model.predict(x)
             self._parameters[r] = model.means_
-            #self._ll[r] = model.score(x).sum()
+            self._ll[r] = model.score(x).sum()
 
             # evaluate goodness of fit for this run
             #self._gof[r] = self.gof(x, self._ll[r], k)

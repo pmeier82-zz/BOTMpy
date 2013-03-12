@@ -865,6 +865,14 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             clustering.
 
             Default=10
+
+        :type clus_algo: str
+        :keyword clus_algo: Name of the clustering algorithm to use.
+            Allowed are all names HomoscedasticClusteringNode can use,
+            e.g. 'gmm' or 'meanshift'.
+
+            Default='gmm'
+
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
