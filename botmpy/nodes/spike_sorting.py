@@ -865,6 +865,14 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             clustering.
 
             Default=10
+
+        :type clus_algo: str
+        :keyword clus_algo: Name of the clustering algorithm to use.
+            Allowed are all names HomoscedasticClusteringNode can use,
+            e.g. 'gmm' or 'meanshift'.
+
+            Default='gmm'
+
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -890,6 +898,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._num_iniclus = kwargs.pop('clus_num_init_clus', 14)
         self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
         self._pca_features = kwargs.pop('clus_pca_features', 10)
+        self._cluster_algo = kwargs.pop('clus_algo', 'gmm')
 
         # check det_cls
         #if not issubclass(det_cls, ThresholdDetectorNode):
@@ -959,8 +968,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                   ev - self._learn_templates + self.tf
         disc_ep = data_ep[0] + self._tf / 2,\
                   data_ep[1] + self._tf / 2
-        #if self.verbose.has_plot:
-        if self.se_cnt < 10:
+        if self.verbose.has_plot:
             try:
                 from spikeplot import mcdata
 
@@ -978,7 +986,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             except ImportError:
                 pass
             self.se_cnt += 1
-        return self._disc[disc_ep[0] - padding:disc_ep[1] + padding,
+
+        start = max(0, disc_ep[0] - padding)
+        stop = min(self._disc.shape[0], disc_ep[1] + padding)
+        return self._disc[start:stop,
                :].max() >= 0.0
 
     def _post_sort(self):
@@ -989,7 +1000,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                  ck1=self._chunk_offset + len(self._chunk))
         if self.det.events is None:
             return
-        self.se_cnt = 0
+
         spks_explained = sp.array(
             [self._event_explained(e) for e in self.det.events])
         if self.verbose.has_print:
@@ -1125,7 +1136,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         """
         sigma_factor = 4.0
         clus = HomoscedasticClusteringNode(
-            clus_type='gmm',
+            clus_type=self._cluster_algo,
             cvtype='full',
             debug=self.verbose.has_print,
             sigma_factor=sigma_factor,
@@ -1150,6 +1161,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         # cluster
         clus(spks_pp)
         lbls = clus.labels
+
+        print lbls
 
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)
