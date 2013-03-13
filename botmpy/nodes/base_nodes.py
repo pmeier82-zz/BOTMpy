@@ -53,12 +53,12 @@ __all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'PCANode']
 
 import os
 
-os.environ['MDP_DISABLE_PARALLEL_PYTHON'] = True
-os.environ['MDP_DISABLE_MONKEYPATCH_PP'] = True
-os.environ['MDP_DISABLE_SHOGUN'] = True
-os.environ['MDP_DISABLE_LIBSVM'] = True
-os.environ['MDP_DISABLE_JOBLIB'] = True
-os.environ['MDP_DISABLE_SKLEARN'] = True
+os.environ['MDP_DISABLE_PARALLEL_PYTHON'] = 'True'
+os.environ['MDP_DISABLE_MONKEYPATCH_PP'] = 'True'
+os.environ['MDP_DISABLE_SHOGUN'] = 'True'
+os.environ['MDP_DISABLE_LIBSVM'] = 'True'
+os.environ['MDP_DISABLE_JOBLIB'] = 'True'
+os.environ['MDP_DISABLE_SKLEARN'] = 'True'
 
 # MPD DONE
 
