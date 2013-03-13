@@ -986,7 +986,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             except ImportError:
                 pass
             self.se_cnt += 1
-        return self._disc[disc_ep[0] - padding:disc_ep[1] + padding,
+
+        start = max(0, disc_ep[0] - padding)
+        stop = min(self._disc.shape[0], disc_ep[1] + padding)
+        return self._disc[start:stop,
                :].max() >= 0.0
 
     def _post_sort(self):
