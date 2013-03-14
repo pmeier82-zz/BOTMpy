@@ -1050,11 +1050,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._check_internals()
 
     def _adapt_filter_new(self):
-        #logging.warn(len(self._det_samples))
-        #forget = self._sample_offset - self._forget_samples
         index = 0
-        #print >> sys.stderr, 'Current:', self._sample_offset, '- First:',
-        # self._det_samples[0], '-Forget:', forget
         for i, v in enumerate(self._det_samples):
             if v > self._sample_offset - self._forget_samples:
                 index = i
@@ -1096,7 +1092,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             else:
                 raise ValueError('unrecognised value for learn_noise: %s' % str(
                     self._learn_noise))
-            self._ce.update(self._data, epochs=nep)
+
+            try:
+                self._ce.update(self._data, epochs=nep)
+            except ValueError, e:
+                logging.warn(str(e))
 
     def _adapt_filter_current(self):
         """adapt templates/filters using non overlapping spikes"""
@@ -1161,8 +1161,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         # cluster
         clus(spks_pp)
         lbls = clus.labels
-
-        print lbls
 
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)

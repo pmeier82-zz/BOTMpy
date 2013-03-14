@@ -434,8 +434,7 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
             epochs = sp.asarray(epochs)
         len_epoch = epochs[:, 1] - epochs[:, 0]
         if not any(len_epoch >= min_len):
-            #raise ValueError('no epochs with len >= min_len!')
-            return 0
+            raise ValueError('no epochs with len >= min_len!')
         epochs = epochs[len_epoch > min_len]
         n_epoch = epochs.shape[0]
         len_epoch = epochs[:, 1] - epochs[:, 0]
