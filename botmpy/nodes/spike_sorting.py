@@ -251,7 +251,6 @@ class FilterBankSortingNode(FilterBankNode):
             if None set overlap_window=self._tf.
             Default=None
         """
-
         # init
         cut = get_cut(self._tf)
         rval = None
@@ -844,11 +843,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             are found during ``det_forget`` samples.
 
             Default=1000000
-        :type det_num_reclus: int or list
-        :type det_num_reclus: Number of clusters that will be used in a
+        :type clus_num_reclus: int or list
+        :type clus_num_reclus: Number of clusters that will be used in a
             reclustering of unexplained spikes.
 
-            Default: 20
+            Default: 4
         :type clus_min_size: int
         :keyword clus_min_size: Minimum number of spikes in a cluster of
             unexplained spikes for a new unit to be created from that cluster
@@ -873,6 +872,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
             Default='gmm'
 
+        :type clus_params: dict
+        :keyword clus_params: Dictionary of parameters for chosen algorithm.
+            Contents depend on clustering algorithm:
+
+            * 'gmm'
+              * 'min_clusters' Minimum number of clusters to try.
+                Default=1
+              * 'max_clusters' Maximum number of clusters to try.
+                Default=14
+            * 'mean_shift'
+              * Empty.
+
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -895,10 +906,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._forget_samples = kwargs.pop('det_forget', 4000000)
         self._min_new_cluster_size = kwargs.pop('clus_min_size', 30)
         self._num_reclus = kwargs.pop('clus_num_reclus', 4)
-        self._num_iniclus = kwargs.pop('clus_num_init_clus', 14)
         self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
         self._pca_features = kwargs.pop('clus_pca_features', 10)
         self._cluster_algo = kwargs.pop('clus_algo', 'gmm')
+        self._cluster_params = kwargs.pop('clus_params', {})
 
         # check det_cls
         #if not issubclass(det_cls, ThresholdDetectorNode):
@@ -1128,20 +1139,17 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         # processing chain
         pre_pro = PrewhiteningNode2(self._ce) +\
                   PCANode(output_dim=self._pca_features)
-        """clus_type='kmeans',
-        crange=range(1, 16), repeats=4,
-                   sigma_factor=4.0, max_iter=None, conv_thresh=None,
-                   alpha=None,
-                   cvtype='tied', gof_type='bic', dtype=None, debug=False
-        """
         sigma_factor = 4.0
+        min_clusters = self._cluster_params.get('min_clusters', 1)
+        max_clusters = self._cluster_params.get('max_clusters', 14)
+        rep = 0 if self._cluster_algo == 'meanshift' else 4
         clus = HomoscedasticClusteringNode(
             clus_type=self._cluster_algo,
             cvtype='full',
             debug=self.verbose.has_print,
             sigma_factor=sigma_factor,
-            crange=range(1, self._num_iniclus + 1),
-            max_iter=256, repeats=4)
+            crange=range(min_clusters, max_clusters+1),
+            max_iter=256, repeats=rep)
 
         # create features
         if self._use_amplitudes:
