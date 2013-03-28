@@ -840,7 +840,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :keyword det_forget: Unexplained spikes that are older than this
             amount of samples will be forgotten. A reclustering to find
             new nodes will be started if ``det_limit`` unexplained spikes
-            are found during ``det_forget`` samples.
+            are found during ``det_forget`` samples. If this value is 0,
+            no reclustering will occur.
 
             Default=1000000
         :type clus_num_reclus: int or list
@@ -903,7 +904,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             det_kwargs = MTEO_KWARGS
         det_limit = kwargs.pop('det_limit', 4000)
 
-        self._forget_samples = kwargs.pop('det_forget', 4000000)
+        self._forget_samples = kwargs.pop('det_forget', 1000000)
         self._min_new_cluster_size = kwargs.pop('clus_min_size', 30)
         self._num_reclus = kwargs.pop('clus_num_reclus', 4)
         self._use_amplitudes = kwargs.pop('clus_use_amplitudes', True)
@@ -1061,19 +1062,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._check_internals()
 
     def _adapt_filter_new(self):
-        index = 0
-        for i, v in enumerate(self._det_samples):
-            if v > self._sample_offset - self._forget_samples:
-                index = i
-                break
-
-        if self.verbose.has_print:
-            print 'det_buf - Full:', self._det_buf.is_full, '- Index:', index
-
         if self._det_buf.is_full and (self._cluster == self._cluster_init or
-                                      self._det_samples[
-                                      0] > self._sample_offset - self
-                                      ._forget_samples):
+                                      (self._forget_samples > 0 and
+                                       self._det_samples[0] >
+                                       self._sample_offset - self._forget_samples)):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
