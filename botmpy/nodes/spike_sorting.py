@@ -167,8 +167,9 @@ class FilterBankSortingNode(FilterBankNode):
     ## SortingNode interface
 
     def _execute(self, x):
-        # init
-        self._data = x[:, self._chan_set]
+        # No channel masking for now
+        #self._data = x[:, self._chan_set]
+        self._data = x
         dlen = self._data.shape[0]
         self.rval.clear()
         for i in self._idx_active_set:
@@ -885,6 +886,12 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             * 'mean_shift'
               * Empty.
 
+        :type clus_merge_dist: float
+        :keyword clus_merge_dist: Maximum euclidean distance between two clusters
+            that will be merged. Set to 0 to turn off automatic cluster merging.
+
+            Default=0.0
+
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -911,6 +918,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._pca_features = kwargs.pop('clus_pca_features', 10)
         self._cluster_algo = kwargs.pop('clus_algo', 'gmm')
         self._cluster_params = kwargs.pop('clus_params', {})
+        self._merge_dist = kwargs.pop('clus_merge_dist', 0.0)
 
         # check det_cls
         #if not issubclass(det_cls, ThresholdDetectorNode):
@@ -1001,8 +1009,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         start = max(0, disc_ep[0] - padding)
         stop = min(self._disc.shape[0], disc_ep[1] + padding)
-        return self._disc[start:stop,
-               :].max() >= 0.0
+        return self._disc[start:stop, :].max() >= 0.0
 
     def _post_sort(self):
         """check the spike sorting against multi unit"""
@@ -1184,8 +1191,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 max_dist = 2 * rsf
                 l = means[u].shape[0]
                 if abs(tau) > max_dist:
-                    print ('Could not realign %s, distance: %d ' %
-                           (u.name, tau))
+                    logging.warn(('Could not realign %s, distance: %d ' %
+                                 (u.name, tau)))
                     tau = 0
                 means[u] = means[u][max_dist + tau:l - max_dist + tau, :]
 
@@ -1203,32 +1210,32 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     sp.atleast_2d(means[u1]), sp.atleast_2d(means[u2]),
                     'euclidean')
                 dist[i1][i2] = d
-                #dist[i2][i1] = d
 
         for i in sp.unique(lbls):
             if self.verbose.has_print:
                 print 'checking new unit:',
             spks_i = spks[lbls == i]
 
+            merged = False
             if len(spks_i) < self._min_new_cluster_size:
                 self._det_buf.extend(spks_i)
                 if self.verbose.has_print:
                     print '%d rejected, only %d spikes' % (i, len(spks_i))
-            else:
-                merged = False
+            elif self._merge_dist > 0.0:
                 for inner in sp.unique(lbls):
                     if i >= inner:
                         continue
-                    if dist[i][inner] <= 100.0:
+                    if dist[i][inner] <= self._merge_dist:
                         lbls[lbls == i] = inner
                         merged = True
-                        print 'Merged', i, 'and', inner, '-', dist[i][inner]
+                        if self.verbose.has_print:
+                            print 'Merged', i, 'and', inner, '-', dist[i][inner]
                         break
-                if not merged:
-                    spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-                    self.create_filter(spk_i)
-                    if self.verbose.has_print:
-                        print '%d accepted, with %d spikes' % (i, len(spks_i))
+            if not merged:
+                spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+                self.create_filter(spk_i)
+                if self.verbose.has_print:
+                    print '%d accepted, with %d spikes' % (i, len(spks_i))
         del pre_pro, clus, spks, spks_pp
         self._cluster = self._cluster_base
 
