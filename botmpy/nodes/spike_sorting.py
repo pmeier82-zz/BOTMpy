@@ -79,7 +79,7 @@ from ..common import (
     shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
     mcvec_from_conc, extract_spikes, get_aligned_spikes, vec2ten,
-    get_tau_for_alignment)
+    get_tau_align_min, get_tau_align_max, get_tau_align_energy)
 
 ##---CONSTANTS
 
@@ -111,6 +111,15 @@ class FilterBankSortingNode(FilterBankNode):
         :type templates: ndarray
         :keyword templates: templates to initialise the filter stack.
             [ntemps][tf][nc] a tensor of templates
+        :type align_kind: str
+        :keyword align_kind: The feature used for alignment. One of:
+
+        - "max"    - align on maximum of the waveform
+        - "min"    - align on minimum of the waveform
+        - "energy" - align on peak of energy
+        - "none"   - no alignment
+
+        Default='min'
         :type chan_set: tuple
         :keyword chan_set: tuple of int designating the subset of channels
             this filter bank operates on.
@@ -139,6 +148,7 @@ class FilterBankSortingNode(FilterBankNode):
         # kwargs
         templates = kwargs.pop('templates', None)
         tf = kwargs.get('tf', None)
+        self._align_kind = kwargs.pop('align_kind', 'min')
         if tf is None and templates is None:
             raise FilterBankError('\'templates\' or \'tf\' are required!')
         if tf is None:
@@ -352,12 +362,12 @@ class FilterBankSortingNode(FilterBankNode):
         # build waveforms
         for u in self.rval:
             spks_u = self.spikes_u(
-                u, exclude_overlaps=False, align_kind='min',
+                u, exclude_overlaps=False, align_kind=self._align_kind,
                 align_at=getattr(self, '_learn_templates', -1),
                 align_rsf=getattr(self, '_learn_templates_rsf', 1.))
             temps[u] = self.bank[u].xi_conc
             if spks_u.size > 0:
-                wf[u] = self.spikes_u(u)
+                wf[u] = self.spikes_u(u, align_kind=self._align_kind)
             else:
                 wf[u] = temps[u]
 
@@ -886,6 +896,12 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             * 'mean_shift'
               * Empty.
 
+        :type clus_merge_rsf: int
+        :keyword clus_params: Resampling factor used for realignment before checking
+            if clusters should be merged.
+
+            Default=16
+
         :type clus_merge_dist: float
         :keyword clus_merge_dist: Maximum euclidean distance between two clusters
             that will be merged. Set to 0 to turn off automatic cluster merging.
@@ -919,6 +935,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._cluster_algo = kwargs.pop('clus_algo', 'gmm')
         self._cluster_params = kwargs.pop('clus_params', {})
         self._merge_dist = kwargs.pop('clus_merge_dist', 0.0)
+        self._merge_rsf = kwargs.pop('clus_merge_rsf', 16)
 
         # check det_cls
         #if not issubclass(det_cls, ThresholdDetectorNode):
@@ -1027,7 +1044,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         if (spks_explained == False).sum() > 0:
             spks, st = get_aligned_spikes(
                 self._chunk, self.det.events[spks_explained == False],
-                tf=self._tf, mc=False, kind='min',
+                tf=self._tf, mc=False, kind=self._align_kind,
                 align_at=self._learn_templates, rsf=self._learn_templates_rsf)
             self._det_buf.extend(spks)
             self._det_samples.extend(self._sample_offset + st)
@@ -1119,7 +1136,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         for u in self.rval:
             spks_u = self.spikes_u(u, mc=True, exclude_overlaps=True,
                                    align_at=self._learn_templates or -1,
-                                   align_kind='min',
+                                   align_kind=self._align_kind,
                                    align_rsf=self._learn_templates_rsf)
             if spks_u.size == 0:
                 continue
@@ -1178,21 +1195,29 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             spks_i = spks[lbls == i]
             means[i] = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
 
-        rsf = 16
-        if rsf != 1:
+        if self._merge_rsf != 1:
             for u in means.iterkeys():
                 means[u] = sp.signal.resample(
-                    means[u], rsf * means[u].shape[0])
+                    means[u], self._merge_rsf * means[u].shape[0])
 
-                tau = get_tau_for_alignment(
-                    -sp.array([means[u]]), self._learn_templates * rsf)
+                if self._align_kind == 'min':
+                    tau = get_tau_align_min(
+                        sp.array([means[u]]), self._learn_templates * self._merge_rsf)
+                elif self._align_kind == 'max':
+                    tau = get_tau_align_max(
+                        sp.array([means[u]]), self._learn_templates * self._merge_rsf)
+                elif self._align_kind == 'energy':
+                    tau = get_tau_align_energy(
+                        sp.array([means[u]]), self._learn_templates * self._merge_rsf)
+                else:
+                    tau = 0
 
                 # Realignment shouldn't need to be drastic
-                max_dist = 2 * rsf
+                max_dist = 2 * self._merge_rsf
                 l = means[u].shape[0]
                 if abs(tau) > max_dist:
-                    logging.warn(('Could not realign %s, distance: %d ' %
-                                 (u.name, tau)))
+                    logging.warn(('Could not realign %d, distance: %d ' %
+                                 (u, tau)))
                     tau = 0
                 means[u] = means[u][max_dist + tau:l - max_dist + tau, :]
 
