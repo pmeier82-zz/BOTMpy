@@ -161,6 +161,7 @@ class TestClusterNodes(ut.TestCase):
         self.assertGreaterEqual(correct, 0.9)
         # print 'classification error: %s%%' % ((1.0 - correct) * 100# .0)
         # print
+        cls.plot(self.data, show=True)
 
     """
 

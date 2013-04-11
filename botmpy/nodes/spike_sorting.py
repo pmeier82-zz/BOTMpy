@@ -168,7 +168,7 @@ class FilterBankSortingNode(FilterBankNode):
 
     def _execute(self, x):
         # init
-        self._data = x[:, self._chan_set]
+        self._data = x[:]
         dlen = self._data.shape[0]
         self.rval.clear()
         for i in self._idx_active_set:
@@ -1059,10 +1059,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         if self.verbose.has_print:
             print 'det_buf - Full:', self._det_buf.is_full, '- Index:', index
 
-        if self._det_buf.is_full and (self._cluster == self._cluster_init or
-                                      self._det_samples[
-                                      0] > self._sample_offset - self
-                                      ._forget_samples):
+        if self._det_buf.is_full and \
+           (self._cluster == self._cluster_init or \
+            self._det_samples[0] > self._sample_offset - self._forget_samples):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()

@@ -51,6 +51,8 @@ __all__ = ['sinc_interp1d', 'get_tau_for_alignment', 'get_tau_align_min',
 ##--- IMPORTS
 
 import scipy as sp
+from scipy.signal import resample
+
 from .util import INDEX_DTYPE
 from .funcs_spike import epochs_from_spiketrain, get_cut, extract_spikes
 
@@ -149,8 +151,6 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
 
     # resample?
     if rsf != 1.0:
-        from scipy.signal import resample
-
         data = resample(data, rsf * data.shape[0])
         tf *= rsf
         align_at *= rsf

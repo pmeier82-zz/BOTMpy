@@ -260,6 +260,7 @@ def matrix_argmin(mat):
     :param mat: input matrix
     :returns: tuple - (row,col) of the minimum value in :mat:
     """
+
     idx = sp.nanargmin(mat)
     j = int(idx % mat.shape[1])
     i = int(sp.floor(idx / mat.shape[1]))
