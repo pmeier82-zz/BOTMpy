@@ -78,8 +78,8 @@ from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
     shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
-    mcvec_from_conc, extract_spikes, get_aligned_spikes, vec2ten,
-    get_tau_align_min, get_tau_align_max, get_tau_align_energy)
+    mcvec_from_conc, get_aligned_spikes, vec2ten, get_tau_align_min,
+    get_tau_align_max, get_tau_align_energy)
 
 ##---CONSTANTS
 
@@ -148,6 +148,7 @@ class FilterBankSortingNode(FilterBankNode):
         # kwargs
         templates = kwargs.pop('templates', None)
         tf = kwargs.get('tf', None)
+        self._align_kind = kwargs.pop('align_kind', 'min')
         if tf is None and templates is None:
             raise FilterBankError('\'templates\' or \'tf\' are required!')
         if tf is None:
@@ -897,13 +898,15 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
               * Empty.
 
         :type clus_merge_rsf: int
-        :keyword clus_params: Resampling factor used for realignment before checking
+        :keyword clus_params: Resampling factor used for realignment before
+        checking
             if clusters should be merged.
 
             Default=16
 
         :type clus_merge_dist: float
-        :keyword clus_merge_dist: Maximum euclidean distance between two clusters
+        :keyword clus_merge_dist: Maximum euclidean distance between two
+        clusters
             that will be merged. Set to 0 to turn off automatic cluster merging.
 
             Default=0.0
@@ -936,6 +939,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._cluster_params = kwargs.pop('clus_params', {})
         self._merge_dist = kwargs.pop('clus_merge_dist', 0.0)
         self._merge_rsf = kwargs.pop('clus_merge_rsf', 16)
+        self._external_spike_train = None
 
         # check det_cls
         #if not issubclass(det_cls, ThresholdDetectorNode):
@@ -1031,25 +1035,32 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
     def _post_sort(self):
         """check the spike sorting against multi unit"""
 
-        self.det.reset()
-        self.det(self._chunk, ck0=self._chunk_offset,
-                 ck1=self._chunk_offset + len(self._chunk))
-        if self.det.events is None:
-            return
+        if self._external_spike_train is None:
+            self.det.reset()
+            self.det(self._chunk, ck0=self._chunk_offset,
+                     ck1=self._chunk_offset + len(self._chunk))
+            if self.det.events is None:
+                return
+            events = self.det.events
+        else:
+            events = self._external_spike_train[sp.logical_and(
+                self._external_spike_train >= self._chunk_offset,
+                self._external_spike_train < self._chunk_offset + len(
+                    self._chunk))]
 
-        spks_explained = sp.array(
-            [self._event_explained(e) for e in self.det.events])
+        events_explained = sp.array([self._event_explained(e) for e in events])
         if self.verbose.has_print:
-            print 'spks not explained:', (spks_explained == False).sum()
-        if (spks_explained == False).sum() > 0:
+            print 'spks not explained:', (events_explained == False).sum()
+        if (events_explained == False).sum() > 0:
             spks, st = get_aligned_spikes(
-                self._chunk, self.det.events[spks_explained == False],
+                self._chunk, events[events_explained == False],
                 tf=self._tf, mc=False, kind=self._align_kind,
                 align_at=self._learn_templates, rsf=self._learn_templates_rsf)
             self._det_buf.extend(spks)
             self._det_samples.extend(self._sample_offset + st)
 
-    def _execute(self, x):
+    def _execute(self, x, ex_st=None):
+        self._external_spike_train = ex_st
         # call super to get sorting
         rval = super(AdaptiveBayesOptimalTemplateMatchingNode, self)._execute(x)
         # adaption of noise covariance
@@ -1086,10 +1097,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._check_internals()
 
     def _adapt_filter_new(self):
-        if self._det_buf.is_full and (self._cluster == self._cluster_init or
-                                      (self._forget_samples > 0 and
-                                       self._det_samples[0] >
-                                       self._sample_offset - self._forget_samples)):
+        if self._det_buf.is_full and\
+           (self._cluster == self._cluster_init or
+            (self._forget_samples > 0 and
+             self._det_samples[
+             0] > self._sample_offset - self._forget_samples)):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
@@ -1108,7 +1120,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                              self._tf - self._learn_templates),
                         end=self._data.shape[0])['noise']
             elif self._learn_noise == 'det':
-                if len(self.det.events) > 0:
+                if self._external_spike_train is not None:
+                    nep = epochs_from_spiketrain_set(
+                        {666: self._external_spike_train},
+                        cut=(self._learn_templates,
+                             self._tf - self._learn_templates),
+                        end=self._data.shape[0])['noise']
+                elif len(self.det.events) > 0:
                     nep = self.det.get_epochs(
                         ## this must not be the correct cut for the
                         ## detection events! best would be to do an
@@ -1164,7 +1182,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             cvtype='full',
             debug=self.verbose.has_print,
             sigma_factor=sigma_factor,
-            crange=range(min_clusters, max_clusters+1),
+            crange=range(min_clusters, max_clusters + 1),
             max_iter=256, repeats=rep)
 
         # create features
@@ -1202,13 +1220,16 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
                 if self._align_kind == 'min':
                     tau = get_tau_align_min(
-                        sp.array([means[u]]), self._learn_templates * self._merge_rsf)
+                        sp.array([means[u]]),
+                        self._learn_templates * self._merge_rsf)
                 elif self._align_kind == 'max':
                     tau = get_tau_align_max(
-                        sp.array([means[u]]), self._learn_templates * self._merge_rsf)
+                        sp.array([means[u]]),
+                        self._learn_templates * self._merge_rsf)
                 elif self._align_kind == 'energy':
                     tau = get_tau_align_energy(
-                        sp.array([means[u]]), self._learn_templates * self._merge_rsf)
+                        sp.array([means[u]]),
+                        self._learn_templates * self._merge_rsf)
                 else:
                     tau = 0
 
@@ -1217,7 +1238,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 l = means[u].shape[0]
                 if abs(tau) > max_dist:
                     logging.warn(('Could not realign %d, distance: %d ' %
-                                 (u, tau)))
+                                  (u, tau)))
                     tau = 0
                 means[u] = means[u][max_dist + tau:l - max_dist + tau, :]
 
