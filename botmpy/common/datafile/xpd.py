@@ -293,7 +293,7 @@ class XpdFile(DataFile):
         item = kwargs.get('item', 1)
         chans = kwargs.get('chans', [0, 1, 2, 3])
 
-        # inits
+        # init
         my_chans = [item + chans[i] * 16 for i in xrange(len(chans))]
         nsample = 0
         for i in xrange(4):
