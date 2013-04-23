@@ -348,8 +348,6 @@ class XpdFile(DataFile):
         """
 
         # checks
-        if idx >= self.max_achan:
-            raise IndexError('not a valid channel: %s' % idx)
         if idx not in self.achan_header:
             raise IndexError('no data for this channel: %s' % idx)
 
