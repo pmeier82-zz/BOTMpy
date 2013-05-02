@@ -978,17 +978,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # for initialisation set correct self._cluster method
         self._cluster = self._cluster_init
+        
+        self._det_buf = MxRingBuffer(capacity=self._det_limit,
+                                         dimension=(self._tf * self._nc),
+                                         dtype=self.dtype)
+        # Saves (global) samples of unexplained spike events
+        self._det_samples = collections.deque(maxlen=self._det_limit)
 
     ## properties
 
     def get_det(self):
         if self._det is None:
             self._det = self._det_cls(tf=self._tf, **self._det_kwargs)
-            self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                                         dimension=(self._tf * self._nc),
-                                         dtype=self.dtype)
-            # Saves (global) samples of unexplained spike events
-            self._det_samples = collections.deque(maxlen=self._det_limit)
             if self.verbose.has_print:
                 print self._det
         return self._det
