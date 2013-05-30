@@ -1261,7 +1261,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         for i in sp.unique(lbls):
             spks_i = spks[lbls == i]
 
-            merged = False
             if len(spks_i) < self._min_new_cluster_size:
                 self._det_buf.extend(spks_i)
                 if self.verbose.has_print:
@@ -1274,15 +1273,16 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                         print 'Distance %d-%d: %f' % (i, inner, dist[i][inner])
                     if dist[i][inner] <= self._merge_dist:
                         lbls[lbls == i] = inner
-                        merged = True
                         if self.verbose.has_print:
                             print 'Merged', i, 'and', inner, '-'
                         break
-            if not merged:
-                spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-                self.create_filter(spk_i)
-                if self.verbose.has_print:
-                    print 'Unit %d accepted, with %d spikes' % (i, len(spks_i))
+
+        for i in sp.unique(lbls):
+            spks_i = spks[lbls == i]
+            spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+            self.create_filter(spk_i)
+            if self.verbose.has_print:
+                print 'Unit %d accepted, with %d spikes' % (i, len(spks_i))
         del pre_pro, clus, spks, spks_pp
         self._cluster = self._cluster_base
 
