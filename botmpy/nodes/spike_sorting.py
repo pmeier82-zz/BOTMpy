@@ -1274,8 +1274,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                                     print 'Merged', i, 'and', inner, '-'
                                 merged = True
                                 break
-                            if merged:
-                                break
+                        if merged:
+                            break
 
         for i in sp.unique(lbls):
             if len(spks_i) < self._min_new_cluster_size:
@@ -1289,7 +1289,6 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             self.create_filter(spk_i)
             if self.verbose.has_print:
                 print 'Unit %d accepted, with %d spikes' % (i, len(spks_i))
-
         del pre_pro, clus, spks, spks_pp
         self._cluster = self._cluster_base
 
