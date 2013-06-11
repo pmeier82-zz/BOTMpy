@@ -978,17 +978,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # for initialisation set correct self._cluster method
         self._cluster = self._cluster_init
+        
+        self._det_buf = MxRingBuffer(capacity=self._det_limit,
+                                         dimension=(self._tf * self._nc),
+                                         dtype=self.dtype)
+        # Saves (global) samples of unexplained spike events
+        self._det_samples = collections.deque(maxlen=self._det_limit)
 
     ## properties
 
     def get_det(self):
         if self._det is None:
             self._det = self._det_cls(tf=self._tf, **self._det_kwargs)
-            self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                                         dimension=(self._tf * self._nc),
-                                         dtype=self.dtype)
-            # Saves (global) samples of unexplained spike events
-            self._det_samples = collections.deque(maxlen=self._det_limit)
             if self.verbose.has_print:
                 print self._det
         return self._det
@@ -1162,6 +1163,50 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             self.bank[u].rate.observation(spks_u.shape[0], self._data.shape[0])
         print [(u, f.rate.estimate()) for (u, f) in self.bank.items()]
 
+    def resampled_mean_dist(self, spks1, spks2):
+        """ Caclulate distance of resampled means from two sets of spikes
+        """
+        # resample and realign means to check distance
+        means = {}
+
+        means[0] = mcvec_from_conc(spks1.mean(0), nc=self._nc)
+        means[1] = mcvec_from_conc(spks2.mean(0), nc=self._nc)
+
+        if self._merge_rsf != 1:
+            for u in means.iterkeys():
+                means[u] = sp.signal.resample(
+                    means[u], self._merge_rsf * means[u].shape[0])
+
+                if self._align_kind == 'min':
+                    tau = get_tau_align_min(
+                        sp.array([means[u]]),
+                        self._learn_templates * self._merge_rsf)
+                elif self._align_kind == 'max':
+                    tau = get_tau_align_max(
+                        sp.array([means[u]]),
+                        self._learn_templates * self._merge_rsf)
+                elif self._align_kind == 'energy':
+                    tau = get_tau_align_energy(
+                        sp.array([means[u]]),
+                        self._learn_templates * self._merge_rsf)
+                else:
+                    tau = 0
+
+                # Realignment shouldn't need to be drastic
+                max_dist = 2 * self._merge_rsf
+                l = means[u].shape[0]
+                if abs(tau) > max_dist:
+                    logging.warn(('Could not realign %d, distance: %d ' %
+                                  (u, tau)))
+                    tau = 0
+                means[u] = mcvec_to_conc(means[u][max_dist + tau:l - max_dist + tau, :])
+        else:
+            means[0] = mcvec_to_conc(means[0])
+            means[1] = mcvec_to_conc(means[1])
+
+        return sp.spatial.distance.cdist(
+            sp.atleast_2d(means[0]), sp.atleast_2d(means[1]), 'euclidean')
+
     def _cluster_init(self):
         """cluster step for initialisation"""
 
@@ -1207,81 +1252,43 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)
 
-        # resample and realign means to check distance
-        means = {}
-        for i in sp.unique(lbls):
-            spks_i = spks[lbls == i]
-            means[i] = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+        if self._merge_dist > 0.0:
+            merged = True
+            while merged:
+                merged = False
+                for i in sp.unique(lbls):
+                    spks_i = spks[lbls == i]
 
-        if self._merge_rsf != 1:
-            for u in means.iterkeys():
-                means[u] = sp.signal.resample(
-                    means[u], self._merge_rsf * means[u].shape[0])
+                    if self._merge_dist > 0.0:
+                        for inner in sp.unique(lbls):
+                            if i >= inner:
+                                continue
+                            spks_inner = spks[lbls == inner]
 
-                if self._align_kind == 'min':
-                    tau = get_tau_align_min(
-                        sp.array([means[u]]),
-                        self._learn_templates * self._merge_rsf)
-                elif self._align_kind == 'max':
-                    tau = get_tau_align_max(
-                        sp.array([means[u]]),
-                        self._learn_templates * self._merge_rsf)
-                elif self._align_kind == 'energy':
-                    tau = get_tau_align_energy(
-                        sp.array([means[u]]),
-                        self._learn_templates * self._merge_rsf)
-                else:
-                    tau = 0
-
-                # Realignment shouldn't need to be drastic
-                max_dist = 2 * self._merge_rsf
-                l = means[u].shape[0]
-                if abs(tau) > max_dist:
-                    logging.warn(('Could not realign %d, distance: %d ' %
-                                  (u, tau)))
-                    tau = 0
-                means[u] = means[u][max_dist + tau:l - max_dist + tau, :]
-
-        for u in means.iterkeys():
-            means[u] = mcvec_to_conc(means[u])
-
-        # Calculate distance between all resampled mean pairs
-        dist = {u: {} for u in means.keys()}
-        for i1, u1 in enumerate(means.keys()):
-            for i2, u2 in enumerate(means.keys()):
-                if u1 >= u2:
-                    continue
-
-                d = sp.spatial.distance.cdist(
-                    sp.atleast_2d(means[u1]), sp.atleast_2d(means[u2]),
-                    'euclidean')
-                dist[i1][i2] = d
+                            d = self.resampled_mean_dist(spks_i, spks_inner)
+                            if self.verbose.has_print:
+                                print 'Distance %d-%d: %f' % (i, inner, d)
+                            if d <= self._merge_dist:
+                                lbls[lbls == i] = inner
+                                if self.verbose.has_print:
+                                    print 'Merged', i, 'and', inner, '-'
+                                merged = True
+                                break
+                        if merged:
+                            break
 
         for i in sp.unique(lbls):
-            if self.verbose.has_print:
-                print 'checking new unit:',
-            spks_i = spks[lbls == i]
-
-            merged = False
             if len(spks_i) < self._min_new_cluster_size:
                 self._det_buf.extend(spks_i)
                 if self.verbose.has_print:
-                    print '%d rejected, only %d spikes' % (i, len(spks_i))
-            elif self._merge_dist > 0.0:
-                for inner in sp.unique(lbls):
-                    if i >= inner:
-                        continue
-                    if dist[i][inner] <= self._merge_dist:
-                        lbls[lbls == i] = inner
-                        merged = True
-                        if self.verbose.has_print:
-                            print 'Merged', i, 'and', inner, '-', dist[i][inner]
-                        break
-            if not merged:
-                spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-                self.create_filter(spk_i)
-                if self.verbose.has_print:
-                    print '%d accepted, with %d spikes' % (i, len(spks_i))
+                    print 'Unit %d rejected, only %d spikes' % (i, len(spks_i))
+                continue
+
+            spks_i = spks[lbls == i]
+            spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
+            self.create_filter(spk_i)
+            if self.verbose.has_print:
+                print 'Unit %d accepted, with %d spikes' % (i, len(spks_i))
         del pre_pro, clus, spks, spks_pp
         self._cluster = self._cluster_base
 
