@@ -1010,6 +1010,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                   ev - self._learn_templates + self.tf
         disc_ep = data_ep[0] + self._tf / 2,\
                   data_ep[1] + self._tf / 2
+        if self._external_spike_train is not None:
+            disc_ep = (disc_ep[0] - self._chunk_offset,
+                disc_ep[1] - self._chunk_offset)
         if self.verbose.has_plot:
             try:
                 from spikeplot import mcdata
