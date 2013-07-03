@@ -1281,13 +1281,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                             break
 
         for i in sp.unique(lbls):
+            spks_i = spks[lbls == i]
             if len(spks_i) < self._min_new_cluster_size:
                 self._det_buf.extend(spks_i)
                 if self.verbose.has_print:
                     print 'Unit %d rejected, only %d spikes' % (i, len(spks_i))
                 continue
 
-            spks_i = spks[lbls == i]
             spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
             self.create_filter(spk_i)
             if self.verbose.has_print:
