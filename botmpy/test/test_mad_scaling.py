@@ -4,8 +4,7 @@
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
 #
-# Developed by:	Philipp Meier <pmeier82@gmail.com>
-#               Neural Information Processing Group (NI)
+# Developed by:	Neural Information Processing Group (NI)
 #               School for Electrical Engineering and Computer Science
 #               Berlin Institute of Technology
 #               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
@@ -42,32 +41,27 @@
 #_____________________________________________________________________________
 #
 
+##---IMPORTS
 
-"""common functions for the BOTMpy package"""
-__docformat__ = 'restructuredtext'
+try:
+    import unittest2 as ut
+except ImportError:
+    import unittest as ut
 
-##---PACKAGE
-
-# XXX: do not change the import order!! thanks
-
-from .util import *
-
-from .funcs_general import *
-from .funcs_filterutil import *
-from .funcs_spike import *
-
-from .datafile import *
-from .mcfilter import *
-
-from .amplitude_histogram import *
-from .covariance_estimator import *
-from .matrix_ops import *
-from .ringbuffer import *
-from .spike_alignment import *
-
-from .funcs_preprocessing import *
-
-##---MAIN
+from common import mad_scaling
+from common.datafile import XpdFile
+from spikeplot import mcdata, plt
+import scipy as sp
 
 if __name__ == '__main__':
-    pass
+    xpd = XpdFile('/home/pmeier/Data/Munk/Louis/L014/L0140001.xpd')
+
+    data = xpd.get_data(item=1)
+    mcdata(data, show=False)
+
+    data_scaled, scale = mad_scaling(data)
+    mcdata(data_scaled, show=False)
+
+    print 'magic eq', sp.stats.norm.ppf(0.75)
+    print 'STD:', sp.std(data, 0), sp.std(data_scaled, 0)
+    plt.show()

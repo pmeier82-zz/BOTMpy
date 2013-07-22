@@ -42,30 +42,42 @@
 #_____________________________________________________________________________
 #
 
-
-"""common functions for the BOTMpy package"""
+"""scaling of multi channeled input data to assert normal background"""
 __docformat__ = 'restructuredtext'
+__all__ = ['mad_scaling']
 
-##---PACKAGE
+##--- IMPORTS
 
-# XXX: do not change the import order!! thanks
-
+import scipy as sp
 from .util import *
 
-from .funcs_general import *
-from .funcs_filterutil import *
-from .funcs_spike import *
+##---FUNCTIONS
 
-from .datafile import *
-from .mcfilter import *
+def mad_scaling(X, center=None, constant=None, axis=0):
+    """scale multi channeled input s.t. the background is standard normal
 
-from .amplitude_histogram import *
-from .covariance_estimator import *
-from .matrix_ops import *
-from .ringbuffer import *
-from .spike_alignment import *
+    :param sp.ndarray X: multi channeled input data [sample, channel]
+    :param ndarray center: will be used to calculate the residual in X,
+    if None use the median of X
 
-from .funcs_preprocessing import *
+        Default=None
+    :param float constant: constant to use for the scale value,
+    if None use the constant corresponding to a normal distribution
+
+        Default=None
+    """
+
+    # init
+    X = sp.asarray(X)
+    ns, nc = X.shape
+    center = sp.ones(nc) * (center or sp.median(X, axis=axis))
+    if constant is None:
+        constant = 1. / sp.stats.norm.ppf(0.75)
+
+    # transform
+    Xresidual = sp.fabs(X - center)
+    scale = constant * sp.median(Xresidual, axis=axis)
+    return X / scale, scale
 
 ##---MAIN
 
