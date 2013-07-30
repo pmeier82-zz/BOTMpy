@@ -305,7 +305,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # check
         if self._data is None or self.rval is None or len(
-            self._idx_active_set) == 0:
+                self._idx_active_set) == 0:
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -351,7 +351,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # check
         if self._data is None or self.rval is None or len(
-            self._idx_active_set) == 0:
+                self._idx_active_set) == 0:
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -560,7 +560,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 continue
             mc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].argmax(0).argmax()
             s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[
-                                                                     i, 0]
+                i, 0]
             spk_ep[i] = [s - l, s + r]
 
         # check epochs
@@ -815,6 +815,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 # for legacy compatibility
 BOTMNode = BayesOptimalTemplateMatchingNode
 
+
 class AdaptiveBayesOptimalTemplateMatchingNode(
     BayesOptimalTemplateMatchingNode):
     """Adaptive BOTM Node
@@ -978,10 +979,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # for initialisation set correct self._cluster method
         self._cluster = self._cluster_init
-        
+
         self._det_buf = MxRingBuffer(capacity=self._det_limit,
-                                         dimension=(self._tf * self._nc),
-                                         dtype=self.dtype)
+                                     dimension=(self._tf * self._nc),
+                                     dtype=self.dtype)
         # Saves (global) samples of unexplained spike events
         self._det_samples = collections.deque(maxlen=self._det_limit)
 
@@ -1006,13 +1007,13 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             return False
 
         # cut relevant piece of the discriminants
-        data_ep = ev - self._learn_templates,\
+        data_ep = ev - self._learn_templates, \
                   ev - self._learn_templates + self.tf
-        disc_ep = data_ep[0] + self._tf / 2,\
+        disc_ep = data_ep[0] + self._tf / 2, \
                   data_ep[1] + self._tf / 2
         if self._external_spike_train is not None:
             disc_ep = (disc_ep[0] - self._chunk_offset,
-                disc_ep[1] - self._chunk_offset)
+                       disc_ep[1] - self._chunk_offset)
         if self.verbose.has_plot:
             try:
                 from spikeplot import mcdata
@@ -1094,18 +1095,19 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 except:
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
-                if self.bank[u].rate.filled and\
-                   self.bank[u].rate.estimate() < 0.1:
+                if self.bank[u].rate.filled and \
+                                self.bank[u].rate.estimate() < 0.1:
                     self.deactivate(u)
                     logging.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
 
     def _adapt_filter_new(self):
-        if self._det_buf.is_full and\
-           (self._cluster == self._cluster_init or
-            (self._forget_samples > 0 and
-             self._det_samples[
-             0] > self._sample_offset - self._forget_samples)):
+        if self._det_buf.is_full and \
+                (self._cluster == self._cluster_init or
+                     (self._forget_samples > 0 and
+                              self._det_samples[
+                                  0] > self._sample_offset - self
+                          ._forget_samples)):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
@@ -1144,7 +1146,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
             try:
                 self._ce.update(self._data, epochs=nep)
-            except ValueError, e:
+            except Exception, e:
                 logging.warn(str(e))
 
     def _adapt_filter_current(self):
@@ -1202,7 +1204,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     logging.warn(('Could not realign %d, distance: %d ' %
                                   (u, tau)))
                     tau = 0
-                means[u] = mcvec_to_conc(means[u][max_dist + tau:l - max_dist + tau, :])
+                means[u] = mcvec_to_conc(
+                    means[u][max_dist + tau:l - max_dist + tau, :])
         else:
             means[0] = mcvec_to_conc(means[0])
             means[1] = mcvec_to_conc(means[1])
@@ -1219,7 +1222,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples.clear()
 
         # processing chain
-        pre_pro = PrewhiteningNode2(self._ce) +\
+        pre_pro = PrewhiteningNode2(self._ce) + \
                   PCANode(output_dim=self._pca_features)
         sigma_factor = 4.0
         min_clusters = self._cluster_params.get('min_clusters', 1)
@@ -1332,6 +1335,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 if self.verbose.has_print:
                     print 'accepted, with %d spikes' % len(spks_i)
         del pre_pro, clus, spks, spks_pp
+
 
 ABOTMNode = AdaptiveBayesOptimalTemplateMatchingNode
 
