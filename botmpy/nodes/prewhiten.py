@@ -52,7 +52,7 @@ __all__ = ['PrewhiteningNode', 'PrewhiteningNode2']
 import scipy as sp
 from scipy import linalg as sp_la
 from .base_nodes import Node
-from ..common import coloured_loading, TimeSeriesCovE
+from ..common import coloured_loading, mad_scaling, TimeSeriesCovE
 
 ##--- CLASSES
 
@@ -116,10 +116,12 @@ class PrewhiteningNode(Node):
 
     ## node implementation
 
-    def is_invertable(self):
+    @staticmethod
+    def is_invertible():
         return False
 
-    def is_trainable(self):
+    @staticmethod
+    def is_trainable():
         return False
 
     def _execute(self, x, ncov=None):
@@ -158,10 +160,12 @@ class PrewhiteningNode2(Node):
 
     ## node implementation
 
-    def is_invertable(self):
-        return True
+    @staticmethod
+    def is_invertible():
+        return False
 
-    def is_trainable(self):
+    @staticmethod
+    def is_trainable():
         return False
 
     def _execute(self, x):
@@ -172,6 +176,53 @@ class PrewhiteningNode2(Node):
         tf = self.input_dim / self._covest.nc
         rval = sp.dot(x, self._covest.get_whitening_op(tf=tf))
         return rval.astype(self.dtype)
+
+
+class MADScalingNode(Node):
+    """scales input data"""
+
+    ## constructor
+
+    def __init__(self, covest):
+        """
+        :type covest: TimeSeriesCovE
+        :param covest: noise covariance estimator
+        """
+
+        # checks
+        if not isinstance(covest, TimeSeriesCovE):
+            raise TypeError('expecting instance of TimeSeriesCovE!')
+
+        # super
+        super(MADScalingNode, self).__init__(dtype=covest.dtype)
+
+        # members
+        self._covest = covest
+
+    ## node implementation
+
+    @staticmethod
+    def is_invertible():
+        return False
+
+    @staticmethod
+    def is_trainable():
+        return False
+
+    def _execute(self, x):
+        if self._covest.is_initialised is False:
+            raise RuntimeError('Node not initialised yet!')
+
+        # return prewhitened data
+        tf = self.input_dim / self._covest.nc
+        rval = sp.dot(x, self._covest.get_whitening_op(tf=tf))
+        return rval.astype(self.dtype)
+
+    ## interface
+
+    def update_scales(self):
+        """update the internal scale"""
+
 
 ##--- MAIN
 

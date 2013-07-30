@@ -49,14 +49,43 @@ __all__ = ['mad_scaling']
 ##--- IMPORTS
 
 import scipy as sp
-from .util import *
+from scipy.stats import norm
+
+##---CONSTANTS
+
+NORM_PPF_CONST = 1. / norm.ppf(0.75)
 
 ##---FUNCTIONS
 
-def mad_scaling(X, center=None, constant=None, axis=0):
+def _mad(data, center=None, constant=None, axis=0):
+    """calculate the median average deviation for multi channel input
+
+    :param sp.ndarray data: multi channeled input data [sample, channel]
+    :param float|ndarray center: will be used to calculate the residual in X,
+    if None use the median of X
+
+        Default=None
+    :param float constant: constant to bias the result,
+    if None use the constant corresponding to a normal distribution
+
+        Default=None
+    :param int axis: axis to use for the median calculation
+
+        Default=0
+    """
+
+    # init and check
+    data = sp.asarray(data)
+    ns, nc = data.shape
+    center = sp.ones(nc) * (center or sp.median(data, axis=axis))
+    return (constant or NORM_PPF_CONST) * sp.median(sp.fabs(data - center),
+                                                    axis=axis)
+
+
+def mad_scaling(data, center=None, constant=None, axis=0):
     """scale multi channeled input s.t. the background is standard normal
 
-    :param sp.ndarray X: multi channeled input data [sample, channel]
+    :param sp.ndarray data: multi channeled input data [sample, channel]
     :param ndarray center: will be used to calculate the residual in X,
     if None use the median of X
 
@@ -67,17 +96,9 @@ def mad_scaling(X, center=None, constant=None, axis=0):
         Default=None
     """
 
-    # init
-    X = sp.asarray(X)
-    ns, nc = X.shape
-    center = sp.ones(nc) * (center or sp.median(X, axis=axis))
-    if constant is None:
-        constant = 1. / sp.stats.norm.ppf(0.75)
-
-    # transform
-    Xresidual = sp.fabs(X - center)
-    scale = constant * sp.median(Xresidual, axis=axis)
-    return X / scale, scale
+    data = sp.asarray(data)
+    scale = _mad(data, center=center, constant=constant, axis=axis)
+    return data / scale, scale
 
 ##---MAIN
 
