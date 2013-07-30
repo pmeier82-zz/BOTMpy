@@ -145,9 +145,9 @@ class BaseTimeSeriesCovarianceEstimator(object):
         cmx = self._get_cmx(**kwargs)
         svd = self._get_svd(**kwargs)
         return {
-                   'coloured': compute_coloured_loading,
-                   'diagonal': compute_diagonal_loading,
-               }[kind](cmx, svd, self._cond)
+            'coloured': compute_coloured_loading,
+            'diagonal': compute_diagonal_loading,
+        }[kind](cmx, svd, self._cond)
 
     def get_icmx_loaded(self, **kwargs):
         if not self.is_initialised:
@@ -438,6 +438,9 @@ class TimeSeriesCovE(BaseTimeSeriesCovarianceEstimator):
         epochs = epochs[len_epoch > min_len]
         n_epoch = epochs.shape[0]
         len_epoch = epochs[:, 1] - epochs[:, 0]
+        # FIX: we have to check if we have any epochs left here!!
+        if n_epoch == 0:
+            return 0
         self._clear_buf()
 
         # calculate cross-correlation functions for new observation

@@ -305,7 +305,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # check
         if self._data is None or self.rval is None or len(
-                self._idx_active_set) == 0:
+            self._idx_active_set) == 0:
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -351,7 +351,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # check
         if self._data is None or self.rval is None or len(
-                self._idx_active_set) == 0:
+            self._idx_active_set) == 0:
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
