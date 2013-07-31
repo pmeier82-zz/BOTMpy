@@ -58,6 +58,7 @@ import scipy as sp
 from .funcs_general import mcvec_from_conc
 from .funcs_spike import get_cut
 from .mcfilter import mcfilter
+from .util import log
 
 ##---FUNCTIONS
 
@@ -141,12 +142,17 @@ def mteo(data, kvalues=[1, 3, 5], condense=True):
     rval = sp.zeros((data.size, len(kvalues)))
 
     # evaluate the kteos
-    for i in xrange(len(kvalues)):
-        k = kvalues[i]
-        rval[:, i] = kteo(data, k)
-        win = sp.hamming(4 * k + 1)
-        win /= sp.sqrt(3 * (win ** 2).sum() + win.sum() ** 2)
-        rval[:, i] = sp.convolve(rval[:, i], win, 'same')
+    for i, k in enumerate(kvalues):
+        try:
+            rval[:, i] = kteo(data, k)
+            win = sp.hamming(4 * k + 1)
+            win /= sp.sqrt(3 * (win ** 2).sum() + win.sum() ** 2)
+            rval[:, i] = sp.convolve(rval[:, i], win, 'same')
+        except:
+            rval[:, i] = 0.0
+            log.warning('MTEO: could not calculate kteo for k=%s, '
+                        'data-length=%s',
+                        k, data.size)
     rval[:max(kvalues), i] = rval[-max(kvalues):, i] = 0.0
 
     # return
