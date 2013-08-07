@@ -117,5 +117,6 @@ def mad_scale_op_vec(mad, tf):
 
 ##---MAIN
 
+0
 if __name__ == '__main__':
     pass
