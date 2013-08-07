@@ -45,7 +45,7 @@
 """constants for the common package"""
 __docformat__ = 'restructuredtext'
 __all__ = ['INDEX_DTYPE', 'SI8MAX', 'SI16MAX', 'SI32MAX', 'SI64MAX', 'UI8MAX',
-           'UI16MAX', 'UI32MAX', 'UI64MAX', 'deprecated', 'VERBOSE', 'log']
+           'UI16MAX', 'UI32MAX', 'UI64MAX', 'VERBOSE', 'log']
 
 ##---IMPORTS
 
@@ -72,54 +72,6 @@ UI16MAX = sp.iinfo(sp.uint16).max
 UI32MAX = sp.iinfo(sp.uint32).max
 UI64MAX = sp.iinfo(sp.uint64).max
 
-##---DECORATORS
-
-# found here http://code.activestate.com/recipes/577819-deprecated-decorator/
-# Author: Giampaolo Rodola <g.rodola [AT] gmail [DOT] com>
-# License: MIT
-def deprecated(replacement=None):
-    """A decorator which can be used to mark functions as deprecated.
-    replacement is a callable that will be called with the same args
-    as the decorated function.
-
-    >>> @deprecated()
-    ... def foo(x):
-    ...     return x
-    ...
-    >>> ret = foo(1)
-    DeprecationWarning: foo is deprecated
-    >>> ret
-    1
-    >>>
-    >>>
-    >>> def newfun(x):
-    ...     return 0
-    ...
-    >>> @deprecated(newfun)
-    ... def foo(x):
-    ...     return x
-    ...
-    >>> ret = foo(1)
-    DeprecationWarning: foo is deprecated; use newfun instead
-    >>> ret
-    0
-    >>>
-    """
-
-    def outer(oldfun):
-        def inner(*args, **kwargs):
-            msg = '%s is deprecated' % oldfun.__name__
-            if replacement is not None:
-                msg += '; use %s instead' % (replacement.__name__)
-            logging.warning(msg, DeprecationWarning, stacklevel=2)
-            if replacement is not None:
-                return replacement(*args, **kwargs)
-            else:
-                return oldfun(*args, **kwargs)
-
-        return inner
-
-    return outer
 
 ## CLASSES
 
@@ -174,7 +126,7 @@ class VERBOSE(object):
     has_print = property(get_has_print)
 
     def get_has_plot(self, n=0):
-        return  self.level >= self.PLOT + n
+        return self.level >= self.PLOT + n
 
     has_plot = property(get_has_plot)
 
