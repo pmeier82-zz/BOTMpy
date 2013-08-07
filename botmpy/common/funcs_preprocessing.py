@@ -44,7 +44,7 @@
 
 """scaling of multi channeled input data to assert normal background"""
 __docformat__ = 'restructuredtext'
-__all__ = ['mad_scaling']
+__all__ = ['mad_scaling', 'mad_scale_op_mx', 'mad_scale_op_vec']
 
 ##--- IMPORTS
 
@@ -60,7 +60,7 @@ NORM_PPF_CONST = 1. / norm.ppf(0.75)
 def _mad(data, center=None, constant=None, axis=0):
     """calculate the median average deviation for multi channel input
 
-    :param sp.ndarray data: multi channeled input data [sample, channel]
+    :param ndarray data: multi channeled input data [sample, channel]
     :param float|ndarray center: will be used to calculate the residual in X,
     if None use the median of X
 
@@ -85,8 +85,8 @@ def _mad(data, center=None, constant=None, axis=0):
 def mad_scaling(data, center=None, constant=None, axis=0):
     """scale multi channeled input s.t. the background is standard normal
 
-    :param sp.ndarray data: multi channeled input data [sample, channel]
-    :param ndarray center: will be used to calculate the residual in X,
+    :param scipy.ndarray data: multi channeled input data [sample, channel]
+    :param scipy.ndarray center: will be used to calculate the residual in X,
     if None use the median of X
 
         Default=None
@@ -94,13 +94,29 @@ def mad_scaling(data, center=None, constant=None, axis=0):
     if None use the constant corresponding to a normal distribution
 
         Default=None
+    :param int axis: axis to use for the median calculation
+
+        Default=0
     """
 
     data = sp.asarray(data)
     scale = _mad(data, center=center, constant=constant, axis=axis)
     return data / scale, scale
 
+
+def mad_scale_op_mx(mad, tf):
+    """build the operator that applies the mad scale to a concatenated spike"""
+
+    return sp.kron(sp.outer(1.0 / mad, 1.0 / mad), sp.ones((tf, tf)))
+
+
+def mad_scale_op_vec(mad, tf):
+    """build the operator that applies the mad scale to a concatenated spike"""
+
+    return sp.kron(1.0 / mad, sp.ones(tf))
+
 ##---MAIN
 
+0
 if __name__ == '__main__':
     pass

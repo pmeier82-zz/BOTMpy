@@ -72,14 +72,15 @@ from sklearn.utils.extmath import logsumexp
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
-from .prewhiten import PrewhiteningNode2
+from .prewhiten import PrewhiteningNode
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
     shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
     mcvec_from_conc, get_aligned_spikes, vec2ten, get_tau_align_min,
-    get_tau_align_max, get_tau_align_energy)
+    get_tau_align_max, get_tau_align_energy, mad_scaling, mad_scale_op_mx,
+    mad_scale_op_vec)
 
 ##---CONSTANTS
 
@@ -305,7 +306,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # check
         if self._data is None or self.rval is None or len(
-            self._idx_active_set) == 0:
+                self._idx_active_set) == 0:
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -351,7 +352,7 @@ class FilterBankSortingNode(FilterBankNode):
 
         # check
         if self._data is None or self.rval is None or len(
-            self._idx_active_set) == 0:
+                self._idx_active_set) == 0:
             logging.warn('not initialised properly to plot a sorting!')
             return None
 
@@ -453,6 +454,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._lpr_s = None
         self._pr_s_b = None
         self._oc_idx = None
+
         self.noise_prior = noi_pr
         self.spike_prior = spk_pr
         self.spike_prior_bias = spk_pr_bias
@@ -820,7 +822,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
     BayesOptimalTemplateMatchingNode):
     """Adaptive BOTM Node
 
-    tries to match parallel detection with sorting to find new units.
+    adaptivity here means,backwards sense, that known templates and
+    covariances are adapted local temporal changes. In the forward sense a
+    parallel spike detection is matched to find currently unidenified units
+    in the data.
     """
 
     def __init__(self, **kwargs):
@@ -986,6 +991,11 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                                      dtype=self.dtype)
         # Saves (global) samples of unexplained spike events
         self._det_samples = collections.deque(maxlen=self._det_limit)
+        # mad scale value
+        if self._mad_scaling is False:
+            self._mad_scaling = None
+        else:
+            self._mad_scaling = 0.0
 
     ## properties
 
@@ -1032,7 +1042,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     show=True)
             except ImportError:
                 pass
-            self.se_cnt += 1
+                #self.se_cnt += 1
 
         start = max(0, disc_ep[0] - padding)
         stop = min(self._disc.shape[0], disc_ep[1] + padding)
@@ -1057,21 +1067,33 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         events_explained = sp.array([self._event_explained(e) for e in events])
         if self.verbose.has_print:
             print 'spks not explained:', (events_explained == False).sum()
-        if (events_explained == False).sum() > 0:
+        if sp.any(events_explained == False):
+            data = self._chunk
+            if self._mad_scaling is not None:
+                data = 1.0 / self._mad_scaling * self._chunk.copy()
             spks, st = get_aligned_spikes(
-                self._chunk, events[events_explained == False],
+                data, events[events_explained == False],
                 tf=self._tf, mc=False, kind=self._align_kind,
                 align_at=self._learn_templates, rsf=self._learn_templates_rsf)
             self._det_buf.extend(spks)
             self._det_samples.extend(self._sample_offset + st)
 
     def _execute(self, x, ex_st=None):
+        if self._mad_scaling is not None:
+            alpha = self._ce._weight
+            mad_scale = mad_scaling(x)[1]
+            if sp.any(self._mad_scaling):
+                self._mad_scaling = (1.0 - alpha) * self._mad_scaling
+                self._mad_scaling += alpha * mad_scale
+            else:
+                self._mad_scaling = mad_scale
+
+                # set the external spike train
         self._external_spike_train = ex_st
         # call super to get sorting
         rval = super(AdaptiveBayesOptimalTemplateMatchingNode, self)._execute(x)
-        # adaption of noise covariance
+        # adaption
         self._adapt_noise()
-        # adaption filter bank
         self._adapt_filter_drop()
         self._adapt_filter_current()
         self._adapt_filter_new()
@@ -1159,15 +1181,14 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         if self._det_buf.is_full and \
                 (self._cluster == self._cluster_init or
                      (self._forget_samples > 0 and
-                              self._det_samples[
-                                  0] > self._sample_offset - self
-                          ._forget_samples)):
+                              self._det_samples[0] > self._sample_offset -
+                              self._forget_samples)):
             if self.verbose.has_print:
                 print 'det_buf is full!'
             self._cluster()
         else:
             if self.verbose.has_print:
-                print 'det_buf:', self._det_buf
+                print 'self._det_buf volume:', self._det_buf
 
     ## something from robert
 
@@ -1221,13 +1242,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
     def _cluster_init(self):
         """cluster step for initialisation"""
 
-        # get all spikes and clear buffer
+        # get all spikes and clear buffers
         spks = self._det_buf[:].copy()
         self._det_buf.clear()
         self._det_samples.clear()
 
+        # noise covariance matrix, and scaling due to median average deviation
+        C = self._ce.get_cmx(tf=self._tf, chan_set=self._chan_set)
+        if self._mad_scaling is not None:
+            C *= mad_scale_op_mx(self._mad_scaling, self._tf)
+
         # processing chain
-        pre_pro = PrewhiteningNode2(self._ce) + \
+        pre_pro = PrewhiteningNode(ncov=C) + \
                   PCANode(output_dim=self._pca_features)
         sigma_factor = 4.0
         min_clusters = self._cluster_params.get('min_clusters', 1)
@@ -1258,6 +1284,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
         # cluster
         clus(spks_pp)
+        if self.verbose.is_verbose is True:
+            clus.plot(spks_pp, show=True)
         lbls = clus.labels
 
         if self.verbose.has_plot:
@@ -1270,24 +1298,26 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 for i in sp.unique(lbls):
                     spks_i = spks[lbls == i]
 
-                    if self._merge_dist > 0.0:
-                        for inner in sp.unique(lbls):
-                            if i >= inner:
-                                continue
-                            spks_inner = spks[lbls == inner]
+                    #for inner in xrange(i):
+                    for inner in sp.unique(lbls):
+                        if i >= inner:
+                            continue
+                        spks_inner = spks[lbls == inner]
 
-                            d = self.resampled_mean_dist(spks_i, spks_inner)
+                        d = self.resampled_mean_dist(spks_i, spks_inner)
+                        if self.verbose.has_print:
+                            print 'Distance %d-%d: %f' % (i, inner, d)
+                        if d <= self._merge_dist:
+                            lbls[lbls == i] = inner
                             if self.verbose.has_print:
-                                print 'Distance %d-%d: %f' % (i, inner, d)
-                            if d <= self._merge_dist:
-                                lbls[lbls == i] = inner
-                                if self.verbose.has_print:
-                                    print 'Merged', i, 'and', inner, '-'
-                                merged = True
-                                break
-                        if merged:
+                                print 'Merged', i, 'and', inner, '-'
+                            merged = True
                             break
-
+                    if merged:
+                        break
+        if self._mad_scaling is not None:
+            # if we have scaled the spikes, rescale to original scale
+            spks *= mad_scale_op_vec(1.0 / self._mad_scaling, self._tf)
         for i in sp.unique(lbls):
             spks_i = spks[lbls == i]
             if len(spks_i) < self._min_new_cluster_size:
@@ -1311,8 +1341,14 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_buf.clear()
         self._det_samples.clear()
 
+        # noise covariance matrix, and scaling due to median average deviation
+        C = self._ce.get_cmx(tf=self._tf, chan_set=self._chan_set)
+        if self._mad_scaling is not None:
+            C *= mad_scale_op_mx(self._mad_scaling, self._tf)
+
         # processing chain
-        pre_pro = PrewhiteningNode2(self._ce) + PCANode(output_dim=10)
+        pre_pro = PrewhiteningNode(ncov=C) + \
+                  PCANode(output_dim=10)
         clus = HomoscedasticClusteringNode(
             clus_type='gmm',
             cvtype='tied',
@@ -1325,6 +1361,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         lbls = clus.labels
         if self.verbose.has_plot:
             clus.plot(spks_pp, show=True)
+        if self._mad_scaling is not None:
+            spks *= mad_scale_op_vec(1.0 / self._mad_scaling, self._tf)
         for i in sp.unique(lbls):
             if self.verbose.has_print:
                 print 'checking new unit:',
@@ -1340,6 +1378,10 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 if self.verbose.has_print:
                     print 'accepted, with %d spikes' % len(spks_i)
         del pre_pro, clus, spks, spks_pp
+
+    def _update_mad_value(self, mad):
+        """update the mad value if `mad_scaling` is True"""
+
 
 ## shortcut
 ABOTMNode = AdaptiveBayesOptimalTemplateMatchingNode
