@@ -531,7 +531,7 @@ def overlaps(sts, window):
                 ovlp[i_][spkI] = True
                 ovlp[j_][overlap_indices] = True
 
-    return ovlp, ovlp_nums, {}
+    return ovlp, ovlp_nums
 
 ##--- MAIN
 
