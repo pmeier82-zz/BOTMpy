@@ -466,7 +466,7 @@ def snr_maha(waveforms, invC, mu=None):
     :type waveforms: ndarray
     :param waveforms: waveform data (signal), one per row
     :type invC: ndarray
-    :param invC: noise covariance matrix (a block toeplitz matrix)
+    :param invC: inverted noise covariance matrix (a block toeplitz matrix)
     :type mu: ndarray
     :param mu: mean correction. Usually we assume zero-mean waveforms,
         so if this is None it will be ignored.
@@ -476,7 +476,7 @@ def snr_maha(waveforms, invC, mu=None):
 
     # inits and checks
     n, dim = waveforms.shape
-    if dim != invC.shape[0] != invC.shape[1]:
+    if dim != invC.shape[0] or dim != invC.shape[1]:
         raise ValueError('dimension mismatch for waveforms and covariance')
     rval = sp.zeros(n)
 
@@ -521,24 +521,17 @@ def overlaps(sts, window):
             # in j overlaps
             j_ = sts.keys()[j]
             trainJ = sts[j_]
-            idxI = 0
-            idxJ = 0
-            while idxI < len(trainI) and idxJ < len(trainJ):
-                # Overlapping?
-                if abs(trainI[idxI] - trainJ[idxJ]) < window:
-                    # single spike can participate in up to a single overlap
-                    # event! prevents triple counting
-                    if ovlp[i_][idxI] == False:
-                        ovlp[i_][idxI] = True
-                        ovlp_nums[i_] += 1
-                    if ovlp[j_][idxJ] == False:
-                        ovlp[j_][idxJ] = True
-                        ovlp_nums[j_] += 1
-                if trainI[idxI] < trainJ[idxJ]:
-                    idxI += 1
-                else:
-                    idxJ += 1
-    return ovlp, ovlp_nums
+
+            for spkI, spk in enumerate(trainI):
+                d = trainJ - spk
+                overlap_indices = sp.absolute(d) < window
+                if not sum(overlap_indices):
+                    continue
+
+                ovlp[i_][spkI] = True
+                ovlp[j_][overlap_indices] = True
+
+    return ovlp, ovlp_nums, {}
 
 ##--- MAIN
 
