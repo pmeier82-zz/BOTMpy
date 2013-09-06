@@ -1078,6 +1078,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
             self._det_buf.extend(spks)
             self._det_samples.extend(self._sample_offset + st)
 
+        self._disc = None
+
     def _execute(self, x, ex_st=None):
         if self._mad_scaling is not None:
             alpha = self._ce._weight
