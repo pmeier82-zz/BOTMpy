@@ -917,6 +917,18 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 
             Default=0.0
 
+        :type minimum_snr: float
+        :keyword minimum_snr: Templates with a signal to noise ratio below this
+            value are dropped.
+
+            Default = 0.5
+
+        :type minimum_rate: float
+        :keyword minimum_rate: Templates with a firing rate (in Hertz) below
+            this value are dropped.
+
+            Default = 0.1
+
         :type det_kwargs: dict
         :keyword det_kwargs: keywords for the spike detector that will be
             run in parallel on the data.
@@ -947,6 +959,8 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._merge_dist = kwargs.pop('clus_merge_dist', 0.0)
         self._merge_rsf = kwargs.pop('clus_merge_rsf', 16)
         self._external_spike_train = None
+        self._minimum_snr = kwargs.pop('minimum_snr', 0.5)
+        self._minimum_rate = kwargs.pop('minimum_rate', 0.1)
 
         # check det_cls
         #if not issubclass(det_cls, ThresholdDetectorNode):
@@ -1124,7 +1138,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                         end=self._data.shape[0])['noise']
                 elif len(self.det.events) > 0:
                     nep = self.det.get_epochs(
-                        ## this must not be the correct cut for the
+                        ## this does not have to be the correct cut for the
                         ## detection events! best would be to do an
                         # alignment here!
                         cut=(self._learn_templates,
@@ -1142,12 +1156,12 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
     def _adapt_filter_drop(self):
         nsmpl = self._data.shape[0]
         for u in list(self._idx_active_set):
-            # 1) snr drop below 0.5
-            if self.bank[u].snr < 0.2:
+            # 1) snr drop
+            if self.bank[u].snr < self._minimum_snr:
                 self.deactivate(u)
                 logging.warn('deactivating filter %s, snr' % str(u))
 
-            # 2) rate drop below 0.1
+            # 2) rate drop
             if hasattr(self.bank[u], 'rate'):
                 try:
                     nspks = len(self.rval[u])
@@ -1155,7 +1169,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
                 if self.bank[u].rate.filled and \
-                                self.bank[u].rate.estimate() < 0.1:
+                        self.bank[u].rate.estimate() < self._minimum_rate:
                     self.deactivate(u)
                     logging.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
