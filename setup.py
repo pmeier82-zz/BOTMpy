@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 
 ## IMPORTS
 
@@ -71,12 +71,12 @@ def find_version():
     """read version from botmpy.__init__"""
 
     try:
-        with open('./botmpy/__init__.py', 'r') as fp:
-            for line in f:
-                if line.startswith('__version__'):
+        with open("./botmpy/__init__.py", 'r') as fp:
+            for line in fp:
+                if line.startswith("__version__"):
                     return line.split()[-1][1:-1]
     except:
-        return '0'
+        return "0.0-null"
 
 ## CYTHON
 
@@ -84,47 +84,47 @@ ext_mod_list = []
 if build_ext is not None:
     ext_mod_list.append(
         Extension(
-            'botmpy.common.mcfilter.mcfilter_cy',
-            ['botmpy/common/mcfilter/mcfilter_cy.pyx'],
+            "botmpy.common.mcfilter.mcfilter_cy",
+            ["botmpy/common/mcfilter/mcfilter_cy.pyx"],
             include_dirs=[numpy.get_include()]))
 
 ## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     setup(
         #main
-        name='BOTMpy',
+        name="BOTMpy",
         version=find_version(),
-        packages=['botmpy',
-                  'botmpy.common',
-                  'botmpy.common.datafile',
-                  'botmpy.common.mcfilter',
-                  'botmpy.nodes'],
-        requires=['numpy', 'scipy', 'mdp', 'sklearn'],
+        packages=["botmpy",
+                  "botmpy.common",
+                  "botmpy.common.datafile",
+                  "botmpy.common.mcfilter",
+                  "botmpy.nodes"],
+        requires=["numpy", "scipy", "mdp", "sklearn"],
         zip_safe=False,
 
         # metadata
-        author='Philipp Meier',
-        author_email='pmeier82@gmail.com',
-        maintainer='Philipp Meier',
-        maintainer_email='pmeier82@gmail.com',
-        description=open('README', 'r').readline().strip(),
-        long_description=open('README', 'r').read(),
-        license='University of Illinois/NCSA Open Source License',
-        url='http://www.ni.tu-berlin.de',
+        author="Philipp Meier",
+        author_email="pmeier82@gmail.com",
+        maintainer="Philipp Meier",
+        maintainer_email="pmeier82@gmail.com",
+        description=open("README", 'r').readline().strip(),
+        long_description=open("README", 'r').read(),
+        license="University of Illinois/NCSA Open Source License",
+        url="http://www.ni.tu-berlin.de",
         classifiers=[
-            'Development Status :: 4 - Beta',
-            'Intended Audience :: Science/Research',
-            'License :: OSI Approved :: University of Illinois/NCSA Open Source License',
-            'Natural Language :: English',
-            'Operating System :: OS Independent',
-            'Programming Language :: Python',
-            'Programming Language :: Cython',
-            'Topic :: Scientific/Engineering :: Bio-Informatics',
-            'Topic :: Scientific/Engineering :: Information Analysis'],
+            "Development Status :: 4 - Beta",
+            "Intended Audience :: Science/Research",
+            "License :: OSI Approved :: University of Illinois/NCSA Open Source License",
+            "Natural Language :: English",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python",
+            "Programming Language :: Cython",
+            "Topic :: Scientific/Engineering :: Bio-Informatics",
+            "Topic :: Scientific/Engineering :: Information Analysis"],
 
         # cython
-        cmdclass={'build_ext': build_ext},
+        cmdclass={"build_ext": build_ext},
         ext_modules=ext_mod_list)
 
 ## EOF
