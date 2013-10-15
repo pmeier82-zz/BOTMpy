@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 #_____________________________________________________________________________
 #
-# Copyright (c) 2012-2013 Berlin Institute of Technology
+# Copyright (c) 2012-2013, Berlin Institute of Technology
 # All rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
+#
 #               Neural Information Processing Group (NI)
 #               School for Electrical Engineering and Computer Science
 #               Berlin Institute of Technology
 #               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
 #               http://www.ni.tu-berlin.de/
+#
+# Repository:   https://github.com/pmeier82/BOTMpy
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -41,10 +44,14 @@
 #   Philipp Meier <pmeier82@gmail.com>
 #_____________________________________________________________________________
 #
+# Changelog:
+#   * <iso-date> <identity> :: <description>
+#_____________________________________________________________________________
+#
 
 __docformat__ = 'restructuredtext'
 
-##---IMPORTS
+## IMPORTS
 
 # setup tools and cython
 from setuptools import setup, find_packages
@@ -60,7 +67,7 @@ except ImportError:
 # other imports
 import numpy
 
-##--HELPERS
+## HELPERS
 
 def find_version():
     """read version from botmpy.__init__"""
@@ -78,7 +85,7 @@ def find_version():
         rval = '0'
     return rval
 
-##---CYTHON
+## CYTHON
 
 ext_mod_list = []
 if build_ext is not None:
@@ -88,7 +95,7 @@ if build_ext is not None:
             ['botmpy/common/mcfilter/mcfilter_cy.pyx'],
             include_dirs=[numpy.get_include()]))
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     setup(
@@ -126,3 +133,5 @@ if __name__ == '__main__':
         # cython
         cmdclass={'build_ext': build_ext},
         ext_modules=ext_mod_list)
+
+## EOF
