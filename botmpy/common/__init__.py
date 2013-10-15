@@ -51,7 +51,7 @@
 
 
 """common functions for the BOTMpy package"""
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 
 ##---PACKAGE
 
@@ -66,7 +66,6 @@ from .funcs_spike import *
 from .datafile import *
 from .mcfilter import *
 
-from .temp.amplitude_histogram import *
 from .covariance_estimator import *
 from .matrix_ops import *
 from .ringbuffer import *
@@ -76,5 +75,5 @@ from .funcs_preprocessing import *
 
 ##---MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

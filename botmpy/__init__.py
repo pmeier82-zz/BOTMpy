@@ -52,17 +52,17 @@
 
 """spike sorter package from BOTMpy"""
 
-__docformat__ = 'restructuredtext'
-__version__ = '0.4.0'
+__docformat__ = "restructuredtext"
+__version__ = "0.4.0-dev"
 
-##---IMPORTS
+## IMPORTS
 
 import common
 import nodes
 
-##---MAIN
+## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
 
 ## EOF
