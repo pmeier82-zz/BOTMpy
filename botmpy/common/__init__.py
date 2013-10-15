@@ -66,7 +66,7 @@ from .funcs_spike import *
 from .datafile import *
 from .mcfilter import *
 
-from .amplitude_histogram import *
+from .temp.amplitude_histogram import *
 from .covariance_estimator import *
 from .matrix_ops import *
 from .ringbuffer import *

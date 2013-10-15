@@ -53,10 +53,8 @@ __docformat__ = 'restructuredtext'
 
 ## IMPORTS
 
-# setup tools and cython
-from setuptools import setup, find_packages
-# Warning : do not import the distutils extension before setuptools
-# It does break the cythonize function calls
+# setup tools and cython (order matters!)
+from setuptools import setup
 from distutils.extension import Extension
 
 try:
@@ -73,17 +71,12 @@ def find_version():
     """read version from botmpy.__init__"""
 
     try:
-        f = open('./botmpy/__init__.py', 'r')
-        try:
+        with open('./botmpy/__init__.py', 'r') as fp:
             for line in f:
                 if line.startswith('__version__'):
-                    rval = line.split()[-1][1:-1]
-                    break
-        finally:
-            f.close()
+                    return line.split()[-1][1:-1]
     except:
-        rval = '0'
-    return rval
+        return '0'
 
 ## CYTHON
 
