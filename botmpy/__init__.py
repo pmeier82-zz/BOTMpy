@@ -46,7 +46,7 @@
 """spike sorter package from BOTMpy"""
 
 __docformat__ = 'restructuredtext'
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 ##---IMPORTS
 
