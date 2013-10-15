@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #_____________________________________________________________________________
 #
-# Copyright (c) 2012 Berlin Institute of Technology
+# Copyright (c) 2012-2013 Berlin Institute of Technology
 # All rights reserved.
 #
 # Developed by:	Neural Information Processing Group (NI)
