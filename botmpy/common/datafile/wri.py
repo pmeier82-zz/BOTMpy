@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 #_____________________________________________________________________________
 #
-# Copyright (c) 2012 Berlin Institute of Technology
+# Copyright (c) 2012-2013, Berlin Institute of Technology
 # All rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
+#
 #               Neural Information Processing Group (NI)
 #               School for Electrical Engineering and Computer Science
 #               Berlin Institute of Technology
 #               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
 #               http://www.ni.tu-berlin.de/
+#
+# Repository:   https://github.com/pmeier82/BOTMpy
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -39,6 +42,10 @@
 #
 # Acknowledgements:
 #   Philipp Meier <pmeier82@gmail.com>
+#_____________________________________________________________________________
+#
+# Changelog:
+#   * <iso-date> <identity> :: <description>
 #_____________________________________________________________________________
 #
 

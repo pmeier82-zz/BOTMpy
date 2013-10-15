@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 #_____________________________________________________________________________
 #
-# Copyright (c) 2012 Berlin Institute of Technology
+# Copyright (c) 2012-2013, Berlin Institute of Technology
 # All rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
+#
 #               Neural Information Processing Group (NI)
 #               School for Electrical Engineering and Computer Science
 #               Berlin Institute of Technology
 #               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
 #               http://www.ni.tu-berlin.de/
+#
+# Repository:   https://github.com/pmeier82/BOTMpy
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -39,6 +42,10 @@
 #
 # Acknowledgements:
 #   Philipp Meier <pmeier82@gmail.com>
+#_____________________________________________________________________________
+#
+# Changelog:
+#   * <iso-date> <identity> :: <description>
 #_____________________________________________________________________________
 #
 
@@ -157,7 +164,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
             mu = xings[self.window.size:-self.window.size].mean()
             xings[:self.window.size] = xings[-self.window.size:] = mu
             ep = epochs_from_binvec(xings < self.zcr_th)
-           
+
             epochs.append(ep)
 
         # pad and merge artifact epochs
@@ -223,8 +230,8 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
 
     ## constructor
 
-    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512, 
-                 en_func='max_normed', overlap=1, max_merge_dist = 6, 
+    def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512,
+                 en_func='max_normed', overlap=1, max_merge_dist = 6,
                  min_allowed_length = 2, **kw):
         """lala"""
 
@@ -241,7 +248,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         self.overlap = overlap # 0- No overlap, 1 - 50% overlap, 2 - 75% overlap
         self.max_merge_dist = max_merge_dist
         self.min_allowed_length = min_allowed_length
-        
+
         while self.nfft < nfft:
             self.nfft <<= 1
 
@@ -271,7 +278,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
             for b in xrange(len(times)):
                 bin_s = b * step + offset
                 bin_e = bin_s + step
-                
+
                 if self.en_func == 'mean_coeff':
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].mean() / psd_arr[mask == False, b].mean()
                 elif self.en_func == 'max_coeff':

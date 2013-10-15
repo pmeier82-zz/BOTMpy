@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #_____________________________________________________________________________
 #
-# Copyright (c) 2012 Berlin Institute of Technology
-# All rights reserved.
+# Copyright (c) 2012-2013 Berlin Institute of Technology
+# Some rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
 #               Neural Information Processing Group (NI)
