@@ -659,7 +659,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                         ## BUGED
 
-                        ep_disc += sub + self._lpr_s
+                        ep_disc += sub
+                        ep_fout += sub
+                        ep_fout_norm = sp_la.norm(ep_fout)
                         if self._pr_s_b is not None:
                             bias, extend = self._pr_s_b
                             ep_disc[ep_t:min(ep_t + extend,
