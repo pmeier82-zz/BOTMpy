@@ -551,11 +551,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         if self.nf == 0:
             return
         spk_ep = epochs_from_binvec(
-            sp.nanmax(self._disc, axis=1) > self._lpr_n)
+            sp.nanmax(self._disc, axis=1) > -10000)
         if spk_ep.size == 0:
             return
         l, r = get_cut(self._tf)
-        for i in xrange(spk_ep.shape[0]):
+        """for i in xrange(spk_ep.shape[0]):
             # FIX: for now we just continue for empty epochs,
             # where do they come from anyways?!
             if spk_ep[i, 1] - spk_ep[i, 0] < 1:
@@ -563,7 +563,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             mc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].argmax(0).argmax()
             s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[
                 i, 0]
-            spk_ep[i] = [s - l, s + r]
+            spk_ep[i] = [s - l, s + r]"""
 
         # check epochs
         spk_ep = merge_epochs(spk_ep)
@@ -626,7 +626,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         ep_t - self._tf + 1)
 
                     # apply subtrahend
-                    if ep_fout_norm > sp_la.norm(ep_fout + sub):
+                    if True: #ep_fout_norm > sp_la.norm(ep_fout + sub):
                         ## DEBUG
 
                         if self.verbose.get_has_plot(1):
@@ -673,7 +673,6 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                             try:
                                 ax1.plot(x_range, ep_disc, ls=':', lw=2,
                                          label='post_sub')
-                                ax1.legend(loc=2)
                             except:
                                 pass
 
@@ -684,7 +683,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                             spk_ep[i, 0] + ep_t + self._chunk_offset)
                     else:
                         break
-                del ep_fout, ep_disc, sub
+                #del ep_fout, ep_disc, sub
 
     ## BOTM implementation
 
