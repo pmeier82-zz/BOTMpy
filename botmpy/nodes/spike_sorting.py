@@ -72,6 +72,7 @@ from sklearn.utils.extmath import logsumexp
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
+from .linear_filter import MatchedFilterNode
 from .prewhiten import PrewhiteningNode
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
@@ -80,7 +81,7 @@ from ..common import (
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
     mcvec_from_conc, get_aligned_spikes, vec2ten, get_tau_align_min,
     get_tau_align_max, get_tau_align_energy, mad_scaling, mad_scale_op_mx,
-    mad_scale_op_vec)
+    mad_scale_op_vec, xi_vs_f)
 
 ##---CONSTANTS
 
@@ -554,8 +555,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             sp.nanmax(self._disc, axis=1) > -10000)
         if spk_ep.size == 0:
             return
-        l, r = get_cut(self._tf)
-        """for i in xrange(spk_ep.shape[0]):
+        """l, r = get_cut(self._tf)
+        for i in xrange(spk_ep.shape[0]):
             # FIX: for now we just continue for empty epochs,
             # where do they come from anyways?!
             if spk_ep[i, 1] - spk_ep[i, 0] < 1:
@@ -570,120 +571,138 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         n_ep = spk_ep.shape[0]
 
         for i in xrange(n_ep):
-            #
-            # method: overlap channels
-            #
-            if self._ovlp_taus is not None:
-                # get event time and channel
-                ep_t, ep_c = matrix_argmax(
-                    self._disc[spk_ep[i, 0]:spk_ep[i, 1]])
-                ep_t += spk_ep[i, 0]
+            ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1]+1, :]
+            ep_fout_norm = sp_la.norm(ep_fout)
+            ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1]+1, :].copy()
 
-                # lets fill in the results
+            niter = 0
+            while sp.nanmax(ep_disc) > self._lpr_n:
+                # warn on spike overflow
+                niter += 1
+                if niter > self.nf:
+                    logging.warn(
+                        'more spikes than filters found! '
+                        'epoch: [%d:%d] %d' % (
+                            spk_ep[i][0] + self._chunk_offset,
+                            spk_ep[i][1] + self._chunk_offset,
+                            niter))
+                    if niter > 2 * self.nf:
+                        break
+
+                # find epoch details
+                ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
+                ep_c = sp.nanargmax(ep_disc[ep_t])
+
+                # Find involved templates
+                templ_idx = []
                 if ep_c < self.nf:
-                    # was single unit
-                    fid = self.get_idx_for(ep_c)
-                    self.rval[fid].append(ep_t + self._chunk_offset)
+                    templ_idx.append((ep_c, 0))
                 else:
                     # was overlap
                     my_oc_idx = self._oc_idx[ep_c]
-                    fid0 = self.get_idx_for(my_oc_idx[0])
-                    self.rval[fid0].append(ep_t + self._chunk_offset)
-                    fid1 = self.get_idx_for(my_oc_idx[1])
-                    self.rval[fid1].append(
-                        ep_t + my_oc_idx[2] + self._chunk_offset)
+                    templ_idx.append((self.get_idx_for(my_oc_idx[0]), 0))
+                    templ_idx.append(
+                        (self.get_idx_for(my_oc_idx[1]), my_oc_idx[2]))
 
-            #
-            # method: subtractive interference cancellation
-            #
-            else:
-                ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :]
-                ep_fout_norm = sp_la.norm(ep_fout)
-                ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
+                # build subtrahend
+                sub = shifted_matrix_sub(
+                    sp.zeros_like(ep_disc[:, :self.nf]),
+                    self._xcorrs[templ_idx[0][0], :, :].T,
+                    templ_idx[0][1] + ep_t - self._tf + 1)
+                for tidx in templ_idx[1:]:
+                    sub += shifted_matrix_sub(
+                        sp.zeros_like(ep_disc[:, :self.nf]),
+                        self._xcorrs[tidx[0], :, :].T,
+                        tidx[1] + ep_t - self._tf + 1)
 
-                niter = 0
-                while sp.nanmax(ep_disc) > self._lpr_n:
-                    # warn on spike overflow
-                    niter += 1
-                    if niter > self.nf:
-                        logging.warn(
-                            'more spikes than filters found! '
-                            'epoch: [%d:%d] %d' % (
-                                spk_ep[i][0] + self._chunk_offset,
-                                spk_ep[i][1] + self._chunk_offset,
-                                niter))
-                        if niter > 2 * self.nf:
-                            break
+                # apply subtrahend
+                if True: #ep_fout_norm > sp_la.norm(ep_fout + sub):
+                    ## DEBUG
 
-                    # find epoch details
-                    ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
-                    ep_c = sp.nanargmax(ep_disc[ep_t])
+                    if self.verbose.get_has_plot(1):
+                        try:
+                            from spikeplot import xvf_tensor, plt, COLOURS
 
-                    # build subtrahend
-                    sub = shifted_matrix_sub(
-                        sp.zeros_like(ep_disc),
-                        self._xcorrs[ep_c, :, :].T,
-                        ep_t - self._tf + 1)
+                            x_range = sp.arange(
+                                spk_ep[i, 0] + self._chunk_offset,
+                                spk_ep[i, 1] + self._chunk_offset)
+                            f = plt.figure()
+                            f.suptitle('spike epoch [%d:%d] #%d' %
+                                       (spk_ep[i, 0] + self._chunk_offset,
+                                        spk_ep[i, 1] + self._chunk_offset,
+                                        niter))
+                            ax1 = f.add_subplot(211)
+                            ax1.set_color_cycle(
+                                ['k'] + COLOURS[:self.nf] * 2)
+                            ax1.plot(x_range, sp.zeros_like(x_range),
+                                     ls='--')
+                            ax1.plot(x_range, ep_disc, label='pre_sub')
+                            ax1.axvline(x_range[ep_t], c='k')
+                            ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
+                            ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
+                            ax2.plot(x_range, sp.zeros_like(x_range),
+                                     ls='--')
+                            ax2.plot(x_range, sub)
+                            ax2.axvline(x_range[ep_t], c='k')
+                        except:
+                            pass
 
-                    # apply subtrahend
-                    if True: #ep_fout_norm > sp_la.norm(ep_fout + sub):
-                        ## DEBUG
+                    ## BUGED
 
-                        if self.verbose.get_has_plot(1):
-                            try:
-                                from spikeplot import xvf_tensor, plt, COLOURS
+                    ep_disc[:, :self.nf] += sub
+                    ep_fout[:, :self.nf] += sub
+                    ep_fout_norm = sp_la.norm(ep_fout)
+                    if self._pr_s_b is not None:  # TODO: For both spikes
+                        bias, extend = self._pr_s_b
+                        ep_disc[ep_t:min(ep_t + extend,
+                                         ep_disc.shape[0]), ep_c] -= bias
 
-                                x_range = sp.arange(
-                                    spk_ep[i, 0] + self._chunk_offset,
-                                    spk_ep[i, 1] + self._chunk_offset)
-                                f = plt.figure()
-                                f.suptitle('spike epoch [%d:%d] #%d' %
-                                           (spk_ep[i, 0] + self._chunk_offset,
-                                            spk_ep[i, 1] + self._chunk_offset,
-                                            niter))
-                                ax1 = f.add_subplot(211)
-                                ax1.set_color_cycle(
-                                    ['k'] + COLOURS[:self.nf] * 2)
-                                ax1.plot(x_range, sp.zeros_like(x_range),
-                                         ls='--')
-                                ax1.plot(x_range, ep_disc, label='pre_sub')
-                                ax1.axvline(x_range[ep_t], c='k')
-                                ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
-                                ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
-                                ax2.plot(x_range, sp.zeros_like(x_range),
-                                         ls='--')
-                                ax2.plot(x_range, sub)
-                                ax2.axvline(x_range[ep_t], c='k')
-                            except:
-                                pass
+                    ns = self._disc.shape[0]
+                    if self._ovlp_taus is not None:
+                        self._oc_idx = {}
+                        oc_idx = self.nf
+                        for f0 in xrange(self.nf):
+                            for f1 in xrange(f0 + 1, self.nf):
+                                for tau in self._ovlp_taus:
+                                    self._oc_idx[oc_idx] = (f0, f1, tau)
+                                    f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
+                                    f1_lim = [max(0, 0 + tau), min(ns, ns + tau)]
+                                    ep_disc[f0_lim[0]:f0_lim[1], oc_idx] = (
+                                        ep_disc[f0_lim[0]:f0_lim[1], f0] +
+                                        ep_disc[f1_lim[0]:f1_lim[1], f1] -
+                                        self.get_xcorrs_at(f0, f1, tau))
+                                    oc_idx += 1
 
-                        ## BUGED
+                    ## DEBUG
 
-                        ep_disc += sub
-                        ep_fout += sub
-                        ep_fout_norm = sp_la.norm(ep_fout)
-                        if self._pr_s_b is not None:
-                            bias, extend = self._pr_s_b
-                            ep_disc[ep_t:min(ep_t + extend,
-                                             ep_disc.shape[0]), ep_c] -= bias
+                    if self.verbose.get_has_plot(1):
+                        try:
+                            ax1.plot(x_range, ep_disc, ls=':', lw=2,
+                                     label='post_sub')
+                        except:
+                            pass
 
-                        ## DEBUG
+                    ## BUGED
 
-                        if self.verbose.get_has_plot(1):
-                            try:
-                                ax1.plot(x_range, ep_disc, ls=':', lw=2,
-                                         label='post_sub')
-                            except:
-                                pass
-
-                        ## BUGED
-
+                    # lets fill in the results
+                    if ep_c < self.nf:
+                        # was single unit
                         fid = self.get_idx_for(ep_c)
                         self.rval[fid].append(
                             spk_ep[i, 0] + ep_t + self._chunk_offset)
                     else:
-                        break
-                #del ep_fout, ep_disc, sub
+                        # was overlap
+                        my_oc_idx = self._oc_idx[ep_c]
+                        fid0 = self.get_idx_for(my_oc_idx[0])
+                        self.rval[fid0].append(
+                            spk_ep[i, 0] + ep_t + self._chunk_offset)
+                        fid1 = self.get_idx_for(my_oc_idx[1])
+                        self.rval[fid1].append(
+                            spk_ep[i, 0] + ep_t + my_oc_idx[2] +
+                            self._chunk_offset)
+                else:
+                    break
+            #del ep_fout, ep_disc, sub
 
     ## BOTM implementation
 
