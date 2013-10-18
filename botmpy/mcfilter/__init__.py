@@ -62,9 +62,8 @@ Implementations are given in Python and alternatively as in Cython. On
 import the Cython function is being tried to load, on failure the python
 version is loaded as a fallback.
 """
-
-__docformat__ = 'restructuredtext'
-__all__ = ['mcfilter', 'mcfilter_hist', 'USE_CYTHON']
+__docformat__ = "restructuredtext"
+__all__ = ["mcfilter", "mcfilter_hist", "USE_CYTHON"]
 
 ## IMPORTS
 
@@ -74,19 +73,16 @@ import warnings
 # suppress warnings after first presentation (most likely on import)
 warnings.simplefilter('once')
 
-## CYTHON
-
 try:
-    from .mcfilter.mcfilter_cy import (
-        _mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32,
-        _mcfilter_hist_cy64)
+    from .mcfilter_cy import (
+        _mcfilter_cy32, _mcfilter_cy64,
+        _mcfilter_hist_cy32, _mcfilter_hist_cy64)
 
     USE_CYTHON = True
 except ImportError, ex:
-    from .mcfilter.mcfilter_py import _mcfilter_py, _mcfilter_hist_py
+    from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
-    warnings.warn('Cython implementation not found! Falling back to Python!',
-                  ImportWarning)
+    warnings.warn("Cython implementation not found! Falling back to Python!", ImportWarning)
     USE_CYTHON = False
 
 ## FUNCTIONS
@@ -104,21 +100,19 @@ def mcfilter(mc_data, mc_filt):
     :rtype: ndarray
     :returns: filtered signal [data_samples]
     """
-
     if USE_CYTHON is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
         if mc_data.shape[1] != mc_filt.shape[1]:
-            raise ValueError('channel count does not match')
+            raise ValueError("channel count does not match")
         mc_data, mc_filt = (sp.ascontiguousarray(mc_data, dtype=dtype),
                             sp.ascontiguousarray(mc_filt, dtype=dtype))
-        if dtype == sp.float32:
-            return _mcfilter_cy32(mc_data, mc_filt)
-        elif dtype == sp.float64:
-            return _mcfilter_cy64(mc_data, mc_filt)
-        else:
-            raise TypeError('dtype is not float32 or float64: %s' % dtype)
+        try:
+            return {sp.float32: _mcfilter_cy32,
+                    sp.float64: _mcfilter_cy64}[dtype](mc_data, mc_filt)
+        except:
+            raise TypeError("dtype != float32 or float64: %s" % dtype)
     else:
         return _mcfilter_py(mc_data, mc_filt)
 
@@ -140,34 +134,32 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     :returns: filter output [data_samples], history item [hist_samples,
         channels]
     """
-
     if mc_hist is None:
         mc_hist = sp.zeros((mc_filt.shape[0] - 1, mc_data.shape[0]))
     if mc_hist.shape[0] + 1 != mc_filt.shape[0]:
-        raise ValueError('len(history)+1[%d] != len(filter)[%d]' %
+        raise ValueError("len(history)+1[%d] != len(filter)[%d]" %
                          ( mc_hist.shape[0] + 1, mc_filt.shape[0]))
     if USE_CYTHON is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
         if mc_data.shape[1] != mc_filt.shape[1]:
-            raise ValueError('channel count does not match')
+            raise ValueError("channel count does not match")
         mc_data, mc_filt, mc_hist = (
             sp.ascontiguousarray(mc_data, dtype=dtype),
             sp.ascontiguousarray(mc_filt, dtype=dtype),
             sp.ascontiguousarray(mc_hist, dtype=dtype))
-        if dtype == sp.float32:
-            return _mcfilter_hist_cy32(mc_data, mc_filt, mc_hist)
-        elif dtype == sp.float64:
-            return _mcfilter_hist_cy64(mc_data, mc_filt, mc_hist)
-        else:
-            raise TypeError('dtype is not float32 or float64: %s' % dtype)
+        try:
+            return {sp.float32: _mcfilter_hist_cy32,
+                    sp.float64: _mcfilter_hist_cy64}[dtype](mc_data, mc_filt, mc_hist)
+        except:
+            raise TypeError("dtype != float32 or float64: %s" % dtype)
     else:
         return _mcfilter_hist_py(mc_data, mc_filt, mc_hist)
 
 ## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
 
 ## EOF

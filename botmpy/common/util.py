@@ -54,17 +54,17 @@ __docformat__ = 'restructuredtext'
 __all__ = ['INDEX_DTYPE', 'SI8MAX', 'SI16MAX', 'SI32MAX', 'SI64MAX', 'UI8MAX',
            'UI16MAX', 'UI32MAX', 'UI64MAX', 'VERBOSE', 'log']
 
-##---IMPORTS
+## IMPORTS
 
 import logging
 import scipy as sp
 
-##---PACKAGE-LOGGING
+## PACKAGE-LOGGING
 
 logging.basicConfig(level=logging.DEBUG, format='')
 log = logging.getLogger('BOTMpy')
 
-##---CONSTANTS
+## CONSTANTS
 
 ## index type
 INDEX_DTYPE = sp.dtype(sp.int64)
@@ -137,7 +137,7 @@ class VERBOSE(object):
 
     has_plot = property(get_has_plot)
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

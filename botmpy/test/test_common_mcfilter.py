@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -60,13 +60,11 @@ import scipy as sp
 
 from numpy.testing import assert_equal, assert_almost_equal
 
-from mcfilter.mcfilter_cy import (
-    _mcfilter_hist_cy32, _mcfilter_hist_cy64)
-from mcfilter.mcfilter_py import (
-    _mcfilter_py, _mcfilter_hist_py)
+from botmpy.mcfilter.mcfilter_cy import _mcfilter_hist_cy32, _mcfilter_hist_cy64
+from botmpy.mcfilter.mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
 
-##---TESTS
+## TESTS
 
 class TestMcFilter(ut.TestCase):
     def testHistoryCy32(self):
@@ -187,6 +185,7 @@ class TestMcFilter(ut.TestCase):
         fout = _mcfilter_py(data, filt)
         self.assertTupleEqual(data.shape, (fout.shape[0], 1))
         assert_equal(data, sp.array([fout]).T)
+
 
 """
 def mcfilter_hist_py_test(inp=None, plot=False):

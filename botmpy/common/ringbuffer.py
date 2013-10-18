@@ -54,11 +54,11 @@
 __docformat__ = 'restructuredtext'
 __all__ = ['MxRingBuffer']
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 
-##---CLASSES
+## CLASSES
 
 class MxRingBuffer(object):
     """ringbuffer implementation based on pre-allocated ndarray
@@ -277,7 +277,7 @@ class MxRingBuffer(object):
     def __iter__(self):
         return self._data[self._idx_retrieve(), ...].__iter__()
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

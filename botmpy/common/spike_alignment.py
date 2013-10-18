@@ -55,7 +55,7 @@ __docformat__ = 'restructuredtext'
 __all__ = ['sinc_interp1d', 'get_tau_for_alignment', 'get_tau_align_min',
            'get_tau_align_max', 'get_tau_align_energy', 'get_aligned_spikes']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from scipy.signal import resample
@@ -63,7 +63,7 @@ from scipy.signal import resample
 from .util import INDEX_DTYPE
 from .funcs_spike import epochs_from_spiketrain, get_cut, extract_spikes
 
-##---FUNCTIONS
+## FUNCTIONS
 
 def sinc_interp1d(x, s, r):
     """Interpolates `x`, sampled at times `s`
@@ -203,7 +203,7 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
     # return
     return spikes, st
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -60,7 +60,7 @@ from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 from botmpy.nodes import ArtifactDetectorNode
 
-##---TESTS
+## TESTS
 
 class TestArtifactDetectorNode(ut.TestCase):
     def setUp(self):

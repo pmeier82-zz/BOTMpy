@@ -49,25 +49,23 @@
 #_____________________________________________________________________________
 #
 
-
 """datafile implementation for nas file format"""
-__docformat__ = 'restructuredtext'
-__all__ = ['NasFile', '_NAS_ROW_HEADER']
+__docformat__ = "restructuredtext"
+__all__ = ["NasFile", "_NAS_ROW_HEADER"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
-from .datafile.datafile import DataFile
+from .datafile import DataFile
 
-##---CLASSES
+## CLASSES
 
 class _NAS_ROW_HEADER(object):
     """the metadata preceding a row of data in the NAS file format"""
 
-    FORMAT = '%02d\t%d\t%04d\t%s\t%d\t%04d\t%d\t%s\t%s\t'
+    FORMAT = "%02d\t%d\t%04d\t%s\t%d\t%04d\t%d\t%s\t%s\t"
 
-    def __init__(self, tetr, unit, trial, time, contact, stereo, pxalign, max,
-                 std):
+    def __init__(self, tetr, unit, trial, time, contact, stereo, pxalign, max, std):
         self.tetr = tetr
         self.unit = unit
         self.trial = trial
@@ -94,7 +92,7 @@ class _NAS_ROW_HEADER(object):
 
     @staticmethod
     def float_to_str(val):
-        return ('%.3f' % val).replace('.', ',')
+        return ("%.3f" % val).replace('.', ',')
 
 
 class NasFile(DataFile):
@@ -141,7 +139,8 @@ class NasFile(DataFile):
         self.window_before = window_before
         self.window_after = window_after
 
-        self.fp.write("""[NeuronMeter ASCII Tetrode Spike Wave Form File v1.0]
+        self.fp.write("""\
+[NeuronMeter ASCII Tetrode Spike Wave Form File v1.0]
 ContactCount=%d
 SampleRate(Hz)=%d
 WindowBefore(us)=%d
@@ -168,12 +167,12 @@ Tetrode\tUnit\tTrial\tTime\tContact\tStereo\tPxAlign\tMax\tStdDev\tCnt1Ampl1
         :param data: waveform data
         """
 
-        # prepare
+        # init and checks
         if data is None:
-            raise ValueError('data is None')
+            raise ValueError("data is None")
         data_len = data.size / self.contact_count
         assert data_len == round(
-            data.size / self.contact_count), 'undefined data length'
+            data.size / self.contact_count), "undefined data length"
         stacked_data = sp.vstack(
             [data[i * data_len:(i + 1) * data_len] for i in
              xrange(self.contact_count)]).T
@@ -204,7 +203,7 @@ Tetrode\tUnit\tTrial\tTime\tContact\tStereo\tPxAlign\tMax\tStdDev\tCnt1Ampl1
             for i in xrange(data_len):
                 if i > 0:
                     self.fp.write(' ')
-                self.fp.write('%d' % data[c * data_len + i])
+                self.fp.write("%d" % data[c * data_len + i])
         self.fp.write('\n')
         self.fp.flush()
 
@@ -225,20 +224,19 @@ Tetrode\tUnit\tTrial\tTime\tContact\tStereo\tPxAlign\tMax\tStdDev\tCnt1Ampl1
 
     @staticmethod
     def read_data(self, filename):
-        conv = {3:lambda s:float(str(s).replace(",", "."))}
+        conv = {3: lambda s: float(str(s).replace(',', '.'))}
         return sp.genfromtxt(filename, skiprows=7, converters=conv)[:, 9:]
 
     @staticmethod
     def check_nas_file(filename):
         fh = open(filename)
         # To be implemented
-        fh.close(filename)
+        fh.close()
 
     @staticmethod
     def get_cols(filename, cols):
-        conv = {3:lambda s:float(str(s).replace(",", "."))}
-        return sp.genfromtxt(filename, skiprows=7, usecols=cols,
-                             converters=conv)
+        conv = {3: lambda s: float(str(s).replace(',', '.'))}
+        return sp.genfromtxt(filename, skiprows=7, usecols=cols, converters=conv)
 
     @staticmethod
     def get_timepoints(filename):
@@ -248,20 +246,22 @@ Tetrode\tUnit\tTrial\tTime\tContact\tStereo\tPxAlign\tMax\tStdDev\tCnt1Ampl1
     def get_gdf(filename):
         return NasFile.get_cols(filename, (1, 3,))
 
-if __name__ == '__main__':
+## MAIN
 
-#    fname = '\\\\nr05\data_nr05\Felix\write_test.nas'
-    fname = './test.nas'
+if __name__ == "__main__":
+
+    # fname = "\\\\nr05\data_nr05\Felix\write_test.nas"
+    fname = "./test.nas"
     from datafile import GdfFile
 
-    print 'Starting test...'
+    print "Starting test..."
     headers = {}
     data = {}
     nSpikes = 100
     nTetr = 3
     nClus = 3
     #nf = NasFile('\\\\nr05\data_nr05\Felix\write_test.nas')
-    nf = NasFile('write_test.nas')
+    nf = NasFile("write_test.nas")
     srate = 32000
     nf.write_header(4, srate, 1000, 1500)
     nP = nf.get_n_data_points()
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     unit = 0
     trial = 1
     for tetrode in xrange(nTetr):
-        gdf_file = '%d_tetrode.gdf' % tetrode
+        gdf_file = "%d_tetrode.gdf" % tetrode
         gdf = {}
         for c in xrange(nClus):
             mean = sp.randn(nP * 4) * 30
@@ -283,4 +283,6 @@ if __name__ == '__main__':
         GdfFile.write_gdf(gdf_file, gdf)
 
     nf.close()
-    print 'Done.'
+    print "ALL DONE!"
+
+## EOF

@@ -50,19 +50,18 @@
 #
 
 """filter classes for linear filters in the time domain"""
-__docformat__ = 'restructuredtext'
-__all__ = ['FilterError', 'FilterNode', 'MatchedFilterNode',
-           'NormalisedMatchedFilterNode']
+__docformat__ = "restructuredtext"
+__all__ = ["FilterError", "FilterNode", "MatchedFilterNode", "NormalisedMatchedFilterNode"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
-from .base_nodes import Node
-from ..common import (mcfilter_hist, mcvec_from_conc, mcvec_to_conc,
-                      TimeSeriesCovE, MxRingBuffer, snr_maha)
 from collections import deque
+from .base_nodes import Node
+from ..common import mcvec_from_conc, mcvec_to_conc, TimeSeriesCovE, MxRingBuffer, snr_maha
+from ..mcfilter import mcfilter_hist
 
-##---CLASSES
+## CLASSES
 
 class FilterError(Exception):
     pass
@@ -79,7 +78,7 @@ class FilterNode(Node):
     covariance estimator.
     """
 
-    ## constructor
+    ## special
 
     def __init__(self, tf, nc, ce, chan_set=None, rb_cap=None, dtype=None):
         """
@@ -103,9 +102,9 @@ class FilterNode(Node):
 
         # checks
         if tf <= 0:
-            raise ValueError('tf <= 0')
+            raise ValueError("tf <= 0")
         if nc <= 0:
-            raise ValueError('nc <= 0')
+            raise ValueError("nc <= 0")
         if chan_set is None:
             chan_set = tuple(range(nc))
 
@@ -122,71 +121,72 @@ class FilterNode(Node):
         self.ce = ce
         self.active = True
 
-    ## properties static or protected
+    ## properties - not settable
 
     def get_xi(self):
         return self._xi_buf.mean()
 
-    xi = property(get_xi, doc='template (multi-channeled)')
+    xi = property(get_xi, doc="template (multi-channeled)")
 
     def get_xi_conc(self):
         return mcvec_to_conc(self._xi_buf.mean())
 
-    xi_conc = property(get_xi_conc, doc='template (concatenated)')
+    xi_conc = property(get_xi_conc, doc="template (concatenated)")
 
     def get_tf(self):
         return self._xi_buf.dimension[0]
 
-    tf = property(get_tf, doc='temporal extend [sample]')
+    tf = property(get_tf, doc="temporal extend [sample]")
 
     def get_nc(self):
         return self._xi_buf.dimension[1]
 
-    nc = property(get_nc, doc='number of channels')
+    nc = property(get_nc, doc="number of channels")
 
     def get_f(self):
         return self._f
 
-    f = property(get_f, doc='filter (multi-channeled)')
+    f = property(get_f, doc="filter (multi-channeled)")
 
     def get_f_conc(self):
         return mcvec_to_conc(self._f)
 
-    f_conc = property(get_f_conc, doc='filter (concatenated)')
+    f_conc = property(get_f_conc, doc="filter (concatenated)")
 
-    ## properties public
+    ## properties settable
 
     def get_ce(self):
         return self._ce
 
     def set_ce(self, value):
         if not isinstance(value, TimeSeriesCovE):
-            raise TypeError('ce is not of type TimeSeriesCovE')
+            raise TypeError("ce is not of type TimeSeriesCovE")
         if value.get_tf_max() < self.tf:
-            raise ValueError('tf_max of ce < than filter tf')
+            raise ValueError("tf_max of ce < than filter tf")
         if value.get_nc() < self.nc:
-            raise ValueError('nc of cov_est < than filter nc')
+            raise ValueError("nc of cov_est < than filter nc")
         if value.is_initialised is False:
-            raise ValueError('ce not initialised!')
+            raise ValueError("ce not initialised!")
         self._ce = value
         if len(self._xi_buf) > 0:
             self.calc_filter()
 
-    ce = property(get_ce, set_ce, doc='covariance estimator')
+    ce = property(get_ce, set_ce, doc="covariance estimator")
 
     def get_snr(self):
         return snr_maha(
             sp.array([mcvec_to_conc(self.xi)]),
             self._ce.get_icmx(tf=self.tf, chan_set=self._chan_set))[0]
 
-    snr = property(get_snr, doc='signal to noise ratio (mahalanobis distance)')
+    snr = property(get_snr, doc="signal to noise ratio (mahalanobis distance)")
 
     ## mdp.Node interface
 
     def _execute(self, x):
         """apply the filter to data"""
 
-        # DOC: ascontiguousarray is here for ctypes/cython purposes
+        # DOC:  sp.ascontiguousarray is here to assert continuous memory for
+        #       the array. This important for ctypes/cython implementations.
         x_in = sp.ascontiguousarray(x, dtype=self.dtype)[:, self._chan_set]
         rval, self._hist = mcfilter_hist(x_in, self._f, self._hist)
         return rval
@@ -198,7 +198,7 @@ class FilterNode(Node):
         return False
 
     def _get_supported_dtypes(self):
-        return ['float32', 'float64']
+        return ["float32", "float64"]
 
     ## filter interface
 
@@ -249,6 +249,7 @@ class FilterNode(Node):
 
     ## plotting methods
 
+    # XXX: delete plotting functions
     def plot_buffer_to_axis(self, axis=None, idx=None, limits=None):
         """plots the current buffer on the passed axis handle"""
 
@@ -273,12 +274,12 @@ class FilterNode(Node):
         ax.plot(spks.T, color='gray')
         ax.plot(spks.mean(axis=0), color=col, lw=2)
         for i in xrange(1, c):
-            ax.axvline((self.tf * i), ls='dashed', color='y')
+            ax.axvline((self.tf * i), ls="dashed", color='y')
         ax.set_xlim(0, s * c)
         if limits is not None:
             ax.set_ylim(*limits)
-        ax.set_xlabel('time [samples]')
-        ax.set_ylabel('amplitude [mV]')
+        ax.set_xlabel("time [samples]")
+        ax.set_ylabel("amplitude [mV]")
 
         return spks.min(), spks.max()
 
@@ -300,7 +301,7 @@ class FilterNode(Node):
         shape as the pattern `xi`.
         """
 
-        raise  NotImplementedError
+        raise NotImplementedError
 
     ## special methods
 
@@ -367,7 +368,7 @@ class RateEstimator(object):
 
     def estimate(self):
         try:
-            return self._sample_rate * sum(self._spike_count) /\
+            return self._sample_rate * sum(self._spike_count) / \
                    float(self.sample_size)
         except ZeroDivisionError:
             return 0.0
@@ -412,7 +413,7 @@ class RENMF(NormalisedMatchedFilterNode):
         super(RENMF, self).__init__(*args, **kwargs)
         self.rate = RateEstimator(srate, nsample)
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

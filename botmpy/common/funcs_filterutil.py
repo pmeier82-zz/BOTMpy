@@ -53,21 +53,20 @@
 """filter related utility functions
 
 !! multi-channeled crosscorrelation filtering implementations are outsourced
-to botmpy.common.mcfilter !!
+to botmpy.mcfilter !!
 """
-import mcfilter
+__docformat__ = "restructuredtext"
+__all__ = ["xi_vs_f", "kteo", "mteo"]
 
-__docformat__ = 'restructuredtext'
-__all__ = ['xi_vs_f', 'kteo', 'mteo']
-
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 from .funcs_general import mcvec_from_conc
 from .funcs_spike import get_cut
 from .util import log
+from ..mcfilter import mcfilter
 
-##---FUNCTIONS
+## FUNCTIONS
 
 def xi_vs_f(xi, f, nc=4):
     """cross-correlation-tensor for a set of matched patterns and filters
@@ -87,26 +86,25 @@ def xi_vs_f(xi, f, nc=4):
     :returns: ndarray - The tensor of cross-correlation for each pattern
         with each filter. Dimensions as [xi, f, xcorr].
     """
-
     # init and checks
     xi = sp.asarray(xi)
     f = sp.asarray(f)
     if xi.shape[0] != f.shape[0]:
-        raise ValueError('count of xi and f does not match: xi(%s), f(%s)'
+        raise ValueError("count of xi and f does not match: xi(%s), f(%s)"
                          % (xi.shape[0], f.shape[0]))
     if xi.shape[1] != f.shape[1]:
-        raise ValueError('sample count mismatch: xi(%s), f(%s)'
+        raise ValueError("sample count mismatch: xi(%s), f(%s)"
                          % (xi.shape[1], f.shape[1]))
     n = xi.shape[0]
     tf = int(xi.shape[1] / nc)
     if tf != round(float(xi.shape[1]) / float(nc)):
-        raise ValueError('sample count does not match to nc: xi(%s), nc(%s)' %
+        raise ValueError("sample count does not match to nc: xi(%s), nc(%s)" %
                          (xi.shape[1], nc))
     pad_len = get_cut(tf)[0]
     pad = sp.zeros((pad_len, nc))
     rval = sp.zeros((n, n, 2 * tf - 1))
 
-    # calc xcorrs
+    # calculation
     for i in xrange(n):
         xi_i = sp.vstack((pad, mcvec_from_conc(xi[i], nc=nc), pad))
         for j in xrange(n):
@@ -144,21 +142,19 @@ def mteo(data, kvalues=[1, 3, 5], condense=True):
         response of the kteo which response was maximum after smoothing for
         each sample in the input signal.
     """
-
-    # inits
+    # init
     rval = sp.zeros((data.size, len(kvalues)))
 
-    # evaluate the kteos
+    # calculation
     for i, k in enumerate(kvalues):
         try:
             rval[:, i] = kteo(data, k)
             win = sp.hamming(4 * k + 1)
             win /= sp.sqrt(3 * (win ** 2).sum() + win.sum() ** 2)
-            rval[:, i] = sp.convolve(rval[:, i], win, 'same')
+            rval[:, i] = sp.convolve(rval[:, i], win, "same")
         except:
             rval[:, i] = 0.0
-            log.warning('MTEO: could not calculate kteo for k=%s, '
-                        'data-length=%s',
+            log.warning("MTEO: could not calculate kteo for k=%s, data-length=%s",
                         k, data.size)
     rval[:max(kvalues), i] = rval[-max(kvalues):, i] = 0.0
 
@@ -182,21 +178,22 @@ def kteo(data, k=1):
         kteo response.
     :except: If inconsistant dims or shapes.
     """
-
-    # checks and inits
+    # init and checks
     if data.ndim != 1:
-        raise ValueError(
-            'ndim != 1! ndim=%s with shape=%s' % (data.ndim, data.shape))
+        raise ValueError("ndim != 1! ndim=%s with shape=%s" % (data.ndim, data.shape))
 
-    # apply nonlinear energy operator with range k
-    rval = data ** 2 - sp.concatenate(([0] * sp.ceil(k / 2.0),
-                                       data[:-k] * data[k:],
-                                       [0] * sp.floor(k / 2.0)))
+    # calculation
+    rval = data ** 2 - sp.concatenate((
+        [0] * sp.ceil(k / 2.0),
+        data[:-k] * data[k:],
+        [0] * sp.floor(k / 2.0)))
 
     # return
     return rval
 
-##--- MAIN
+## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF

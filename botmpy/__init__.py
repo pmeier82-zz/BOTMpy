@@ -50,11 +50,10 @@
 #
 
 """spike sorter package from BOTMpy"""
-
 __docformat__ = "restructuredtext"
 __version__ = "0.4.0-dev"
 
-## IMPORTS
+## PACKAGE
 
 import common
 import datafile

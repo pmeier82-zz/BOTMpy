@@ -49,28 +49,27 @@
 #_____________________________________________________________________________
 #
 
-
 """datafile implementation for xpd file format"""
-__docformat__ = 'restructuredtext'
-__all__ = ['XpdFile', '_XPD_TH', '_XPD_CH']
+__docformat__ = "restructuredtext"
+__all__ = ["XpdFile", "_XPD_TH", "_XPD_CH"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 from struct import Struct
-from .datafile.datafile import DataFile, DataFileError
+from .datafile import DataFile, DataFileError
 
-##---CONSTANTS
+## CONSTANTS
 
 _CONV_I = Struct('I')
 _CONV_H = Struct('H')
 _CONV_B = Struct('B')
 _CONV_d = Struct('d')
 _CONV_s = Struct('s')
-_CONV_7s = Struct('7s')
-_CONV_255s = Struct('255s')
+_CONV_7s = Struct("7s")
+_CONV_255s = Struct("255s")
 
-##--- CLASSES
+##  CLASSES
 
 class _XPD_TH(object):
     """XPD trial header struct
@@ -128,19 +127,19 @@ class _XPD_TH(object):
 
     def __str__(self):
         rval = self.__repr__()
-        rval += '\nheader_size\t%d\n' % self.header_size
-        rval += 'data_size\t%d\n' % self.data_size
-        rval += 'name\t\t%s\n' % self.name
-        rval += 'version\t\t%s\n' % self.version
-        rval += 'nm_build_no\t%d\n' % self.nm_build_no
-        rval += 'high_ver\t%d\n' % self.high_ver
-        rval += 'low_ver\t\t%d\n' % self.low_ver
-        rval += 'trial_no\t%d\n' % self.trial_no
-        rval += 'stimulus\t%d\n' % self.stimulus
-        rval += 'error\t%d\n' % self.error
-        rval += 'timestamp\t%s\n' % str(self.timestamp)
-        rval += 'comment\t\t%s\n' % self.comment
-        rval += 'add_comment\t%s\n' % self.add_comment
+        rval += "\nheader_size\t%d\n" % self.header_size
+        rval += "data_size\t%d\n" % self.data_size
+        rval += "name\t\t%s\n" % self.name
+        rval += "version\t\t%s\n" % self.version
+        rval += "nm_build_no\t%d\n" % self.nm_build_no
+        rval += "high_ver\t%d\n" % self.high_ver
+        rval += "low_ver\t\t%d\n" % self.low_ver
+        rval += "trial_no\t%d\n" % self.trial_no
+        rval += "stimulus\t%d\n" % self.stimulus
+        rval += "error\t%d\n" % self.error
+        rval += "timestamp\t%s\n" % str(self.timestamp)
+        rval += "comment\t\t%s\n" % self.comment
+        rval += "add_comment\t%s\n" % self.add_comment
         return rval
 
 
@@ -178,18 +177,18 @@ class _XPD_CH(object):
 
     def __str__(self):
         rval = self.__repr__()
-        rval += '\nchannel_no\t%d\n' % self.channel_no
-        rval += 'sample_rate\t%f\n' % self.sample_rate
-        rval += 'x_offset\t%f\n' % self.x_offset
-        rval += 'n_sample\t%d\n' % self.n_sample
-        rval += 'data_offset\t%d' % self.data_offset
+        rval += "\nchannel_no\t%d\n" % self.channel_no
+        rval += "sample_rate\t%f\n" % self.sample_rate
+        rval += "x_offset\t%f\n" % self.x_offset
+        rval += "n_sample\t%d\n" % self.n_sample
+        rval += "data_offset\t%d" % self.data_offset
         return rval
 
 
 class XpdFile(DataFile):
     """XPD file from - Matthias Munk Group @ MPI Tübingen"""
 
-    ## constructor
+    ## special
 
     def __init__(self, filename=None, dtype=None, cache=False):
         # members
@@ -215,21 +214,18 @@ class XpdFile(DataFile):
 
     def _initialize_file(self, filename, **kwargs):
         # open file
-        self.fp = open(filename, 'rb')
+        self.fp = open(filename, "rb")
 
         # trial header
         if _CONV_H.unpack(self.fp.read(2))[0] != 120:
             self.fp.close()
-            raise DataFileError('unexpected input while reading trial '
-                                'header for file %s' % self.fp.name)
+            raise DataFileError("unexpected input while reading trial header for file %s" % self.fp.name)
         self.trial_header = _XPD_TH(self.fp)
 
         # analog channel headers
         if _CONV_H.unpack(self.fp.read(2))[0] != 123:
             self.fp.close()
-            raise DataFileError('unexpected input while reading analog '
-                                'channel header for file %s' %
-                                self.fp.name)
+            raise DataFileError("unexpected input while reading analog channel header for file %s" % self.fp.name)
         self.n_achan = _CONV_I.unpack(self.fp.read(4))[0]
         self.achan_header = {}
         self.max_achan = -1
@@ -247,9 +243,7 @@ class XpdFile(DataFile):
         # digital channel headers
         if _CONV_H.unpack(self.fp.read(2))[0] != 121:
             self.fp.close()
-            raise DataFileError('unexpected input while reading digital '
-                                'channel header for file %s' %
-                                self.fp.name)
+            raise DataFileError("unexpected input while reading digital channel header for file %s" % self.fp.name)
         self.n_dchan = _CONV_I.unpack(self.fp.read(4))[0]
         self.dchan_header = {}
         for _ in xrange(self.n_dchan):
@@ -260,9 +254,7 @@ class XpdFile(DataFile):
         # event channel headers
         if _CONV_H.unpack(self.fp.read(2))[0] != 122:
             self.fp.close()
-            raise DataFileError('unexpected input while reading event '
-                                'channel header for file %s' %
-                                self.fp.name)
+            raise DataFileError("unexpected input while reading event channel header for file %s" % self.fp.name)
         self.n_echan = _CONV_I.unpack(self.fp.read(4))[0]
         self.echan_header = {}
         for _ in xrange(self.n_echan):
@@ -297,8 +289,8 @@ class XpdFile(DataFile):
         """
 
         # keywords
-        item = kwargs.get('item', 1)
-        chans = kwargs.get('chans', [0, 1, 2, 3])
+        item = kwargs.get("item", 1)
+        chans = kwargs.get("chans", [0, 1, 2, 3])
 
         # init
         my_chans = [item + chans[i] * 16 for i in xrange(len(chans))]
@@ -310,7 +302,7 @@ class XpdFile(DataFile):
                 if self.achan_header[my_chans[i]].n_sample > nsample:
                     nsample = self.achan_header[my_chans[i]].n_sample
         if nsample == 0:
-            raise IndexError('no data for tetrode %s' % item)
+            raise IndexError("no data for tetrode %s" % item)
 
         # collect data
         rval = sp.zeros((nsample, len(chans)), dtype=self.dtype)
@@ -342,7 +334,7 @@ class XpdFile(DataFile):
 
         # return stuff
         if not rval.any():
-            raise IndexError('no data for tetrode %s' % item)
+            raise IndexError("no data for tetrode %s" % item)
         return rval
 
     ## private helpers
@@ -356,7 +348,7 @@ class XpdFile(DataFile):
 
         # checks
         if idx not in self.achan_header:
-            raise IndexError('no data for this channel: %s' % idx)
+            raise IndexError("no data for this channel: %s" % idx)
 
         # get data
         self.fp.seek(self.achan_header[idx].data_offset)
@@ -376,7 +368,7 @@ class XpdFile(DataFile):
 
         # checks
         if idx not in self.echan_header:
-            raise IndexError('no data for this channel: %s' % idx)
+            raise IndexError("no data for this channel: %s" % idx)
 
         # get data
         self.fp.seek(self.echan_header[idx].data_offset, 0)
@@ -392,10 +384,12 @@ class XpdFile(DataFile):
 
         return [k for k in self.achan_header.keys() if 1 <= k <= 16]
 
-##--- MAIN
+## MAIN
 
-if __name__ == '__main__':
-    arc = XpdFile('/home/phil/Data/Munk/Louis/L011/L0111001.xpd')
+if __name__ == "__main__":
+    arc = XpdFile("/home/phil/Data/Munk/Louis/L011/L0111001.xpd")
     X = arc.get_data(item=1)
     print X
     del arc, X
+
+## EOF

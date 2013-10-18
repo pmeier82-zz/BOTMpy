@@ -58,13 +58,13 @@ __all__ = [
     'epochs_from_spiketrain_set', 'chunk_data', 'extract_spikes',
     'get_cut', 'snr_maha', 'snr_peak', 'snr_power', 'overlaps']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from .util import *
 from .funcs_general import sortrows
 
-##---FUNCTIONS
+## FUNCTIONS
 
 # event detection
 
@@ -540,7 +540,7 @@ def overlaps(sts, window):
 
     return ovlp, ovlp_nums
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

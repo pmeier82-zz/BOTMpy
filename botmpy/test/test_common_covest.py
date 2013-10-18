@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -60,7 +60,7 @@ from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 from botmpy.common import TimeSeriesCovE
 
-##---TESTS
+## TESTS
 
 class TestCovarianceEstimator(ut.TestCase):
     def setUp(self):
@@ -96,7 +96,7 @@ class TestCovarianceEstimator(ut.TestCase):
         should_be_eye20 = sp.dot(C_2_10, iC_2_10)
         assert_almost_equal(should_be_eye20, sp.eye(20), decimal=5)
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     ut.main()

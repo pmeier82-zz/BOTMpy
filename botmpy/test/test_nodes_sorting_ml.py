@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
@@ -60,7 +60,7 @@ from spikeplot import plt
 
 plt.interactive(False)
 
-##---TESTS
+## TESTS
 
 def get_input_data(tf):
     noise = loadmat('/home/phil/matlab.mat')['noise'].T

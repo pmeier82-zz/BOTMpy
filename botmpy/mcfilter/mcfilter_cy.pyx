@@ -46,18 +46,18 @@
 
 CYTHON IMPLEMENTATIONS
 """
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 __all__ = []
 
-##---IMPORTS
+## IMPORTS
 
 import cython
-import numpy as np
-
 cimport cython
+
+import numpy as np
 cimport numpy as np
 
-##---FUNCTIONS
+## MCFILTER
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -110,6 +110,8 @@ def _mcfilter_cy64(
                     value += data[t + tau, c] * mc_filt[tau, c]
             fout[t] = value
     return fout
+
+## MCFILTER_HIST
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -172,5 +174,9 @@ def _mcfilter_hist_cy64(
 def lib_info():
     pass
 
+## MAIN
+
 if __name__ == '__main__':
     pass
+
+## EOF

@@ -54,7 +54,7 @@
 __docformat__ = 'restructuredtext'
 __all__ = ['ClusteringNode', 'HomoscedasticClusteringNode']
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 from sklearn.mixture import DPGMM, GMM, VBGMM
@@ -62,7 +62,7 @@ import sklearn.cluster
 from sklearn.metrics import euclidean_distances
 from .base_nodes import ResetNode
 
-##---CLASSES
+## CLASSES
 
 class FitlerbankParameters(object):
     """collection of initial parameters for a filterbank
@@ -530,7 +530,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
             plt.show()
         return True
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

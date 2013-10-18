@@ -49,17 +49,16 @@
 #_____________________________________________________________________________
 #
 
-
 """datafile implementation for atf file format"""
-__docformat__ = 'restructuredtext'
-__all__ = ['AtfFile', '_ATF_H']
+__docformat__ = "restructuredtext"
+__all__ = ["AtfFile", "_ATF_H"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
-from .datafile.datafile import DataFile, DataFileError
+from .datafile import DataFile, DataFileError
 
-##---CLASSES
+## CLASSES
 
 class _ATF_H(object):
     """ATF file header"""
@@ -72,15 +71,14 @@ class _ATF_H(object):
 
         # version
         self.version = fp.readline().strip('\'\"\r\n').split()
-        if self.version != ['ATF', '1.0']:
-            raise DataFileError('wrong version: %s' % self.version)
+        if self.version != ["ATF", "1.0"]:
+            raise DataFileError("wrong version: %s" % self.version)
 
         # data set structure
         self.datasets = fp.readline().strip('\'\"\r\n').split()
         self.datasets = map(int, self.datasets)
         if len(self.datasets) != 2:
-            raise DataFileError('invalid file structure: %s' %
-                                str(self.datasets))
+            raise DataFileError("invalid file structure: %s" % str(self.datasets))
 
         self.signals_exported = None
         self.sweep_times = None
@@ -89,27 +87,26 @@ class _ATF_H(object):
         # signal names
         for _ in xrange(self.datasets[0]):
             line = fp.readline().strip('\'\"\r\n')
-            if line.startswith('SignalsExported'):
+            if line.startswith("SignalsExported"):
                 self.signals_exported = line.split('=')[-1].split(',')
-            elif line.startswith('SweepStartTimesMS'):
+            elif line.startswith("SweepStartTimesMS"):
                 self.sweep_times = sp.fromstring(line.split('=')[1], sep=',')
             else:
-                # TODO: if we need other header infos, read in here
+                # TODO: if we need other header info, read in here pass
                 pass
 
-        if self.signals_exported is None:
-            raise DataFileError('could not get signal count and names!')
+            if self.signals_exported is None:
+                raise DataFileError("could not get signal count and names!")
 
         # column headers
-        self.col_headers = fp.readline().strip('\r\n').split('\t')[1:]
-        self.col_headers =\
-        map(str.strip, self.col_headers, ['\'\"'] * len(self.col_headers))
+        self.col_headers = fp.readline().strip("\r\n").split('\t')[1:]
+        self.col_headers = map(str.strip, self.col_headers, ["\'\""] * len(self.col_headers))
 
 
 class AtfFile(DataFile):
     """ATF file format - GenePix software"""
 
-    ## constructor
+    ## special
 
     def __init__(self, filename=None, dtype=None):
         # members
@@ -142,7 +139,7 @@ class AtfFile(DataFile):
         data.shape = (
             data.shape[0] / self.header.datasets[1],
             self.header.datasets[1]
-            )
+        )
         data = data.T
         self._sample_times = data[0, :]
         self._data = data[1:, :]
@@ -173,35 +170,37 @@ class AtfFile(DataFile):
         """
 
         # checks
-        mode = kwargs.get('mode', 'all')
-        if  mode not in ['all', 'chan', 'data', 'device']:
-            raise DataFileError('unknown mode: %s' % mode)
+        mode = kwargs.get("mode", "all")
+        if mode not in ["all", "chan", "data", "device"]:
+            raise DataFileError("unknown mode: {0:s}".format(mode))
         item = kwargs.get('item', 0)
         if mode in ['chan', 'data']:
             if item not in range(self.nchan):
-                raise DataFileError('mode is %s, unknown item: %s' %
-                                    (mode, item))
+                raise DataFileError("mode is %s, unknown item: %s" % (mode, item))
         elif mode in ['device']:
             if item not in range(2):
-                raise DataFileError('mode is %s, unknown item: %s' %
-                                    (mode, item))
+                raise DataFileError("mode is %s, unknown item: %s" % (mode, item))
 
         # return data copies
         rval = None
-        if mode is 'all':
+        if mode is "all":
             rval = {}
             for chan in xrange(self.nchan):
                 rval[chan] = self._data[chan::self.nchan, :].copy()
-        elif mode is 'chan':
+        elif mode is "chan":
             rval = self._data[item::self.nchan, :].copy()
-        elif mode is 'data':
+        elif mode is "data":
             rval = self._data[
                    item * self.nchan:(item + 1) * self.nchan, :].copy()
-        elif mode is 'device':
-            dev_range = {0:[0, 1], 1:[2, 3, 4, 5]}[item]
+        elif mode is "device":
+            dev_range = {0: [0, 1], 1: [2, 3, 4, 5]}[item]
             rval = sp.vstack([sp.hstack(self._data[i::self.nchan, :])
                               for i in dev_range]).T.copy()
         return rval
 
-if __name__ == '__main__':
+## MAIN
+
+if __name__ == "__main__":
     pass
+
+## EOF

@@ -49,22 +49,21 @@
 #_____________________________________________________________________________
 #
 
-
 """datafile implementation for wri file format"""
-__docformat__ = 'restructuredtext'
-__all__ = ['WriFile', '_WRI_H']
+__docformat__ = "restructuredtext"
+__all__ = ["WriFile", "_WRI_H"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
-from .datafile.datafile import DataFile, DataFileError
-from ..funcs_general import dict_list_to_ndarray
+from .datafile import DataFile, DataFileError
+from ..common import dict_list_to_ndarray
 
-##---CONSTANTS
+## CONSTANTS
 
 VERBOSE = False
 
-##---CLASSES
+## CLASSES
 
 class _WRI_H(object):
     """WRI header struct"""
@@ -77,8 +76,8 @@ class _WRI_H(object):
 
         # version
         self.srate = fp.readline().strip('\r\n').split()
-        if self.srate[0] != 'Sampling':
-            raise DataFileError('expected "Sampling:" in first row!"')
+        if self.srate[0] != "Sampling":
+            raise DataFileError("expected \"Sampling:\" in first row!")
         self.srate = int(self.srate[1][10:])
         if VERBOSE:
             print self.srate
@@ -88,7 +87,7 @@ class _WRI_H(object):
 class WriFile(DataFile):
     """WRI file format - Chen Sorter"""
 
-    ## constructor
+    ## special
 
     def __init__(self, filename=None, dtype=sp.float32):
         # members
@@ -123,8 +122,7 @@ class WriFile(DataFile):
 
             line = self.fp.readline().strip('\r\n')
 
-        # Convert the lists to numpyarrays for the spike train alignment
-        # function
+        # Convert list to ndarray for the spike train alignment function
         self.npdata = dict_list_to_ndarray(self.data)
         if VERBOSE:
             print "found_units: "
@@ -147,6 +145,10 @@ class WriFile(DataFile):
 
         return self.npdata
 
-if __name__ == '__main__':
-    w = WriFile('C:\\\\SVN\\\\Datenanalyse\\\\Alle\\\write_test000.wri')
+## MAIN
+
+if __name__ == "__main__":
+    w = WriFile("C:\\\\SVN\\\\Datenanalyse\\\\Alle\\\write_test000.wri")
     print w.get_data()
+
+## EOF

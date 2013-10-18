@@ -53,13 +53,13 @@
 __docformat__ = 'restructuredtext'
 __all__ = ['AlignmentNode']
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 from scipy.signal import resample
 from .base_nodes import ResetNode
 
-##---CLASSES
+## CLASSES
 
 class AlignmentNode(ResetNode):
     """aligns a set of spikes on the mean waveform of the set"""
@@ -209,7 +209,7 @@ class AlignmentNode(ResetNode):
         # return aligned spikes
         return self.spikes
 
-##---HELPERS
+## HELPERS
 
 def shift_row(row, shift):
     if shift == 0:
@@ -219,7 +219,7 @@ def shift_row(row, shift):
     else:
         return sp.concatenate((row[-shift:], [0] * -shift))
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

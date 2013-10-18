@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -65,7 +65,7 @@ from botmpy.common import (TimeSeriesCovE, mcvec_to_conc,
 from botmpy.nodes import MatchedFilterNode, NormalisedMatchedFilterNode
 
 
-##---TESTS
+## TESTS
 
 class TestFilterNodes(ut.TestCase):
     def setUp(self):

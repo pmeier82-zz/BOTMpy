@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -62,7 +62,7 @@ from botmpy.nodes.spike_detection import *
 from numpy.testing import assert_array_almost_equal
 from spikeplot import mcdata
 
-##---TESTS
+## TESTS
 
 class TestSortingNodes(ut.TestCase):
     def setUp(self):

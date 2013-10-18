@@ -63,7 +63,7 @@ __docformat__ = 'restructuredtext'
 __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
            'BayesOptimalTemplateMatchingNode', 'BOTMNode', 'ABOTMNode']
 
-##---IMPORTS
+## IMPORTS
 
 import collections
 import copy
@@ -82,21 +82,19 @@ from .filter_bank import FilterBankError, FilterBankNode
 from .prewhiten import PrewhiteningNode
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
-    overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
-    shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
-    matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
-    mcvec_from_conc, get_aligned_spikes, vec2ten, get_tau_align_min,
-    get_tau_align_max, get_tau_align_energy, mad_scaling, mad_scale_op_mx,
-    mad_scale_op_vec)
+    overlaps, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
+    matrix_argmax, dict_list_to_ndarray, get_cut, MxRingBuffer, mcvec_from_conc, get_aligned_spikes, vec2ten,
+    get_tau_align_min, get_tau_align_max, get_tau_align_energy, mad_scaling, mad_scale_op_mx, mad_scale_op_vec)
+from ..datafile import GdfFile
 
-##---CONSTANTS
+## CONSTANTS
 
 MTEO_DET = SDMteoNode
 MTEO_KWARGS = {'kvalues': [3, 9, 15, 21],
                'threshold_factor': 0.98,
                'min_dist': 32}
 
-##---CLASSES
+## CLASSES
 
 class FilterBankSortingNode(FilterBankNode):
     """abstract class that handles filter instances and their outputs
@@ -1176,7 +1174,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
                 if self.bank[u].rate.filled and \
-                        self.bank[u].rate.estimate() < self._minimum_rate:
+                                self.bank[u].rate.estimate() < self._minimum_rate:
                     self.deactivate(u)
                     logging.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
@@ -1409,7 +1407,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
 ## shortcut
 ABOTMNode = AdaptiveBayesOptimalTemplateMatchingNode
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

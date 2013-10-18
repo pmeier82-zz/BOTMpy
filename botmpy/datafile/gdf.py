@@ -49,19 +49,17 @@
 #_____________________________________________________________________________
 #
 
-
 """datafile implementation for gdf file format"""
-__docformat__ = 'restructuredtext'
-__all__ = ['GdfFile']
+__docformat__ = "restructuredtext"
+__all__ = ["GdfFile"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
-from .datafile.datafile import DataFile
-from ..funcs_general import sortrows, dict_list_to_ndarray
+from .datafile import DataFile
+from ..common import sortrows, dict_list_to_ndarray
 
-
-##---CLASSES
+## CLASSES
 
 class GdfFile(DataFile):
     """GDF file format - Chen Sorter"""
@@ -111,7 +109,7 @@ class GdfFile(DataFile):
 
         if isinstance(gdf, dict):
             gdf = GdfFile.convert_dict_to_matrix(gdf)
-        sp.savetxt(filename, gdf, fmt='%05d %d')
+        sp.savetxt(filename, gdf, fmt="%05d %d")
 
     @staticmethod
     def convert_dict_to_matrix(gdf):
@@ -161,21 +159,23 @@ class GdfFile(DataFile):
 
         return GdfFile.convert_dict_to_matrix(self.data)
 
-if __name__ == '__main__':
+## MAIN
+
+if __name__ == "__main__":
     import os
 
     try:
-        fname1 = './test1.gdf'
-        fname2 = './test2.gdf'
+        fname1 = "./test1.gdf"
+        fname2 = "./test2.gdf"
         test_data = [
-            '0001 1000',
-            '0001 1200',
-            '0002 1210',
-            '0001 1280',
-            '0003 1291',
-            '0001 1350',
-            '0002 1400',
-            ]
+            "0001 1000",
+            "0001 1200",
+            "0002 1210",
+            "0001 1280",
+            "0003 1291",
+            "0001 1350",
+            "0002 1400",
+        ]
         with open(fname1, 'w') as f:
             f.write('\n'.join(test_data))
         g1 = GdfFile(fname1)
@@ -192,9 +192,11 @@ if __name__ == '__main__':
                                gdf2[sorted(gdf2.keys())[i]]):
                 is_same = False
                 break
-        print 'data is same:', is_same
+        print "data is same:", is_same
     finally:
         if os.path.exists(fname1):
             os.remove(fname1)
         if os.path.exists(fname2):
             os.remove(fname2)
+
+## EOF

@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -69,7 +69,7 @@ from botmpy.common import (
     matrix_argmax, matrix_argmin, get_tau_for_alignment, get_tau_align_min,
     get_tau_align_max, get_tau_align_energy, get_aligned_spikes)
 
-##---TESTS-alphabetic-by-file
+## TESTS-alphabetic-by-file
 
 class TestCommonFuncsFilterutil(ut.TestCase):
     def testXiVsF(self, nc=2):
@@ -501,7 +501,7 @@ class TestCommonUtil(ut.TestCase):
         # --- test
         assert_equal(sum_couple(2, 2), 4)
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     ut.main()

@@ -53,16 +53,16 @@
 __docformat__ = 'restructuredtext'
 __all__ = ['mad_scaling', 'mad_scale_op_mx', 'mad_scale_op_vec']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from scipy.stats import norm
 
-##---CONSTANTS
+## CONSTANTS
 
 NORM_PPF_CONST = 1. / norm.ppf(0.75)
 
-##---FUNCTIONS
+## FUNCTIONS
 
 def _mad(data, center=None, constant=None, axis=0):
     """calculate the median average deviation for multi channel input
@@ -122,7 +122,7 @@ def mad_scale_op_vec(mad, tf):
 
     return sp.kron(1.0 / mad, sp.ones(tf))
 
-##---MAIN
+## MAIN
 
 0
 if __name__ == '__main__':

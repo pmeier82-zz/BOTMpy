@@ -57,12 +57,12 @@ __all__ = [
     'xcorr', 'shifted_matrix_sub', 'dict_sort_ndarrays',
     'dict_list_to_ndarray', 'get_idx']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
 
-##---FUNCTIONS
+## FUNCTIONS
 
 ## general array operations
 
@@ -340,7 +340,7 @@ def get_idx(idxset, append=False):
     except:
         return 0
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

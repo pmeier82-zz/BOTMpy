@@ -54,14 +54,14 @@
 __docformat__ = 'restructuredtext'
 __all__ = ['PrewhiteningNode', 'PrewhiteningNode2']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
 from .base_nodes import Node
 from ..common import coloured_loading, mad_scaling, TimeSeriesCovE
 
-##--- CLASSES
+##  CLASSES
 
 class PrewhiteningNode(Node):
     """prewhitens the data with respect to a noise covariance matrix"""
@@ -231,7 +231,7 @@ class MADScalingNode(Node):
         """update the internal scale"""
 
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

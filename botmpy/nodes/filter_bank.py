@@ -59,7 +59,7 @@ from threading import Thread
 __docformat__ = 'restructuredtext'
 __all__ = ['FilterBankError', 'FilterBankNode']
 
-##---IMPORTS
+## IMPORTS
 
 import logging
 import scipy as sp
@@ -67,7 +67,7 @@ from .base_nodes import Node
 from .linear_filter import FilterNode, REMF
 from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
 
-##---CLASSES
+## CLASSES
 
 class FilterBankError(Exception):
     pass
@@ -470,7 +470,7 @@ class FilterBankNode(Node):
 
     __len__ = get_nf
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass

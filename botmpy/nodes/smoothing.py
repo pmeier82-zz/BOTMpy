@@ -54,12 +54,12 @@
 __docformat__ = 'restructuredtext'
 __all__ = ['SmoothingNode', 'smooth']
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as N
 from .base_nodes import ResetNode
 
-##---CONSTANTS
+## CONSTANTS
 
 FILTER_KERNELS = {
     5:N.array([-3, 12, 17, 12, -3]),
@@ -68,7 +68,7 @@ FILTER_KERNELS = {
     11:N.array([-36, 9, 44, 69, 84, 89, 84, 69, 44, 9, -36])
 }
 
-##---CLASSES
+## CLASSES
 
 class SmoothingNode(ResetNode):
     """smooths the data using a gauss kernel of size 5 to 11"""
@@ -104,7 +104,7 @@ class SmoothingNode(ResetNode):
             rval[:, c] = N.convolve(x[:, c], self.kernel, 'same')
         return rval / self.kernel.sum()
 
-##---FUNCTIONS
+## FUNCTIONS
 
 def _basic_smooth(signal, kernel):
     """basic smoothing using the explicit kernel given
@@ -150,7 +150,7 @@ def smooth(signal, window=5, kernel='gauss'):
         filter_kernel = N.ones(window)
     return _basic_smooth(signal, filter_kernel)
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

@@ -62,14 +62,14 @@ DATA_TYPE: fixed for float32 (single precision)"""
 __docformat__ = 'restructuredtext'
 __all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from matplotlib.mlab import specgram
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
 
-##--- CLASSES
+##  CLASSES
 
 class ArtifactDetectorNode(ThresholdDetectorNode):
     """detects artifacts by detecting zero-crossing frequencies
@@ -326,7 +326,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         else:
             return invert_epochs(self.events, end=self.size)
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

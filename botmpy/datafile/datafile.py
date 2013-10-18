@@ -49,9 +49,7 @@
 #_____________________________________________________________________________
 #
 
-
 """interfaces for reading (multi-channeled) data from various file formats"""
-
 __docformat__ = "restructuredtext"
 __all__ = ["DataFileError", "DataFileMetaclass", "DataFile"]
 
@@ -78,7 +76,6 @@ class DataFileMetaclass(type):
     the ancestor's methods.
     """
 
-    # methods that can overwrite doc:
     DOC_METHODS = ["_close", "_closed", "_filename", "_get_data"]
 
     def __new__(cls, classname, bases, members):
@@ -154,6 +151,7 @@ class DataFileMetaclass(type):
         >>> info["signature"]
         'self, x, y, *args, **kw'
         """
+
         regargs, varargs, varkwargs, defaults = _inspect.getargspec(func)
         argnames = list(regargs)
         if varargs:
@@ -182,11 +180,11 @@ class DataFileMetaclass(type):
         src = ("lambda %(signature)s: _original_func_(%(signature)s)" %
                wrapper_infodict)
         wrapped_func = eval(src, dict(_original_func_=original_func))
-        wrapped_func.__name__ = wrapper_infodict['name']
-        wrapped_func.__doc__ = wrapper_infodict['doc']
-        wrapped_func.__module__ = wrapper_infodict['module']
-        wrapped_func.__dict__.update(wrapper_infodict['dict'])
-        wrapped_func.func_defaults = wrapper_infodict['defaults']
+        wrapped_func.__name__ = wrapper_infodict["name"]
+        wrapped_func.__doc__ = wrapper_infodict["doc"]
+        wrapped_func.__module__ = wrapper_infodict["module"]
+        wrapped_func.__dict__.update(wrapper_infodict["dict"])
+        wrapped_func.func_defaults = wrapper_infodict["defaults"]
         wrapped_func.undecorated = wrapper_infodict
         return wrapped_func
 
@@ -199,15 +197,16 @@ class DataFileMetaclass(type):
         cls -- Class to which the wrapper method will be added, this is used
             for the super call.
         """
+
         src = ("lambda %(signature)s: " % wrapper_infodict +
                "super(_wrapper_class_, _wrapper_class_)." +
                "%(name)s(%(signature)s)" % wrapper_infodict)
         wrapped_func = eval(src, {"_wrapper_class_": cls})
-        wrapped_func.__name__ = wrapper_infodict['name']
-        wrapped_func.__doc__ = wrapper_infodict['doc']
-        wrapped_func.__module__ = wrapper_infodict['module']
-        wrapped_func.__dict__.update(wrapper_infodict['dict'])
-        wrapped_func.func_defaults = wrapper_infodict['defaults']
+        wrapped_func.__name__ = wrapper_infodict["name"]
+        wrapped_func.__doc__ = wrapper_infodict["doc"]
+        wrapped_func.__module__ = wrapper_infodict["module"]
+        wrapped_func.__dict__.update(wrapper_infodict["dict"])
+        wrapped_func.func_defaults = wrapper_infodict["defaults"]
         wrapped_func.undecorated = wrapper_infodict
         return wrapped_func
 
@@ -226,7 +225,7 @@ class DataFile(object):
 
     __metaclass__ = DataFileMetaclass
 
-    ## constructor
+    ## special
 
     def __init__(self, filename=None, dtype=None, **kwargs):
         """
@@ -243,6 +242,22 @@ class DataFile(object):
 
         # initialize
         self._initialize_file(filename, **kwargs)
+
+    def __str__(self):
+        return "%s[%s]" % (self.__class__.__name__, self.filename())
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, t, v, tb):
+        if t is not None:
+            # exeption occured
+            pass
+        self.close()
+
+    def __del__(self):
+        if self.fp is not None:
+            self.close()
 
     ## public interface
 
@@ -271,7 +286,7 @@ class DataFile(object):
         """
 
         if self._closed():
-            raise DataFileError('Archive is closed!')
+            raise DataFileError("Archive is closed!")
         return self._get_data(**kwargs)
 
     ## private interface - to be implemented in subclasses
@@ -319,25 +334,9 @@ class DataFile(object):
 
         raise NotImplementedError
 
-    ## special methods
+## MAIN
 
-    def __str__(self):
-        return '%s[%s]' % (self.__class__.__name__, self.filename())
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, t, v, tb):
-        if t is not None:
-            # exeption occured
-            pass
-        self.close()
-
-    def __del__(self):
-        if self.fp is not None:
-            self.close()
-
-##---MAIN
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF

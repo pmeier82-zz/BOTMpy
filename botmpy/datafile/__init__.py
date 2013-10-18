@@ -49,9 +49,7 @@
 #_____________________________________________________________________________
 #
 
-
 """interfaces for reading (multi-channeled) data from files"""
-
 __docformat__ = "restructuredtext"
 
 ## PACKAGE

@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-##---IMPORTS
+## IMPORTS
 
 try:
     import unittest2 as ut
@@ -61,7 +61,7 @@ from botmpy.common import TimeSeriesCovE, VERBOSE
 from botmpy.nodes import BOTMNode
 from numpy.testing import assert_array_almost_equal
 
-##---TESTS
+## TESTS
 
 class TestSortingNodes(ut.TestCase):
     def setUp(self):

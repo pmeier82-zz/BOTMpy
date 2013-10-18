@@ -62,14 +62,14 @@ __docformat__ = 'restructuredtext'
 __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
            'SDSqrNode', 'SDMteoNode', 'SDKteoNode', 'SDIntraNode', 'SDPeakNode']
 
-##--- IMPORTS
+##  IMPORTS
 
 import scipy as sp
 from scipy.stats.mstats import mquantiles
 from .base_nodes import ResetNode
 from ..common import (threshold_detection, merge_epochs, get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
 
-##--- CLASSES
+##  CLASSES
 
 class EnergyNotCalculatedError(Exception):
     pass
@@ -585,7 +585,7 @@ class SDIntraNode(ThresholdDetectorNode):
         kwargs.update(threshold_base='signal')
         super(SDIntraNode, self).__init__(**kwargs)
 
-##--- MAIN
+##  MAIN
 
 if __name__ == '__main__':
     pass

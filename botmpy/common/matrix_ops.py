@@ -57,16 +57,16 @@ __all__ = ['matrix_cond', 'diagonal_loading', 'coloured_loading',
 
 # TODO: should we enforce square matrices for all ops?
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
 
-##---CONSTANTS
+## CONSTANTS
 
 SUFFICIENT_CONDITION = 50
 
-##---FUNCTIONS
+## FUNCTIONS
 
 def matrix_pos_def(mat):
     """checks if the matrix is positive definite
@@ -281,7 +281,7 @@ def matrix_argmin(mat):
     #     fout.append(mat.min(axis=i).argmin())
     # return tuple(fout)
 
-##---MAIN
+## MAIN
 
 if __name__ == '__main__':
     pass
