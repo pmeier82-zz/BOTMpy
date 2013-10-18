@@ -50,29 +50,28 @@
 #
 
 """abstract base classes derived from MDP nodes"""
-__docformat__ = 'restructuredtext'
-__all__ = ['Node', 'ResetNode', 'TrainingResetMixin', 'PCANode']
+__docformat__ = "restructuredtext"
+__all__ = ["Node", "ResetNode", "TrainingResetMixin", "PCANode"]
 
-##---IMPORTS
+## IMPORTS
 
-# MPD environ settings to stop it from frantically importing all sorts of
-# packages
+# MPD environ settings to stop it importing all sorts of packages
 
 import os
 
-os.environ['MDP_DISABLE_PARALLEL_PYTHON'] = 'True'
-os.environ['MDP_DISABLE_MONKEYPATCH_PP'] = 'True'
-os.environ['MDP_DISABLE_SHOGUN'] = 'True'
-os.environ['MDP_DISABLE_LIBSVM'] = 'True'
-os.environ['MDP_DISABLE_JOBLIB'] = 'True'
-os.environ['MDP_DISABLE_SKLEARN'] = 'True'
+os.environ["MDP_DISABLE_PARALLEL_PYTHON"] = "True"
+os.environ["MDP_DISABLE_MONKEYPATCH_PP"] = "True"
+os.environ["MDP_DISABLE_SHOGUN"] = "True"
+os.environ["MDP_DISABLE_LIBSVM"] = "True"
+os.environ["MDP_DISABLE_JOBLIB"] = "True"
+os.environ['MDP_DISABLE_SKLEARN'] = "True"
 
 # MPD DONE
 
 from mdp import Node
 from mdp.nodes import PCANode
 
-##---CLASSES
+## CLASSES
 
 class TrainingResetMixin(object):
     """allows :py:class:`mdp.Node` to reset to training state
@@ -105,7 +104,9 @@ class TrainingResetMixin(object):
 class ResetNode(TrainingResetMixin, Node):
     pass
 
-##---MAIN
+## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF

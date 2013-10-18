@@ -49,22 +49,43 @@
 #_____________________________________________________________________________
 #
 
-"""spike sorter package from BOTMpy"""
+"""multi-channeled filter application for time domain FIR filters
 
-__docformat__ = "restructuredtext"
-__version__ = "0.4.0-dev"
+PYTHON IMPLEMENTATIONS USING SCIPY
+"""
+__docformat__ = 'restructuredtext'
+__all__ = ['_mcfilter_py', '_mcfilter_hist_py', ]
 
-## IMPORTS
+##---IMPORTS
 
-import common
-import datafile
-import mcfilter
-import nodes
-import util
+import scipy as sp
 
-## MAIN
+##---FUNCTIONS
 
-if __name__ == "__main__":
+def _mcfilter_py(mc_data, mc_filt):
+    if mc_data.ndim != mc_filt.ndim > 2:
+        raise ValueError('wrong dimensions: %s, %s' %
+                         (mc_data.shape, mc_filt.shape))
+    if mc_data.shape[1] != mc_filt.shape[1]:
+        raise ValueError('channel count does not match')
+    return sp.sum(
+        [sp.correlate(mc_data[:, c], mc_filt[:, c], mode='same')
+         for c in xrange(mc_data.shape[1])], axis=0)
+
+
+def _mcfilter_hist_py(mc_data, mc_filt, mc_hist):
+    if mc_data.ndim != mc_filt.ndim > 2:
+        raise ValueError('wrong dimensions: %s, %s' %
+                         (mc_data.shape, mc_filt.shape))
+    if mc_data.shape[1] != mc_filt.shape[1]:
+        raise ValueError('channel count does not match')
+    mc_hist_and_data = sp.vstack((mc_hist, mc_data))
+    rval = sp.zeros(mc_data.shape[0], dtype=mc_data.dtype)
+    for t in xrange(mc_data.shape[0]):
+        for c in xrange(mc_hist_and_data.shape[1]):
+            rval[t] += sp.dot(mc_hist_and_data[t:t + mc_filt.shape[0], c],
+                              mc_filt[:, c])
+    return rval, mc_data[t + 1:, :].copy()
+
+if __name__ == '__main__':
     pass
-
-## EOF

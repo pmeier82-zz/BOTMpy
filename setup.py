@@ -69,7 +69,6 @@ import numpy
 
 def find_version():
     """read version from botmpy.__init__"""
-
     try:
         with open("./botmpy/__init__.py", 'r') as fp:
             for line in fp:
@@ -97,10 +96,10 @@ if __name__ == "__main__":
         version=find_version(),
         packages=["botmpy",
                   "botmpy.common",
-                  "botmpy.config",
                   "botmpy.datafile",
                   "botmpy.mcfilter",
-                  "botmpy.nodes"],
+                  "botmpy.nodes",
+                  "botmpy.util", ],
         requires=["numpy", "scipy", "mdp", "sklearn"],
         zip_safe=False,
 

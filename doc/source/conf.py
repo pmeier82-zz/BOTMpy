@@ -380,7 +380,7 @@ todo_include_todos = True
 # autodocs
 autodoc_default_flags = ['show-inheritance']
 
-# natbib config
+# natbib util
 print
 if os.environ.get('READTHEDOCS', None) == 'True':
     print 'RTD:', os.getcwd()

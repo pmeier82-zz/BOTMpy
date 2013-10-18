@@ -49,18 +49,19 @@
 #_____________________________________________________________________________
 #
 
-"""spike sorter package from BOTMpy"""
+
+"""interfaces for reading (multi-channeled) data from files"""
 
 __docformat__ = "restructuredtext"
-__version__ = "0.4.0-dev"
 
-## IMPORTS
+## PACKAGE
 
-import common
-import datafile
-import mcfilter
-import nodes
-import util
+from .datafile import *
+from .atf import *
+from .gdf import *
+from .nas import *
+from .wri import *
+from .xpd import *
 
 ## MAIN
 
