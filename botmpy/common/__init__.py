@@ -49,22 +49,18 @@
 #_____________________________________________________________________________
 #
 
-
 """common functions for the BOTMpy package"""
+
 __docformat__ = "restructuredtext"
 
-##---PACKAGE
-
-# XXX: do not change the import order!! thanks
+## PACKAGE
+# import order matters, do not change without cause!!
 
 from .util import *
 
 from .funcs_general import *
 from .funcs_filterutil import *
 from .funcs_spike import *
-
-from .datafile import *
-from .mcfilter import *
 
 from .covariance_estimator import *
 from .matrix_ops import *
@@ -73,7 +69,9 @@ from .spike_alignment import *
 
 from .funcs_preprocessing import *
 
-##---MAIN
+## MAIN
 
 if __name__ == "__main__":
     pass
+
+## EOF

@@ -49,7 +49,7 @@
 #_____________________________________________________________________________
 #
 
-"""smoothing algorithms for multichanneled data"""
+"""smoothing algorithms for multi-channeled data"""
 
 __docformat__ = 'restructuredtext'
 __all__ = ['SmoothingNode', 'smooth']
@@ -111,7 +111,7 @@ def _basic_smooth(signal, kernel):
 
     :Parameters:
         signal : ndarray
-            multichanneled signal [data,channel]
+            multi-channeled signal [data,channel]
         kernel : ndarray
             kernel used for smoothing
     """
@@ -129,7 +129,7 @@ def smooth(signal, window=5, kernel='gauss'):
 
     :Parameters:
         signal : ndarray
-            multichanneled signal [data, channel]
+            multi-channeled signal [data, channel]
         window : ndarray
             window size of the smoothing filter (len(window) < signal
             .shape[0])

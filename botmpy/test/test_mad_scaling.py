@@ -56,10 +56,13 @@ try:
 except ImportError:
     import unittest as ut
 
-from common import mad_scaling
-from common.datafile import XpdFile
-from spikeplot import mcdata, plt
 import scipy as sp
+
+from spikeplot import mcdata, plt
+
+from common import mad_scaling
+from datafile import XpdFile
+
 
 if __name__ == '__main__':
     xpd = XpdFile('/home/pmeier/Data/Munk/Louis/L014/L0140001.xpd')

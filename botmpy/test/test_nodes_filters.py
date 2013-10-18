@@ -56,11 +56,14 @@ try:
 except ImportError:
     import unittest as ut
 
-from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
-from botmpy.common import (TimeSeriesCovE, mcfilter, mcvec_to_conc,
+
+from numpy.testing import assert_equal
+
+from botmpy.common import (TimeSeriesCovE, mcvec_to_conc,
                             mcvec_from_conc)
 from botmpy.nodes import MatchedFilterNode, NormalisedMatchedFilterNode
+
 
 ##---TESTS
 

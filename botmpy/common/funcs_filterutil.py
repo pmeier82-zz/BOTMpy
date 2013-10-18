@@ -52,9 +52,10 @@
 
 """filter related utility functions
 
-!! multichanneled crosscorrelation filtering implementations are outsourced
+!! multi-channeled crosscorrelation filtering implementations are outsourced
 to botmpy.common.mcfilter !!
 """
+import mcfilter
 
 __docformat__ = 'restructuredtext'
 __all__ = ['xi_vs_f', 'kteo', 'mteo']
@@ -64,7 +65,6 @@ __all__ = ['xi_vs_f', 'kteo', 'mteo']
 import scipy as sp
 from .funcs_general import mcvec_from_conc
 from .funcs_spike import get_cut
-from .mcfilter import mcfilter
 from .util import log
 
 ##---FUNCTIONS
@@ -74,7 +74,7 @@ def xi_vs_f(xi, f, nc=4):
 
     The xcorr-tensor for a set of patterns (xi) and their matched filters (f)
     with a certain lag is returned as ndarray with dimensions [xi, f, tau].
-    All multichanneled vectors are presented in their concatenated form.
+    All multi-channeled vectors are presented in their concatenated form.
 
     :type xi: ndarray
     :param xi: The patterns, one concatenated pattern per row.

@@ -49,14 +49,12 @@
 #_____________________________________________________________________________
 #
 
-"""detector nodes for multichanneled data
+"""detector nodes for multi-channeled data
 
-These detecors find features and feature epochs on multichanneled signals.
-Mostly, you will want to reset the internals of the detector after
-processing a
-chunk of data, which is featured by deriving from ResetNode. There are
-different
-kinds of detectors, distinguished by their way of feature to noise
+These detectors find features and feature epochs on multi-channeled signals.
+Mostly, you will want to reset the internals of the detector after processing
+a chunk of data, which is featured by deriving from ResetNode. There are
+different kinds of detectors, distinguished by their way of feature to noise
 discrimination.
 """
 
@@ -69,16 +67,12 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 import scipy as sp
 from scipy.stats.mstats import mquantiles
 from .base_nodes import ResetNode
-from ..common import (threshold_detection, extract_spikes, merge_epochs,
-                      get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
+from ..common import (threshold_detection, merge_epochs, get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
 
 ##--- CLASSES
 
 class EnergyNotCalculatedError(Exception):
-    """EnergyNotCalculatedError Exception"""
-
-    def __init__(self):
-        super(EnergyNotCalculatedError, self).__init__('self.energy is None')
+    pass
 
 
 class ThresholdDetectorNode(ResetNode):
@@ -100,7 +94,7 @@ class ThresholdDetectorNode(ResetNode):
     representation of the input signal to find the feature epochs.
 
     The output timeseries either holds the onsets of the feature epochs or the
-    maximum of the energy function within the feature epoch, givin in samples.
+    maximum of the energy function within the feature epoch, in samples.
 
     Extra information about the events or the internals has to be saved in
     member variables along with a proper interface.
@@ -206,7 +200,7 @@ class ThresholdDetectorNode(ResetNode):
         return self._events
 
     def get_events(self):
-        return  self._get_events()
+        return self._get_events()
 
     def _set_events(self, value):
         self._events = value
@@ -307,12 +301,12 @@ class ThresholdDetectorNode(ResetNode):
             rval = sp.vstack((
                 sp.concatenate(([0], self.events + cut[1])),
                 sp.concatenate((self.events - cut[0], [self.size]))
-                )).T
+            )).T
         else:
             rval = sp.vstack((
                 self.events - cut[0],
                 self.events + cut[1]
-                )).T
+            )).T
 
         # check for merges
         if merge is True:
@@ -404,9 +398,9 @@ class ThresholdDetectorNode(ResetNode):
         """calculates the threshold"""
 
         base = {
-                   'signal': self.data,
-                   'energy': self.energy
-               }[self.th_base]
+            'signal': self.data,
+            'energy': self.energy
+        }[self.th_base]
         if self.ch_sep is False:
             base = sp.atleast_2d(sp.absolute(base).max(axis=1)).T
         self.threshold = sp.asarray(

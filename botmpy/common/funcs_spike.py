@@ -363,7 +363,7 @@ def extract_spikes(data, epochs, mc=False):
     :type epochs: ndarray
     :param epochs: spike epoch set [[start,end]]
     :type mc: bool
-    :param mc: if True, extract multichanneled spike waveforms as [n,tf,nc]
+    :param mc: if True, extract multi-channeled spike waveforms as [n,tf,nc]
         else extract channel concatenated spike waveforms as [n, tf*nc]
         *False as default for legacy compatibility*
         Default=False

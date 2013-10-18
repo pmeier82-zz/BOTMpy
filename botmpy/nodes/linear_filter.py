@@ -294,7 +294,7 @@ class FilterNode(Node):
         """ABSTRACT METHOD FOR FILTER CALCULATION
 
         Implement this in a meaningful way in any subclass. The method should
-        return the filter given the multichanneled template `xi`, the
+        return the filter given the multi-channeled template `xi`, the
         covariance estimator `ce` and the channel set `cs` plus any number
         of optional arguments and keywords. The filter is usually the same
         shape as the pattern `xi`.

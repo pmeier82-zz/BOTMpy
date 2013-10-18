@@ -132,7 +132,7 @@ def ten2vec(data):
 
 
 def mcvec_to_conc(x):
-    """returns the concatenated vector for a multichanneled vector
+    """returns the concatenated vector for a multi-channeled vector
 
     :type x: ndarray
     :param x: multi-channeled vector in matrix form
@@ -143,7 +143,7 @@ def mcvec_to_conc(x):
 
 
 def mcvec_from_conc(x, nc=4):
-    """returns the multichanneled vector from a concatenated representation
+    """returns the multi-channeled vector from a concatenated representation
 
     :type x: ndarray
     :param x: multi-channeled vector in channel concatenated form

@@ -49,7 +49,6 @@
 #_____________________________________________________________________________
 #
 
-
 """spike sorter package from BOTMpy"""
 
 __docformat__ = "restructuredtext"
