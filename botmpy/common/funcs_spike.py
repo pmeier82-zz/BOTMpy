@@ -502,7 +502,8 @@ def overlaps(sts, window):
     :param sts: spike train set
     :type window: int
     :param window: overlap window size
-    :returns: dict - boolean spike train set
+    :returns: dict - boolean spike train set, dict - number of overlaps for
+        each unit
     """
 
     # inits
@@ -530,6 +531,8 @@ def overlaps(sts, window):
 
                 ovlp[i_][spkI] = True
                 ovlp[j_][overlap_indices] = True
+
+        ovlp_nums[i_] = sum(ovlp[i_])
 
     return ovlp, ovlp_nums
 
