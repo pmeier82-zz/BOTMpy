@@ -7,9 +7,9 @@ Reference: http://opus.kobv.de/tuberlin/volltexte/2012/3387/ Chapter 5.4
 
 ----
 
-``master`` |travis-master|
+|travis-master| ``master``
 
-``0.4-dev`` |travis-0.4-dev|
+|travis-0.4-dev| ``0.4-dev``
 
 .. |travis-master| image:: https://travis-ci.org/pmeier82/BOTMpy.png?branch=master
     :target: https://travis-ci.org/pmeier82/BOTMpy
