@@ -3,5 +3,5 @@ Cython >= 0.15.1
 scipy >= 0.9
 numpy >= 1.2
 
-scikit-learn >= 11.0
+scikit-learn >= 0.11
 MDP >= 3
