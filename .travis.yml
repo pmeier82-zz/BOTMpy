@@ -27,7 +27,7 @@ before_install:
 #  - sudo apt-get install -qq python-numpy python-scipy python-mdp python-sklearn
 install:
   - echo "installing with pip"
-  - pip instal -r requirements.txt --use-mirrors
+  - pip install -r requirements.txt --use-mirrors
   - python setup.py install
 
 ## SCRIPT
