@@ -18,12 +18,13 @@ branches:
 
 before_install:
   - sudo apt-get update -qq
+  - sudo apt-get install -qq python-dev
   - sudo apt-get install -qq libatlas-dev libatlas-base-dev liblapack-dev gfortran
-  - sudo apt-get install -qq python-numpy python-scipy
-  - sudo apt-get install -qq python-dev python-numpy-dev
+  - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then sudo apt-get install python3-numpy python3-numpy-dev 2>&1 | tail -n 2; fi"
+  - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then ln -s /usr/lib/python3/dist-packages/numpy ~/virtualenv/python3.2/lib/python3.2/site-packages/; fi"
+  - sudo apt-get install -qq python-numpy python-numpy-dev -qq python-scipy
 install:
-  - pip install numpy>=1.6.1 --use-mirrors --quiet
-  - pip install scipy>=0.9 --use-mirrors --quiet
+  - ln -s /usr/lib/python2.7/dist-packages/numpy ~/virtualenv/python$TRAVIS_PYTHON_VERSION/lib/python$TRAVIS_PYTHON_VERSION/site-packages/
   - pip install scikit-learn>=0.11 --use-mirrors --quiet
   - pip install MDP>=3.3 --use-mirrors --quiet
   - pip install cython>=0.15.1 --use-mirrors --quiet
@@ -47,6 +48,6 @@ after_script:
 after_success:
   email: false
 after_failure:
- email: true
+  email: true
 
 ## EOF
