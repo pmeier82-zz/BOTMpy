@@ -2,9 +2,8 @@
 
 language: python
 python:
-  - "2.6"
-  - "2.7"
-  - "pypy"
+  - 2.6
+  - 2.7
 virtualenv:
   system_site_packages: true
 
@@ -12,21 +11,33 @@ virtualenv:
 
 branches:
   only:
-    - "master"
-    - "0.4-dev"
+    - master
+    - 0.4-dev
 
 ## INSTALL
 
 before_install:
-  - "sudo apt-get update -qq"
-  - "sudo apt-get install -qq python-numpy python-scipy python-mdp python-sklearn"
+  # header
+  - echo "before_install [start]"
+  - echo $VIRTUAL_ENV
+  - df -h
+  - date
+  - python -V
+#  - sudo apt-get update -qq
+#  - sudo apt-get install -qq python-numpy python-scipy python-mdp python-sklearn
+  - echo "installing with pip"
+  - pip install numpy
+  - pip install scipy
+  - pip install mdp
+  - pip install sklearn
+  - echo "befor install [end]"
 install:
-  - "python setup.py install"
+  - python setup.py install
 
 ## SCRIPT
 before_script: ~
 script:
-  - "nosetests"
+  - nosetests
 after_script: ~
 
 ## REPORTING
