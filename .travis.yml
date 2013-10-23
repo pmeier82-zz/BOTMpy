@@ -18,20 +18,16 @@ branches:
 
 before_install:
   # header
-  - echo "before_install [start]"
+  - echo "before_install"
   - echo $VIRTUAL_ENV
   - df -h
   - date
   - python -V
 #  - sudo apt-get update -qq
 #  - sudo apt-get install -qq python-numpy python-scipy python-mdp python-sklearn
-  - echo "installing with pip"
-  - pip install numpy
-  - pip install scipy
-  - pip install mdp
-  - pip install sklearn
-  - echo "befor install [end]"
 install:
+  - echo "installing with pip"
+  - pip instal -r requirements.txt --use-mirrors
   - python setup.py install
 
 ## SCRIPT
