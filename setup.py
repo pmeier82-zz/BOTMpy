@@ -108,8 +108,8 @@ if __name__ == '__main__':
         author_email='pmeier82@gmail.com',
         maintainer='Philipp Meier',
         maintainer_email='pmeier82@gmail.com',
-        description=open('README', 'r').readline().strip(),
-        long_description=open('README', 'r').read(),
+        description=open('README.rst', 'r').readline().strip(),
+        long_description=open('README.rst', 'r').read(),
         license='University of Illinois/NCSA Open Source License',
         url='http://www.ni.tu-berlin.de',
         classifiers=[
