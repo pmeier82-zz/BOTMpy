@@ -52,7 +52,6 @@ import scipy as sp
 from botmpy.common import TimeSeriesCovE, VERBOSE
 from botmpy.nodes.spike_detection import *
 from numpy.testing import assert_array_almost_equal
-from spikeplot import mcdata
 
 ##---TESTS
 

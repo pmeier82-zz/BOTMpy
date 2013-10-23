@@ -48,8 +48,8 @@ try:
 except ImportError:
     import unittest as ut
 
-from common import mad_scaling
-from common.datafile import XpdFile
+from botmpy.common import mad_scaling
+from botmpy.common.datafile import XpdFile
 from spikeplot import mcdata, plt
 import scipy as sp
 
