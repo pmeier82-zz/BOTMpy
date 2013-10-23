@@ -21,18 +21,23 @@ before_install:
   - sudo apt-get install -qq libatlas-dev libatlas-base-dev liblapack-dev gfortran
   - sudo apt-get install -qq python-numpy python-scipy
   - sudo apt-get install -qq python-numpy-dev
-  - sudo apt-get install -qq cython
 install:
   - echo "installing with pip"
-  - pip install -r requirements.txt --use-mirrors
+  - pip install -r requirements.txt --use-mirrors --quiet
   - python setup.py install
 
 ## SCRIPT
 
-before_script: ~
+before_script:
+  - echo
+  - echo "======================================================================"
+  - echo
 script:
   - nosetests
-after_script: ~
+after_script:
+  - echo
+  - echo "======================================================================"
+  - echo
 
 ## REPORTING
 
