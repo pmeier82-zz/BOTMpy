@@ -11,7 +11,7 @@ Reference: http://opus.kobv.de/tuberlin/volltexte/2012/3387/ Chapter 5.4
 
 ``0.4-dev`` |travis-0.4-dev|
 
-.. image:: https://travis-ci.org/pmeier82/BOTMpy.png?branch=master
+.. |travis-master| image:: https://travis-ci.org/pmeier82/BOTMpy.png?branch=master
     :target: https://travis-ci.org/pmeier82/BOTMpy
-.. image:: https://travis-ci.org/pmeier82/BOTMpy.png?branch=0.4-dev
+.. |travis-0.4-dev| image:: https://travis-ci.org/pmeier82/BOTMpy.png?branch=0.4-dev
     :target: https://travis-ci.org/pmeier82/BOTMpy
