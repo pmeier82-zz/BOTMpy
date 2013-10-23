@@ -124,7 +124,9 @@ if __name__ == "__main__":
             "Topic :: Scientific/Engineering :: Information Analysis"],
 
         # cython
-        cmdclass={"build_ext": build_ext},
+        cmdclass={
+            "build_ext": build_ext,
+        },
         ext_modules=ext_mod_list)
 
 ## EOF

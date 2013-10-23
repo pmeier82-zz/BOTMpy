@@ -63,12 +63,12 @@ from numpy.testing import assert_equal, assert_almost_equal
 from botmpy.mcfilter.mcfilter_cy import _mcfilter_hist_cy32, _mcfilter_hist_cy64
 from botmpy.mcfilter.mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
-
 ## TESTS
 
 class TestMcFilter(ut.TestCase):
     def testHistoryCy32(self):
         """test history item"""
+
         tf = 3
         nc = 2
         data = sp.randn(100, nc).astype(sp.float32)
@@ -79,6 +79,7 @@ class TestMcFilter(ut.TestCase):
 
     def testHistoryCy64(self):
         """test history item"""
+
         tf = 3
         nc = 2
         data = sp.randn(100, nc).astype(sp.float64)
@@ -89,6 +90,7 @@ class TestMcFilter(ut.TestCase):
 
     def testPyVsCyOnesCy32(self):
         """test python and cython, float"""
+
         tf = 3
         nc = 2
         data = sp.ones((20, nc), dtype=sp.float32)
@@ -100,6 +102,7 @@ class TestMcFilter(ut.TestCase):
 
     def testPyVsCyOnesCy64(self):
         """test python and cython, double"""
+
         tf = 3
         nc = 2
         data = sp.ones((20, nc), dtype=sp.float64)
@@ -111,6 +114,7 @@ class TestMcFilter(ut.TestCase):
 
     def testPyVsCyRandnCy32(self):
         """test python and cython"""
+
         tf = 3
         nc = 2
         data = sp.randn(20, nc).astype(sp.float32)
@@ -123,6 +127,7 @@ class TestMcFilter(ut.TestCase):
 
     def testPyVsCyRandnCy64(self):
         """test python and cython"""
+
         tf = 3
         nc = 2
         data = sp.randn(20, nc).astype(sp.float64)
@@ -134,6 +139,8 @@ class TestMcFilter(ut.TestCase):
         assert_almost_equal(fopy, focy)
 
     def testStepsCy32(self):
+        """docstring"""
+
         tf = 3
         nc = 2
         data = sp.vstack([sp.concatenate(
@@ -146,6 +153,8 @@ class TestMcFilter(ut.TestCase):
         assert_almost_equal(fopy, focy)
 
     def testStepsCy64(self):
+        """docstring"""
+
         tf = 3
         nc = 2
         data = sp.vstack([sp.concatenate(
@@ -158,6 +167,8 @@ class TestMcFilter(ut.TestCase):
         assert_almost_equal(fopy, focy)
 
     def testDataConcatenationCy32(self):
+        """history concatenation"""
+
         data = sp.zeros((100, 1), dtype=sp.float32)
         data[sp.arange(0, 100, 10)] = 1.0
         filt = sp.zeros((5, 1), dtype=sp.float32)
@@ -168,6 +179,7 @@ class TestMcFilter(ut.TestCase):
         assert_equal(data[:-cut], sp.array([fout[cut:]]).T)
 
     def testDataConcatenationCy64(self):
+        """history concatenation"""
         data = sp.zeros((100, 1), dtype=sp.float64)
         data[sp.arange(0, 100, 10)] = 1.0
         filt = sp.zeros((5, 1), dtype=sp.float64)
@@ -178,6 +190,8 @@ class TestMcFilter(ut.TestCase):
         assert_equal(data[:-cut], sp.array([fout[cut:]]).T)
 
     def testMcfilterRecoveryPy(self):
+        """"""
+
         data = sp.zeros((100, 1), dtype=sp.float64)
         data[sp.arange(0, 100, 10)] = 1.0
         filt = sp.zeros((5, 1), dtype=sp.float64)
@@ -186,8 +200,7 @@ class TestMcFilter(ut.TestCase):
         self.assertTupleEqual(data.shape, (fout.shape[0], 1))
         assert_equal(data, sp.array([fout]).T)
 
-
-"""
+"""\ old filter test functions
 def mcfilter_hist_py_test(inp=None, plot=False):
     if inp is None:
         # test setup

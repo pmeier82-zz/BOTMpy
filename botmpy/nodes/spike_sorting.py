@@ -178,7 +178,7 @@ class FilterBankSortingNode(FilterBankNode):
         # create filters for templates
         if templates is not None:
             for temp in templates:
-                self.create_filter(temp)
+                self.filter_create(temp)
 
     ## SortingNode interface
 
@@ -333,7 +333,7 @@ class FilterBankSortingNode(FilterBankNode):
             self.reset_history()
             other = super(FilterBankSortingNode, self)._execute(self._data)
             other += getattr(self, '_lpr_s', sp.log(1.e-6))
-            other -= [.5 * self.get_xcorrs_at(i)
+            other -= [.5 * self.get_xc_at(i)
                       for i in xrange(self.nf)]
 
         # plot mcdata
@@ -521,7 +521,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         self._disc[:] = sp.nan
         for i in xrange(self.nf):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
-                                .5 * self.get_xcorrs_at(i))
+                                .5 * self.get_xc_at(i))
 
         # build overlap channels from filter outputs for overlap channels
         if self._ovlp_taus is not None:
@@ -536,7 +536,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         self._disc[f0_lim[0]:f0_lim[1], oc_idx] = (
                             self._disc[f0_lim[0]:f0_lim[1], f0] +
                             self._disc[f1_lim[0]:f1_lim[1], f1] -
-                            self.get_xcorrs_at(f0, f1, tau))
+                            self.get_xc_at(f0, f1, tau))
                         oc_idx += 1
 
     def _sort_chunk(self):
@@ -627,7 +627,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     # build subtrahend
                     sub = shifted_matrix_sub(
                         sp.zeros_like(ep_disc),
-                        self._xcorrs[ep_c, :, :].T,
+                        self._xc[ep_c, :, :].T,
                         ep_t - self._tf + 1)
 
                     # apply subtrahend
@@ -1163,7 +1163,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         for u in list(self._idx_active_set):
             # 1) snr drop
             if self.bank[u].snr < self._minimum_snr:
-                self.deactivate(u)
+                self.filter_deactivate(u)
                 logging.warn('deactivating filter %s, snr' % str(u))
 
             # 2) rate drop
@@ -1175,9 +1175,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 self.bank[u].rate.observation(nspks, nsmpl)
                 if self.bank[u].rate.filled and \
                                 self.bank[u].rate.estimate() < self._minimum_rate:
-                    self.deactivate(u)
+                    self.filter_deactivate(u)
                     logging.warn('deactivating filter %s, rate' % str(u))
-        self._check_internals()
+        self._update_internals()
 
     def _adapt_filter_current(self):
         """adapt templates/filters using non overlapping spikes"""
@@ -1269,7 +1269,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples.clear()
 
         # noise covariance matrix, and scaling due to median average deviation
-        C = self._ce.get_cmx(tf=self._tf, chan_set=self._chan_set)
+        C = self._ce.get_cmx(tf=self._tf, chan_set=self._cs)
         if self._mad_scaling is not None:
             C *= mad_scale_op_mx(self._mad_scaling, self._tf)
 
@@ -1348,7 +1348,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 continue
 
             spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-            self.create_filter(spk_i)
+            self.filter_create(spk_i)
             if self.verbose.has_print:
                 print 'Unit %d accepted, with %d spikes' % (i, len(spks_i))
         del pre_pro, clus, spks, spks_pp
@@ -1363,7 +1363,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._det_samples.clear()
 
         # noise covariance matrix, and scaling due to median average deviation
-        C = self._ce.get_cmx(tf=self._tf, chan_set=self._chan_set)
+        C = self._ce.get_cmx(tf=self._tf, chan_set=self._cs)
         if self._mad_scaling is not None:
             C *= mad_scale_op_mx(self._mad_scaling, self._tf)
 
@@ -1395,7 +1395,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     print 'rejected, only %d spikes' % len(spks_i)
             else:
                 spk_i = mcvec_from_conc(spks_i.mean(0), nc=self._nc)
-                self.create_filter(spk_i)
+                self.filter_create(spk_i)
                 if self.verbose.has_print:
                     print 'accepted, with %d spikes' % len(spks_i)
         del pre_pro, clus, spks, spks_pp

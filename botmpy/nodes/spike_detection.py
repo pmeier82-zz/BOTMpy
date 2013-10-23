@@ -66,7 +66,7 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 
 import scipy as sp
 from scipy.stats.mstats import mquantiles
-from .base_nodes import ResetNode
+from .base_nodes import Node
 from ..common import (threshold_detection, merge_epochs, get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
 
 ##  CLASSES
@@ -75,7 +75,7 @@ class EnergyNotCalculatedError(Exception):
     pass
 
 
-class ThresholdDetectorNode(ResetNode):
+class ThresholdDetectorNode(Node):
     """abstract interface for detecting feature epochs in a signal
 
     The ThresholdDetectorNode is the abstract interface for all detectors. The

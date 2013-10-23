@@ -51,11 +51,9 @@
 
 """abstract base classes derived from MDP nodes"""
 __docformat__ = "restructuredtext"
-__all__ = ["Node", "ResetNode", "TrainingResetMixin", "PCANode"]
+__all__ = ["Node", "Node", "TrainingResetMixin", "PCANode"]
 
-## IMPORTS
-
-# MPD environ settings to stop it importing all sorts of packages
+## MPD environment settings - disable importing several libraries
 
 import os
 
@@ -64,11 +62,11 @@ os.environ["MDP_DISABLE_MONKEYPATCH_PP"] = "True"
 os.environ["MDP_DISABLE_SHOGUN"] = "True"
 os.environ["MDP_DISABLE_LIBSVM"] = "True"
 os.environ["MDP_DISABLE_JOBLIB"] = "True"
-os.environ['MDP_DISABLE_SKLEARN'] = "True"
+os.environ["MDP_DISABLE_SKLEARN"] = "True"
 
-# MPD DONE
+## IMPORTS
 
-from mdp import Node
+from mdp import Node as mdp_Node
 from mdp.nodes import PCANode
 
 ## CLASSES
@@ -77,16 +75,11 @@ class TrainingResetMixin(object):
     """allows :py:class:`mdp.Node` to reset to training state
 
     This is a mixin class for subclasses of :py:class:`mdp.Node`. To use it
-    inherit from :py:class:`mdp.Node` and put this mixin as the first
-    superclass.
-
-    node is a mdp.signal_node.Cumulator that can have its training phase
-    reinitialised once a batch of cumulated data has been processed on. This
-    is useful for online algorithms that derive parameters from the batch of
-    data currently under consideration (Ex.: stochastic thresholding).
+    inherit from :py:class:`mdp.Node` and put this mixin prior in the class
+    list.
     """
 
-    ## additional interface
+    ## reset interface
 
     def reset(self):
         """reset handler, calls the reset hook and resets to training phase"""
@@ -101,7 +94,9 @@ class TrainingResetMixin(object):
         pass
 
 
-class ResetNode(TrainingResetMixin, Node):
+class Node(TrainingResetMixin, mdp_Node):
+    """botmpy base node class with reset ability"""
+
     pass
 
 ## MAIN

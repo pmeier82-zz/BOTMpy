@@ -112,14 +112,20 @@ class FilterNode(Node):
         super(FilterNode, self).__init__(output_dim=1, dtype=dtype)
 
         # members
-        self._xi_buf = MxRingBuffer(capacity=rb_cap or 350, dimension=(tf, nc),
-                                    dtype=self.dtype)
+        self._xi_buf = MxRingBuffer(
+            capacity=rb_cap or 350, dimension=(tf, nc),
+            dtype=self.dtype)
         self._ce = None
         self._f = None
         self._hist = sp.zeros((tf - 1, nc), dtype=self.dtype)
         self._chan_set = tuple(sorted(chan_set))
         self.ce = ce
         self.active = True
+
+    def __str__(self):
+        return '%s(tf=%s,nc=%s,cs=%s)' % (self.__class__.__name__,
+                                          self.tf, self.nc,
+                                          str(self._chan_set))
 
     ## properties - not settable
 
@@ -247,46 +253,10 @@ class FilterNode(Node):
 
         self._hist[:] = 0.0
 
-    ## plotting methods
-
-    # XXX: delete plotting functions
-    def plot_buffer_to_axis(self, axis=None, idx=None, limits=None):
-        """plots the current buffer on the passed axis handle"""
-
-        try:
-            from spikeplot import plt, COLOURS
-        except ImportError:
-            return None
-
-        # init
-        ax = axis
-        if ax is None:
-            f = plt.figure()
-            ax = f.add_subplot(111)
-        col = 'k'
-        if idx is not None:
-            col = COLOURS[idx % len(COLOURS)]
-        spks = self._xi_buf[:]
-        n, s, c = spks.shape
-        spks = spks.swapaxes(2, 1).reshape(n, s * c)
-
-        # plot
-        ax.plot(spks.T, color='gray')
-        ax.plot(spks.mean(axis=0), color=col, lw=2)
-        for i in xrange(1, c):
-            ax.axvline((self.tf * i), ls="dashed", color='y')
-        ax.set_xlim(0, s * c)
-        if limits is not None:
-            ax.set_ylim(*limits)
-        ax.set_xlabel("time [samples]")
-        ax.set_ylabel("amplitude [mV]")
-
-        return spks.min(), spks.max()
-
     ## filter calculation
 
     def calc_filter(self):
-        """initiate a calculation of the filter"""
+        """calculate the filter with currently set parameters"""
 
         self._f = self.filter_calculation(self.xi, self._ce, self._chan_set)
 
@@ -297,60 +267,39 @@ class FilterNode(Node):
         Implement this in a meaningful way in any subclass. The method should
         return the filter given the multi-channeled template `xi`, the
         covariance estimator `ce` and the channel set `cs` plus any number
-        of optional arguments and keywords. The filter is usually the same
+        of optional arguments and keywords. The filter usually has the same
         shape as the pattern `xi`.
         """
 
         raise NotImplementedError
 
-    ## special methods
-
-    def __str__(self):
-        return '%s(tf=%s,nc=%s,cs=%s)' % (self.__class__.__name__,
-                                          self.tf, self.nc,
-                                          str(self._chan_set))
-
 
 class MatchedFilterNode(FilterNode):
     """matched filters in the time domain optimise the signal to noise ratio
-    (SNR) of the matched pattern with respect to covariance matrix
-    describing the noise background (deconvolution).
+    (SNR) of the pattern with respect to a covariance matrix describing the
+    noise background (deconvolution).
     """
 
     @classmethod
     def filter_calculation(cls, xi, ce, cs, *args, **kwargs):
         tf, nc = xi.shape
-        ## don't do loading for now
-        # params = {'tf':tf, 'chan_set':cs}
-        # if ce.is_cond_ok(**params) is True:
-        #     icmx = ce.get_icmx(**params)
-        # else:
-        #     icmx = ce.get_icmx_loaded(**params)
-        ##
         icmx = ce.get_icmx(tf=tf, chan_set=cs)
         f = sp.dot(mcvec_to_conc(xi), icmx)
-        return sp.ascontiguousarray(mcvec_from_conc(f, nc=nc),
-                                    dtype=xi.dtype)
+        return sp.ascontiguousarray(
+            mcvec_from_conc(f, nc=nc),
+            dtype=xi.dtype)
 
 
 class NormalisedMatchedFilterNode(FilterNode):
     """matched filters in the time domain optimise the signal to noise ratio
-    (SNR) of the matched pattern with respect to covariance matrix
-    describing the noise background (deconvolution). Here the deconvolution
-    output is normalised s.t. the response of the pattern is peak of unit
-    amplitude.
+    (SNR) of the pattern with respect to a covariance matrix describing the
+    noise background (deconvolution). Here the deconvolution output is
+    normalised s.t. the response of the pattern is a peak of unit amplitude.
     """
 
     @classmethod
     def filter_calculation(cls, xi, ce, cs, *args, **kwargs):
         tf, nc = xi.shape
-        ## don't do loading for now
-        # params = {'tf':tf, 'chan_set':cs}
-        # if ce.is_cond_ok(**params) is True:
-        #     icmx = ce.get_icmx(**params)
-        # else:
-        #     icmx = ce.get_icmx_loaded(**params)
-        ##
         icmx = ce.get_icmx(tf=tf, chan_set=cs)
         f = sp.dot(mcvec_to_conc(xi), icmx)
         norm_factor = sp.dot(mcvec_to_conc(xi), f)
@@ -359,17 +308,29 @@ class NormalisedMatchedFilterNode(FilterNode):
 
 
 class RateEstimator(object):
+    """moving average rate estimation for streaming spike trains"""
+
+    ## special
+
     def __init__(self, *args, **kwargs):
         self._spike_count = deque()
         self._sample_count = deque()
-        self._n_sample_max = int(kwargs.get('n_sample_max', 2500000))
-        self._sample_rate = float(kwargs.get('sample_rate', 32000.0))
-        self._filled = False
+        self._n_sample_max = int(kwargs.get("n_sample_max", 2500000))
+        self._sample_rate = float(kwargs.get("sample_rate", 32000.0))
+        self._full = False
+
+    ## properties
+
+    def get_sample_size(self):
+        return sum(self._sample_count)
+
+    sample_size = property(get_sample_size)
+
+    ## methods
 
     def estimate(self):
         try:
-            return self._sample_rate * sum(self._spike_count) / \
-                   float(self.sample_size)
+            return self._sample_rate * sum(self._spike_count) / float(self.sample_size)
         except ZeroDivisionError:
             return 0.0
 
@@ -378,42 +339,43 @@ class RateEstimator(object):
         self._sample_count.append(tlen)
 
         while sum(self._sample_count) > self._n_sample_max:
-            self._filled = True
+            self._full = True
             self._spike_count.popleft()
             self._sample_count.popleft()
 
     def reset(self):
         self._spike_count.clear()
         self._sample_count.clear()
-        self._filled = False
+        self._full = False
 
-    def is_filled(self):
-        return self._filled
+    def is_full(self):
+        return self._full
 
-    filled = property(is_filled)
-
-    def get_sample_size(self):
-        return sum(self._sample_count)
-
-    sample_size = property(get_sample_size)
+    full = property(is_full)
 
 
 class REMF(MatchedFilterNode):
+    """matched filter with rate estimation"""
+
     def __init__(self, *args, **kwargs):
-        srate = kwargs.pop('sample_rate', 32000.0)
-        nsample = kwargs.pop('n_sample_max', sp.inf)
+        srate = kwargs.pop("sample_rate", 32000.0)
+        nsample = kwargs.pop("n_sample_max", sp.inf)
         super(REMF, self).__init__(*args, **kwargs)
         self.rate = RateEstimator(srate, nsample)
 
 
 class RENMF(NormalisedMatchedFilterNode):
+    """normalised matched filter with rate estimation"""
+
     def __init__(self, *args, **kwargs):
-        srate = kwargs.pop('sample_rate', 32000.0)
-        nsample = kwargs.pop('n_sample_max', sp.inf)
+        srate = kwargs.pop("sample_rate", 32000.0)
+        nsample = kwargs.pop("n_sample_max", sp.inf)
         super(RENMF, self).__init__(*args, **kwargs)
         self.rate = RateEstimator(srate, nsample)
 
 ## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF

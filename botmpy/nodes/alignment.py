@@ -57,11 +57,11 @@ __all__ = ['AlignmentNode']
 
 import scipy as sp
 from scipy.signal import resample
-from .base_nodes import ResetNode
+from .base_nodes import Node
 
 ## CLASSES
 
-class AlignmentNode(ResetNode):
+class AlignmentNode(Node):
     """aligns a set of spikes on the mean waveform of the set"""
 
     ## constructor

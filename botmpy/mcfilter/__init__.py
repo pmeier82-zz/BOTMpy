@@ -106,8 +106,9 @@ def mcfilter(mc_data, mc_filt):
             dtype = sp.float32
         if mc_data.shape[1] != mc_filt.shape[1]:
             raise ValueError("channel count does not match")
-        mc_data, mc_filt = (sp.ascontiguousarray(mc_data, dtype=dtype),
-                            sp.ascontiguousarray(mc_filt, dtype=dtype))
+        mc_data, mc_filt = (
+            sp.ascontiguousarray(mc_data, dtype=dtype),
+            sp.ascontiguousarray(mc_filt, dtype=dtype))
         try:
             return {sp.float32: _mcfilter_cy32,
                     sp.float64: _mcfilter_cy64}[dtype](mc_data, mc_filt)

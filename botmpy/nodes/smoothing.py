@@ -57,7 +57,7 @@ __all__ = ['SmoothingNode', 'smooth']
 ## IMPORTS
 
 import scipy as N
-from .base_nodes import ResetNode
+from .base_nodes import Node
 
 ## CONSTANTS
 
@@ -70,7 +70,7 @@ FILTER_KERNELS = {
 
 ## CLASSES
 
-class SmoothingNode(ResetNode):
+class SmoothingNode(Node):
     """smooths the data using a gauss kernel of size 5 to 11"""
 
     ## constructor

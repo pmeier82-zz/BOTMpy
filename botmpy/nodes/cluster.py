@@ -60,7 +60,7 @@ import scipy as sp
 from sklearn.mixture import DPGMM, GMM, VBGMM
 import sklearn.cluster
 from sklearn.metrics import euclidean_distances
-from .base_nodes import ResetNode
+from .base_nodes import Node
 
 ## CLASSES
 
@@ -84,7 +84,7 @@ class FitlerbankParameters(object):
         self.covest = None
 
 
-class ClusteringNode(ResetNode):
+class ClusteringNode(Node):
     """interface for clustering algorithms"""
 
     ## constructor

@@ -49,19 +49,17 @@
 #_____________________________________________________________________________
 #
 
+## IMPORTS GENERAL
 
-# -- import configuration -----------------------------------------------------
-
-import sys, os
+import os
+import sys
 
 # if extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath(os.path.join(os.pardir, os.pardir)))
 
-
-# -- mocking modules for Read the Docs compatibility --------------------------
-# hopefully one day there will be a way for RTD to provide scipy and co!
+## MOCKING -- for Read the Docs compatibility
 
 class Mock(object):
     def __init__(self, *args, **kwargs):
@@ -72,8 +70,8 @@ class Mock(object):
 
     @classmethod
     def __getattr__(cls, name):
-        if name in ('__file__', '__path__'):
-            return '/dev/null'
+        if name in ("__file__", "__path__"):
+            return "/dev/null"
         elif name[0] == name[0].upper():
             mockType = type(name, (), {})
             mockType.__module__ = __name__
@@ -81,62 +79,61 @@ class Mock(object):
         else:
             return Mock()
 
-MOCK_MODULES = ['cython',
-                'scipy',
-                'scipy.linalg',
-                'scipy.signal',
-                'scipy.stats',
-                'scipy.stats.mstats',
-                'matplotlib',
-                'matplotlib.mlab',
-                'mdp',
-                'mdp.nodes',
-                'sklearn',
-                'sklearn.cluster',
-                'sklearn.metrics',
-                'sklearn.mixture',
-                'sklearn.utils',
-                'sklearn.utils.extmath',
-                'peter.pan',
-                #'botmpy.common.mcfilter.mcfilter_cy',
+
+MOCK_MODULES = [
+    "cython",
+    "scipy",
+    "scipy.linalg",
+    "scipy.signal",
+    "scipy.stats",
+    "scipy.stats.mstats",
+    "matplotlib",
+    "matplotlib.mlab",
+    "mdp",
+    "mdp.nodes",
+    "sklearn",
+    "sklearn.cluster",
+    "sklearn.metrics",
+    "sklearn.mixture",
+    "sklearn.utils",
+    "sklearn.utils.extmath",
 ]
 
 for mod_name in MOCK_MODULES:
     try:
         __import__(mod_name, globals=globals(), locals=locals())
-        print 'imported', mod_name
+        print "import:", mod_name
     except ImportError:
-        print 'mocking', mod_name
+        print "mock:", mod_name
         sys.modules[mod_name] = Mock()
-        if mod_name == 'mdp':
+        if mod_name == "mdp":
             class Node(object):
                 pass
 
-            sys.modules['mdp'].Node = Node
+            sys.modules["mdp"].Node = Node
 
-
-# -- project imports ----------------------------------------------------------
+## IMPORTS PROJECT
 
 import botmpy
 
-
-# -- general configuration ----------------------------------------------------
+## SPHINX GENERAL
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #needs_sphinx = '1.1.2'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.coverage',
-              'sphinx.ext.doctest',
-              'sphinx.ext.ifconfig',
-              'sphinx.ext.intersphinx',
-              'sphinx.ext.pngmath',
-              'sphinx.ext.todo',
-              'sphinx.ext.viewcode',
-              'natbib',
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.coverage",
+    "sphinx.ext.doctest",
+    "sphinx.ext.ifconfig",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.pngmath",
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "natbib",
 ]
 #try:
 #    import sphinx.ext.numfig
@@ -148,27 +145,26 @@ extensions = ['sphinx.ext.autodoc',
 #    print 'sphinx-numfig not found!'
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = u'BOTMpy'
-copyright = u'2013, Philipp Meier and Berlin Institute of Technology'
+project = u"BOTMpy"
+copyright = u"2012-2013, Berlin Institute of Technology"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-#version = '0.3.0'
 version = botmpy.__version__.rsplit('.', 1)[0]
 # The full version, including alpha/beta/rc tags.
 release = botmpy.__version__
@@ -202,17 +198,17 @@ add_module_names = False
 #show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
-modindex_common_prefix = ['botmpy.']
+modindex_common_prefix = ["botmpy."]
 
 
 # -- options for HTML output --------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = "default"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -241,7 +237,7 @@ html_theme = 'default'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['static']
+html_static_path = ["static"]
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -285,7 +281,7 @@ html_static_path = ['static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'BOTMpydoc'
+htmlhelp_basename = "BOTMpy-doc"
 
 
 # -- options for LaTeX output -------------------------------------------------
@@ -304,8 +300,8 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'BOTMpy.tex', u'BOTMpy Documentation',
-     u'Philipp Meier and Berlin Institute of Technology', 'manual'),
+    ("index", "BOTMpy.tex", u"BOTMpy Documentation",
+     u"Berlin Institute of Technology", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -334,8 +330,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'botmpy', u'BOTMpy Documentation',
-     [u'Philipp Meier and Berlin Institute of Technology'], 1)
+    ("index", "botmpy", u"BOTMpy Documentation",
+     [u"Berlin Institute of Technology"], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -348,10 +344,10 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'BOTMpy', u'BOTMpy Documentation',
-     u'Philipp Meier and Berlin Institute of Technology', 'BOTMpy',
-     'BOTMpy : spike sorting with Bayes Optimal Template Matching in Python',
-     'Miscellaneous'),
+    ("index", "BOTMpy", u"BOTMpy Documentation",
+     u"Berlin Institute of Technology", "BOTMpy",
+     "BOTMpy : spike sorting with Bayes Optimal Template Matching in Python",
+     "Miscellaneous"),
 ]
 
 # Documents to append as an appendix to all manuals.
@@ -368,36 +364,35 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    'http://docs.python.org/': None,
-    'http://docs.scipy.org/doc/numpy': None,
-    'http://docs.scipy.org/doc/scipy/reference': None,
-    'http://scikit-learn.org/stable': None,
+    "http://docs.python.org/": None,
+    "http://docs.scipy.org/doc/numpy": None,
+    "http://docs.scipy.org/doc/scipy/reference": None,
+    "http://scikit-learn.org/stable": None,
 }
 
 # show .. todo:: items
 todo_include_todos = True
 
 # autodocs
-autodoc_default_flags = ['show-inheritance']
+autodoc_default_flags = ["show-inheritance"]
 
-# natbib util
+## NATBIB
 print
-if os.environ.get('READTHEDOCS', None) == 'True':
-    print 'RTD:', os.getcwd()
+if os.environ.get("READTHEDOCS", None) == "True":
+    print "RTD:", os.getcwd()
 else:
-    print 'XXX:', os.getcwd()
-bib_file = os.path.join(os.getcwd(), 'library.bib')
-print 'bib-file:', bib_file
+    print "DOC:", os.getcwd()
+bib_file = os.path.join(os.getcwd(), "library.bib")
+print "bib-file:", bib_file
 print
 
 natbib = {
     #'file': 'doc/source/library.bib',
-    'file': bib_file,
-    'brackets': '[]',
-    'separator': ',',
-    'style': 'numbers',
-    'sort': True,
+    "file": bib_file,
+    "brackets": "[]",
+    "separator": ',',
+    "style": "numbers",
+    "sort": True,
 }
 
-
-# -- EOF ----------------------------------------------------------------------
+## EOF
