@@ -4,7 +4,6 @@ echo "inside $0"
 
 ## DIAGNOSTICS
 
-echo "before_install"
 echo $VIRTUAL_ENV
 df -h
 date

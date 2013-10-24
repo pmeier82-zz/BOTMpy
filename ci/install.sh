@@ -26,10 +26,10 @@ function pip_install()
 
 case ${TRAVIS_PYTHON_VERSION:0:3} in
     2.6)
-        time sudo apt-get install -qq python-dev libatlas-dev libatlas-base-dev liblapack-dev gfortran 2 > &1 | trial -n2;
-        time sudo apt-get install -qq python-dev python-numpy python-numpy-dev python-scipy 2 > &1 | tail -n2 ;;
+        time sudo apt-get install -qq python-dev libatlas-dev libatlas-base-dev liblapack-dev gfortran 2>&1 | trial -n2;
+        time sudo apt-get install -qq python-dev python-numpy python-numpy-dev python-scipy 2>&1 | tail -n2 ;;
     2.7)
-        time sudo apt-get install -qq python-dev python-numpy python-numpy-dev python-scipy 2 > &1 | tail -n2 ;;
+        time sudo apt-get install -qq python-dev python-numpy python-numpy-dev python-scipy 2>&1 | tail -n2 ;;
     3.2)
         exit false ;;
     3.3)
