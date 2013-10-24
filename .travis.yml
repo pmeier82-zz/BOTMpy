@@ -2,33 +2,17 @@
 
 language: python
 python:
-  - 2.6
+  # don't do more than 5
   - 2.7
 virtualenv:
   system_site_packages: true
 
-## BRANCHES
-
-branches:
-  only:
-    - master
-    - 0.4-dev
-
 ## INSTALL
 
 before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq python-dev
-  - sudo apt-get install -qq libatlas-dev libatlas-base-dev liblapack-dev gfortran
-  - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then sudo apt-get install python3-numpy python3-numpy-dev 2>&1 | tail -n 2; fi"
-  - "if [[ $TRAVIS_PYTHON_VERSION == '3.2' ]]; then ln -s /usr/lib/python3/dist-packages/numpy ~/virtualenv/python3.2/lib/python3.2/site-packages/; fi"
-  - sudo apt-get install -qq python-numpy python-numpy-dev -qq python-scipy
+  - ci/before_install.sh
 install:
-  - ln -s /usr/lib/python2.7/dist-packages/numpy ~/virtualenv/python$TRAVIS_PYTHON_VERSION/lib/python$TRAVIS_PYTHON_VERSION/site-packages/
-  - pip install scikit-learn>=0.11 --use-mirrors --quiet
-  - pip install MDP>=3.3 --use-mirrors --quiet
-  - pip install cython>=0.15.1 --use-mirrors --quiet
-  - python setup.py install
+  - ci/install.sh
 
 ## SCRIPT
 
@@ -37,7 +21,7 @@ before_script:
   - echo "======================================================================"
   - echo
 script:
-  - nosetests
+  - ci/scipt.sh
 after_script:
   - echo
   - echo "======================================================================"
@@ -46,7 +30,7 @@ after_script:
 ## REPORTING
 
 after_success:
-  email: false
+  email: true
 after_failure:
   email: true
 
