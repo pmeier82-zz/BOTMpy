@@ -6,7 +6,7 @@ echo "inside $0"
 
 PIP_ARGS="-IUM"
 # -I ignore installed
-# -U update package
+# -U upgrade package
 # -M use PyPI mirrors
 
 #PIP_ARGS+="q"
@@ -18,8 +18,7 @@ PIP_ARGS="-IUM"
 function pip_install()
 {
     echo "----------------------------------------"
-    time pip install $PIP_ARGS $1 2>&1 | tail -n2
-    echo
+    time pip install $PIP_ARGS $1 2>&1 | tail -fn2
 }
 
 ## UBUNTU INSTALL
@@ -49,7 +48,7 @@ pip_install numpy
 pip_install scipy
 pip_install scikit-learn
 pip_install MDP
-pip_install yaml
+pip_install pyyaml
 
 # build and install
 time python setup.py build_ext install

@@ -100,7 +100,7 @@ if __name__ == '__main__':
                   'botmpy.common.datafile',
                   'botmpy.common.mcfilter',
                   'botmpy.nodes'],
-        requires=['numpy', 'scipy', 'mdp', 'sklearn'],
+        requires=['numpy', 'scipy', 'mdp', 'sklearn', 'yaml'],
         zip_safe=False,
 
         # metadata
