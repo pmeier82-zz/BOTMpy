@@ -8,3 +8,8 @@ Reference Point for the 0.4 branch is commit 33ed807f7b8207819830998ee6a9269fb19
 CHANGELOG
 
 Version 0.4-dev
+
+* style changes, using double quotes for strings
+* comment structure
+* common.datafile has been moved to the root
+* common.mcfilter has been moved to the root

@@ -51,9 +51,9 @@
 
 
 """covariance estimator for timeseries data"""
-__docformat__ = 'restructuredtext'
-__all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
-           'XcorrStore', 'build_idx_set', 'build_block_toeplitz_from_xcorrs']
+__docformat__ = "restructuredtext"
+__all__ = ["BaseTimeSeriesCovarianceEstimator", "TimeSeriesCovE",
+           "XcorrStore", "build_idx_set", "build_block_toeplitz_from_xcorrs"]
 
 ##  IMPORTS
 
