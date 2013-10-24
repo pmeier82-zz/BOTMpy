@@ -5,6 +5,3 @@ echo "inside $0"
 ## TESTS
 
 nosetests
-
-## EOF
-true

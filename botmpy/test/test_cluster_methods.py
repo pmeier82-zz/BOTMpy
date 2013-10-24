@@ -45,7 +45,7 @@ import sklearn.cluster
 
 import scipy as sp
 import scipy.linalg as sp_la
-from spikedb import MunkSession
+# from spikedb import MunkSession
 from botmpy.common import (
     TimeSeriesCovE, get_aligned_spikes, epochs_from_spiketrain,
     invert_epochs, merge_epochs, snr_maha)
@@ -58,94 +58,94 @@ plot.plt.interactive(False)
 
 ARC_PATH = './data.h5'
 
-def get_data(tf=65, trials=5, snr=0.5, mean_correct=False, save=False):
-    # inits
-    db = MunkSession()
-    id_ana_mu = 1284
-    # get relevant info for analysis item
-    q = db.query("""
-    SELECT a.expid, a.tetrode
-    FROM analysis a
-    WHERE a.id = %d
-    """ % id_ana_mu) # L014 tet7 mua
-    id_exp = q[0][0]
-    id_tet = q[0][1]
-    trial_ids = db.get_trial_range_exp(id_exp, trlidx=(0, trials),
-                                       include_error_trials=False)
-    id_mu = db.get_units_for_analysis(id_ana_mu)[0]
-    ndet = TimeSeriesCovE(tf_max=tf, nc=4)
-    data = {}
-    align_at = int(tf / 4)
-
-    print 'loading data trials..'
-    for id_trl in trial_ids:
-        trial_data = None
-        try:
-            trial_data = db.get_tetrode_data(id_trl, id_tet)
-            if mean_correct is True:
-                trial_data -= trial_data.mean(axis=0)
-            data[id_trl] = trial_data
-            print '\tprocessed %s' % db.get_fname_for_id(id_trl)
-        except Exception, e:
-            raise RuntimeError('error processing %s\n%s' %
-                               (db.get_fname_for_id(id_trl), e))
-        finally:
-            del trial_data
-    print 'done.'
-
-    print 'retrieving multiunit spike set @tf=%d' % tf
-    spks_info = []
-    spks = []
-    for id_trl in trial_ids:
-        trial_st = None
-        try:
-            trial_st = db.get_unit_data(id_mu, id_trl)['spiketrain']
-            if trial_st.size == 0:
-                print '\tno spiketrain for %s' % db.get_fname_for_id(id_trl)
-                continue
-            trial_spks, trial_st = get_aligned_spikes(
-                data[id_trl],
-                trial_st,
-                tf,
-                align_at=align_at,
-                mc=False,
-                kind='min')
-            end = data[id_trl].shape[0]
-            nep = epochs_from_spiketrain(trial_st, tf, end=end)
-            nep = invert_epochs(nep, end=end)
-            nep = merge_epochs(nep)
-            ndet.update(data[id_trl], epochs=nep)
-            spks.append(trial_spks)
-            spks_info.append(sp.vstack([[id_trl] * trial_st.size,
-                                        trial_st]).T)
-            print '\tprocessed %s' % db.get_fname_for_id(id_trl)
-        except Exception, e:
-            raise RuntimeError('error processing %s\n%s' %
-                               (db.get_fname_for_id(id_trl), e))
-        finally:
-            del trial_st
-    spks_info = sp.vstack(spks_info)
-    spks = sp.vstack(spks)
-    print 'found %d spikes in total' % spks.shape[0]
-    print 'done.'
-
-    print 'checking SNR of spikes'
-    spks_snr = snr_maha(spks, ndet.get_icmx(tf=tf))
-    good_spks = spks_snr > snr
-    n_spks = spks.shape[0]
-    spks = spks[good_spks]
-    spks_info = spks_info[good_spks].astype(int)
-    print 'keeping %d of %d spikes with SNR > %f' % (spks.shape[0], n_spks,
-                                                     snr)
-
-    if save is True:
-        ndet_pkl = cPickle.dumps(ndet)
-        arc = openFile(ARC_PATH, 'w')
-        arc.createArray(arc.root, 'spks', spks)
-        arc.createArray(arc.root, 'spks_info', spks_info)
-        arc.createArray(arc.root, 'ndet_pkl', ndet_pkl)
-        arc.close()
-    return spks, spks_info, ndet
+# def get_data(tf=65, trials=5, snr=0.5, mean_correct=False, save=False):
+#     # inits
+#     db = MunkSession()
+#     id_ana_mu = 1284
+#     # get relevant info for analysis item
+#     q = db.query("""
+#     SELECT a.expid, a.tetrode
+#     FROM analysis a
+#     WHERE a.id = %d
+#     """ % id_ana_mu) # L014 tet7 mua
+#     id_exp = q[0][0]
+#     id_tet = q[0][1]
+#     trial_ids = db.get_trial_range_exp(id_exp, trlidx=(0, trials),
+#                                        include_error_trials=False)
+#     id_mu = db.get_units_for_analysis(id_ana_mu)[0]
+#     ndet = TimeSeriesCovE(tf_max=tf, nc=4)
+#     data = {}
+#     align_at = int(tf / 4)
+#
+#     print 'loading data trials..'
+#     for id_trl in trial_ids:
+#         trial_data = None
+#         try:
+#             trial_data = db.get_tetrode_data(id_trl, id_tet)
+#             if mean_correct is True:
+#                 trial_data -= trial_data.mean(axis=0)
+#             data[id_trl] = trial_data
+#             print '\tprocessed %s' % db.get_fname_for_id(id_trl)
+#         except Exception, e:
+#             raise RuntimeError('error processing %s\n%s' %
+#                                (db.get_fname_for_id(id_trl), e))
+#         finally:
+#             del trial_data
+#     print 'done.'
+#
+#     print 'retrieving multiunit spike set @tf=%d' % tf
+#     spks_info = []
+#     spks = []
+#     for id_trl in trial_ids:
+#         trial_st = None
+#         try:
+#             trial_st = db.get_unit_data(id_mu, id_trl)['spiketrain']
+#             if trial_st.size == 0:
+#                 print '\tno spiketrain for %s' % db.get_fname_for_id(id_trl)
+#                 continue
+#             trial_spks, trial_st = get_aligned_spikes(
+#                 data[id_trl],
+#                 trial_st,
+#                 tf,
+#                 align_at=align_at,
+#                 mc=False,
+#                 kind='min')
+#             end = data[id_trl].shape[0]
+#             nep = epochs_from_spiketrain(trial_st, tf, end=end)
+#             nep = invert_epochs(nep, end=end)
+#             nep = merge_epochs(nep)
+#             ndet.update(data[id_trl], epochs=nep)
+#             spks.append(trial_spks)
+#             spks_info.append(sp.vstack([[id_trl] * trial_st.size,
+#                                         trial_st]).T)
+#             print '\tprocessed %s' % db.get_fname_for_id(id_trl)
+#         except Exception, e:
+#             raise RuntimeError('error processing %s\n%s' %
+#                                (db.get_fname_for_id(id_trl), e))
+#         finally:
+#             del trial_st
+#     spks_info = sp.vstack(spks_info)
+#     spks = sp.vstack(spks)
+#     print 'found %d spikes in total' % spks.shape[0]
+#     print 'done.'
+#
+#     print 'checking SNR of spikes'
+#     spks_snr = snr_maha(spks, ndet.get_icmx(tf=tf))
+#     good_spks = spks_snr > snr
+#     n_spks = spks.shape[0]
+#     spks = spks[good_spks]
+#     spks_info = spks_info[good_spks].astype(int)
+#     print 'keeping %d of %d spikes with SNR > %f' % (spks.shape[0], n_spks,
+#                                                      snr)
+#
+#     if save is True:
+#         ndet_pkl = cPickle.dumps(ndet)
+#         arc = openFile(ARC_PATH, 'w')
+#         arc.createArray(arc.root, 'spks', spks)
+#         arc.createArray(arc.root, 'spks_info', spks_info)
+#         arc.createArray(arc.root, 'ndet_pkl', ndet_pkl)
+#         arc.close()
+#     return spks, spks_info, ndet
 
 
 def load_data():
@@ -267,8 +267,9 @@ def main():
     if LOAD is True:
         spks, spks_info, ndet = load_data()
     else:
-        spks, spks_info, ndet = get_data(tf=TF, trials=NTRL, snr=SNR,
-                                         mean_correct=False, save=True)
+        # spks, spks_info, ndet = get_data(tf=TF, trials=NTRL, snr=SNR,
+        #                                  mean_correct=False, save=True)
+        pass
 
     # plot.waveforms(spks, tf=TF, show=False)
 
