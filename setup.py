@@ -53,7 +53,6 @@ __docformat__ = "restructuredtext"
 
 ## IMPORTS
 
-# setup tools and cython (order matters!)
 from setuptools import setup
 from distutils.extension import Extension
 
@@ -81,11 +80,13 @@ def find_version():
 
 ext_mod_list = []
 if build_ext is not None:
+    # mcfilter
     ext_mod_list.append(
         Extension(
             "botmpy.mcfilter.mcfilter_cy",
             ["botmpy/mcfilter/mcfilter_cy.pyx"],
             include_dirs=[numpy.get_include()]))
+    #
 
 ## MAIN
 
@@ -94,13 +95,22 @@ if __name__ == "__main__":
         #main
         name="BOTMpy",
         version=find_version(),
-        packages=["botmpy",
-                  "botmpy.common",
-                  "botmpy.datafile",
-                  "botmpy.mcfilter",
-                  "botmpy.nodes",
-                  "botmpy.util", ],
-        requires=["numpy", "scipy", "mdp", "sklearn"],
+        packages=[
+            "botmpy",
+            "botmpy.common",
+            "botmpy.datafile",
+            "botmpy.mcfilter",
+            "botmpy.nodes",
+            "botmpy.util", ],
+        install_requires=[
+            "numpy>=1.6.1",
+            "scipy>=0.9",
+            "mdp",
+            "sklearn"],
+        extras_require={
+            "test": ["pytest, tables"],
+            "speedup": ["cython>=0.15.1"],
+        },
         zip_safe=False,
 
         # metadata
@@ -112,6 +122,8 @@ if __name__ == "__main__":
         long_description=open("README.rst", 'r').read(),
         license="University of Illinois/NCSA Open Source License",
         url="http://www.ni.tu-berlin.de",
+
+        # classifiers
         classifiers=[
             "Development Status :: 4 - Beta",
             "Intended Audience :: Science/Research",
