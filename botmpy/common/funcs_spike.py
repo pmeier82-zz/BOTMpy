@@ -115,7 +115,7 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     rval = []
     ep_func = {'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
                'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
-    }[mode]
+              }[mode]
 
     # per channel detection
     for c in xrange(data.shape[1]):
@@ -395,11 +395,11 @@ def extract_spikes(data, epochs, mc=False):
             if epochs[s, 1] > data.shape[0]:
                 clamp = epochs[s, 1] - data.shape[0]
             if mc is True:
-                rval[s, :tf - clamp, c] = \
-                    data[epochs[s, 0]:epochs[s, 1] - clamp, c]
+                rval[s, :tf - clamp, c] =\
+                data[epochs[s, 0]:epochs[s, 1] - clamp, c]
             else:
-                rval[s, c * tf:(c + 1) * tf - clamp] = \
-                    data[epochs[s, 0]:epochs[s, 1] - clamp, c]
+                rval[s, c * tf:(c + 1) * tf - clamp] =\
+                data[epochs[s, 0]:epochs[s, 1] - clamp, c]
 
     # return
     return rval
@@ -501,23 +501,18 @@ def snr_maha(waveforms, invC, mu=None):
 
 ## data processing algorithms
 
-
-
-def overlaps(sts, window_size, small_data=False):
+def overlaps(sts, window):
     """produces dict of boolean sequences indicating for all spikes in all
-    spike trains in :sts: if it participates in an overlap event and a dict
-    of overlap counts per unit.
+    spike trains in :sts: if it participates in an overlap event.
 
-    :type dict sts: spike train set
-    :type int window_size: overlap window size
-    :type bool small_data: if True, use a version of the algorithm that handles
-        small data with few overlaps better, but has a worse theoretical run
-        time. For data with ~5Hz and extend of ~7s with few actual overlaps, it
-        will perform about 40% faster,
-    :return: dict, dict -- {boolean spike train set}, {count of overlaps per unit}
+    :type sts: dict
+    :param sts: spike train set
+    :type window: int
+    :param window: overlap window size
+    :returns: dict - boolean spike train set
     """
 
-    # init
+    # inits
     n = len(sts)
     ovlp, ovlp_nums = {}, {}
     for k in sts.keys():
@@ -534,34 +529,14 @@ def overlaps(sts, window_size, small_data=False):
             j_ = sts.keys()[j]
             trainJ = sts[j_]
 
-            # small data toggle
-            if small_data is True:
-                for spkI, spk in enumerate(trainI):
-                    d = trainJ - spk
-                    overlap_indices = sp.absolute(d) < window_size
-                    #overlap_indices = sp.nonzero(sp.absolute(d) < window)[0]
-                    if not overlap_indices.any():
-                        continue
-                    ovlp[i_][spkI] = True
-                    ovlp[j_][overlap_indices] = True
-            else:
-                idxI = 0
-                idxJ = 0
-                while idxI < len(trainI) and idxJ < len(trainJ):
-                    # Overlapping?
-                    if abs(trainI[idxI] - trainJ[idxJ]) < window_size:
-                        # single spike can participate in up to a single overlap
-                        # event! prevents triple counting
-                        if ovlp[i_][idxI] == False:
-                            ovlp[i_][idxI] = True
-                            ovlp_nums[i_] += 1
-                        if ovlp[j_][idxJ] == False:
-                            ovlp[j_][idxJ] = True
-                            ovlp_nums[j_] += 1
-                    if trainI[idxI] < trainJ[idxJ]:
-                        idxI += 1
-                    else:
-                        idxJ += 1
+            for spkI, spk in enumerate(trainI):
+                d = trainJ - spk
+                overlap_indices = sp.absolute(d) < window
+                if not sum(overlap_indices):
+                    continue
+
+                ovlp[i_][spkI] = True
+                ovlp[j_][overlap_indices] = True
 
     return ovlp, ovlp_nums
 

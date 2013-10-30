@@ -60,7 +60,7 @@ from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 import scipy.linalg as sp_la
 from botmpy.common import (
-    INDEX_DTYPE, xi_vs_f, k_neo, m_neo, sortrows, vec2ten, ten2vec,
+    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec,
     mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
     dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
@@ -361,7 +361,7 @@ class TestCommonFuncsSpike(ut.TestCase):
             sp.sqrt((data * data).sum(axis=1) / data.shape[1]))
 
     def testOverlaps(self):
-        """test for overlaps"""
+        """test for overlap finder"""
 
         sts = {
             'A': sp.array([50, 150, 250]),
@@ -488,6 +488,19 @@ class TestCommonSpikeAlignment(ut.TestCase):
 class TestCommonUtil(ut.TestCase):
     def testIndexDtype(self):
         self.assertEqual(INDEX_DTYPE, sp.dtype(sp.int64))
+
+    def testDeprecatedDecorator(self):
+        # --- new function
+        def sum_many(*args):
+            return sum(args)
+
+        # --- old / deprecated function
+        @deprecated(sum_many)
+        def sum_couple(a, b):
+            return a + b
+
+        # --- test
+        assert_equal(sum_couple(2, 2), 4)
 
 ## MAIN
 
