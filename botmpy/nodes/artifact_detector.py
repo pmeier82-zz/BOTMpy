@@ -65,8 +65,6 @@ __all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 ##  IMPORTS
 
 import scipy as sp
-# depending on matplotlib.mlab, for this, com'on!!
-from matplotlib.mlab import specgram
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
 
