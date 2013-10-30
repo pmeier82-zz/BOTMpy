@@ -45,7 +45,7 @@
 #_____________________________________________________________________________
 #
 # Changelog:
-#   * <iso-date> <identity> :: <description>
+#   * 2013-10-30 pmeier82 :: no tests given, old testing code still present
 #_____________________________________________________________________________
 #
 
@@ -56,9 +56,10 @@ try:
 except ImportError:
     import unittest as ut
 
+import warnings
 from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
-from botmpy.nodes import ArtifactDetectorNode
+from botmpy.nodes import ArtifactDetectorNode, SpectrumArtifactDetector
 
 ## TESTS
 
@@ -66,8 +67,18 @@ class TestArtifactDetectorNode(ut.TestCase):
     def setUp(self):
         pass
 
-    def testArtifactDetector(self):
+    def testMissing(self):
+        warnings.warn("no test provided for class ArtifactDetectorNode")
+
+
+class TestSpectrumArtifactDetectorNode(ut.TestCase):
+    def setUp(self):
         pass
+
+    def testMissing(self):
+        warnings.warn("no test provided for class SpectrumArtifactDetectorNode")
+
+    ## TESTS-OLD
 
     """
     from os import listdir, path as osp
@@ -97,5 +108,9 @@ class TestArtifactDetectorNode(ut.TestCase):
         plt.show()
     """
 
-if __name__ == '__main__':
+## MAIN
+
+if __name__ == "__main__":
     ut.main()
+
+## EOF

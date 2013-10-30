@@ -65,6 +65,7 @@ __all__ = ['ArtifactDetectorNode', 'SpectrumArtifactDetector']
 ##  IMPORTS
 
 import scipy as sp
+# depending on matplotlib.mlab, for this, com'on!!
 from matplotlib.mlab import specgram
 from ..common import epochs_from_binvec, merge_epochs, invert_epochs, INDEX_DTYPE
 from .spike_detection import ThresholdDetectorNode
@@ -202,38 +203,23 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
 
 
 class SpectrumArtifactDetector(ThresholdDetectorNode):
-    """detects artifacts by identifying unwanted frequency packages in the spectrum of the signal
-
-            For a zero-mean gaussian process the the zero-crossing rate `zcr` is
-            independent of its moments and approaches 0.5 as the integration window
-            size approaches infinity:
-
-            .. math::
-
-                s_t \\sim N(0,\\Sigma)
-
-                zcr_{wsize}(s_t) = \\frac{1}{wsize-1} \\sum_{t=1}^{wsize-1}
-                {{\\mathbb I}\\left\{{s_t s_{t-1} < 0}\\right\\}}
-
-                \\lim_{wsize \\rightarrow \\infty} zcr_{wsize}(s_t) = 0.5
-
-            The capacitive artifacts seen in the Munk dataset have a significantly
-            lower frequency, s.t. zcr decreases to 0.1 and below, for the integration
-            window sizes relevant to our application. Detecting epochs where the zcr
-            significantly deviates from the expectation, assuming a coloured Gaussian
-            noise process, can thus lead be used for detection of artifact epochs.
-
-            The zero crossing rate (zcr) is given by the convolution of a moving
-            average window (although this is configurable to use other weighting
-            methods) with the XOR of the signbits of X(t) and X(t+1).
-            """
+    """DEPRECATED UNTIL THE MATPLOTLIB.MLAB DEPENDANCY IS REMOVED AND DOCS+TESTS ARE PROVIDED!!"""
 
     ## constructor
 
     def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512,
-                 en_func='max_normed', overlap=1, max_merge_dist = 6,
-                 min_allowed_length = 2, **kw):
+                 en_func='max_normed', overlap=1, max_merge_dist=6,
+                 min_allowed_length=2, **kw):
         """lala"""
+
+
+        # depending on matplotlib.mlab, for this, com'on!!
+        try:
+            from matplotlib.mlab import specgram
+        finally:
+            import warnings
+
+            warnings.warn("DEPRECATED until dependency on matplotlib.mlab is removed", FutureWarning)
 
         # super
         kw['ch_separate'] = True
@@ -258,8 +244,6 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
         return 1.0
 
     def _energy_func(self, x, **kwargs):
-        from matplotlib.mlab import specgram
-
         rval = sp.zeros_like(x)
         ns, nc = x.shape
         ov_samples = 0
@@ -284,7 +268,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
                 elif self.en_func == 'max_coeff':
                     rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[mask == False, b].max()
                 elif self.en_func == 'max_normed':
-                    rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[:, b].sum(axis = 0)
+                    rval[bin_s:bin_e, c] = psd_arr[mask == True, b].max() / psd_arr[:, b].sum(axis=0)
                 else:
                     raise RuntimeError('Energy function does not exist!')
 
@@ -301,7 +285,7 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
             step = self.nfft / 2
         else:
             step = self.nfft / 4
-        # per channel detection
+            # per channel detection
         for c in xrange(self.nchan):
             ep = epochs_from_binvec(self.energy[:, c] > self.threshold[c])
             epochs.extend(ep)
