@@ -268,6 +268,7 @@ class FilterBankNode(Node):
             rb_cap=self._rb_cap,
             chan_set=self._cs,
             dtype=self.dtype)
+        # TODO: check this carefully!
         if xi_count is None:
             new_f.fill_xi_buf(xi)
         elif isinstance(xi_count, int):

@@ -51,6 +51,8 @@ pip_install scikit-learn
 pip_install MDP
 pip_install yaml
 
+pip_install matpolotlib # for stupid mlab.specgram
+
 # build and install
 time python setup.py build_ext install
 
