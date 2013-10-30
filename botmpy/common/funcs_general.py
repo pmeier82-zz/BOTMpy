@@ -51,23 +51,27 @@
 
 
 """general utility functions"""
-__docformat__ = "restructuredtext"
+__docformat__ = 'restructuredtext'
 __all__ = [
-    "sortrows", "vec2ten", "ten2vec", "mcvec_to_conc", "mcvec_from_conc",
-    "xcorr", "shifted_matrix_sub", "dict_sort_ndarrays", "get_idx",
-    "dict_list_to_ndarray", ]
+    'sortrows', 'vec2ten', 'ten2vec', 'mcvec_to_conc', 'mcvec_from_conc',
+    'xcorr', 'shifted_matrix_sub', 'dict_sort_ndarrays',
+    'dict_list_to_ndarray', 'get_idx']
 
-## IMPORTS
+##  IMPORTS
 
 import scipy as sp
+from scipy import linalg as sp_la
 
 ## FUNCTIONS
+
+## general array operations
 
 def sortrows(data):
     """sort matrix by rows
 
-    :param ndarray data: array that should be sorted by rows
-    :return: ndarray -- data sorted by its rows.
+    :type data: ndarray
+    :param data: ndarray that should be sorted by its rows
+    :returns: ndarray - data sorted by its rows.
     """
 
     return sp.sort(
@@ -76,25 +80,28 @@ def sortrows(data):
 
 
 def vec2ten(data, nchan=4):
-    """converts templates/spikes that are concatenated across the
+    """converts from templates/spikes that are concatenated across the
     channels to tensors that have an extra dim for the channels
 
-    :param ndarray data: input array [templates][vars * channels]
-    :param int nchan: channel count
-    :return: ndarray -- data converted to tensor [templates][vars][channels]
-    :except: ValueError -- if dimensions mismatch
+    :type data: ndarray
+    :param data: input array [templates][vars * channels]
+    :type nchan: int
+    :param nchan: count of channels
+        Default=4
+    :returns: ndarray - data converted to tensor [templates][vars][channels]
     """
 
-    # init and checks
     if data.ndim == 1:
         data = sp.atleast_2d(data)
     n, dim = data.shape
+
     if dim % nchan != 0:
-        raise ValueError("dim %% nchan != 0 !! dim=%s, nchan=%s" % (dim, nchan))
+        raise ValueError(
+            'dim %s nchan != 0 !! dim=%s, nchan=%s' % (dim, nchan))
     tf = dim / nchan
+
     rval = sp.zeros((n, tf, nchan), data.dtype)
 
-    # convert
     for i in xrange(n):
         for c in xrange(nchan):
             rval[i, :, c] = data[i, c * tf:(c + 1) * tf]
@@ -102,11 +109,12 @@ def vec2ten(data, nchan=4):
 
 
 def ten2vec(data):
-    """converts templates/spikes that are not concatenated across the
+    """converts from templates/spikes that are not concatenated across the
     channels to vectors.
 
-    :param ndarray data: input array [templates][vars][channels]
-    :return: ndarray -- data converted to concatenated vectors
+    :type data: ndarray
+    :param data: input array [templates][vars][channels]
+    :returns: ndarray- data converted to concatenated vectors
         [templates][channels * vars]
     """
 
@@ -114,68 +122,84 @@ def ten2vec(data):
     n, tf, nchan = data.shape
     rval = sp.zeros((n, nchan * tf), data.dtype)
 
-    # convert
+    # transform
     for i in xrange(n):
         for c in xrange(nchan):
             rval[i, c * tf:(c + 1) * tf] = data[i, :, c]
+
+    # return
     return rval
 
 
-def mcvec_to_conc(data):
-    """convert multi-channeled vector to channel-concatenated vector
+def mcvec_to_conc(x):
+    """returns the concatenated vector for a multi-channeled vector
 
-    :param ndarray data: multi-channeled vector
-    :return: ndarray -- channel-concatenated `data`
+    :type x: ndarray
+    :param x: multi-channeled vector in matrix form
+    :returns: ndarray - multi-channeled vector in channel concatenated form
     """
 
-    return data.T.flatten()
+    return x.T.flatten()
 
 
-def mcvec_from_conc(data, nc=4):
-    """convert channel-concatenated vector to multi-channeled vector
+def mcvec_from_conc(x, nc=4):
+    """returns the multi-channeled vector from a concatenated representation
 
-    :param ndarray data: channel-concatenated vector
-    :param int nc: channel count
-    :return: ndarray -- multi-channeled `data`
-    :except: ValueError -- number of channels mismatch
+    :type x: ndarray
+    :param x: multi-channeled vector in channel concatenated form
+    :type nc: int
+    :param nc: channel count
+    :returns: ndarray - multi-channeled vector in matrix form
     """
 
-    ns = data.size / nc
-    if ns != round(data.size / nc):
-        raise ValueError("nc does not match the vector size!")
-    return data.reshape(nc, ns).T
+    nsamples = x.size / nc
+    if nsamples != round(x.size / nc):
+        raise ValueError('nc does not match the vector size!')
+    return x.reshape(nc, nsamples).T
 
 
 def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
-    """cross-correlation of one-dimensional time series of equal size
+    """cross-correlation for one-dimensional input signals of equal size
 
     If :b: is not given the auto-correlation of :a: will be computed.
 
-    :param ndarray a: first input time series. ndim=1
-    :param ndarray b: second input time series. ndim=1, if None `a` will be taken instead
-    :param int lag: lag up to which the cross correlation will be calculated. If
+    :type a: ndarray
+    :param a: one-dimensional time series
+    :type b: ndarray
+    :param b: one-dimensional time series, if None :a: will be taken instead
+        Default=None
+    :type lag: int
+    :param lag: lag up to which the cross correlation will be calculated. If
         None all possible lags (2*a.size-1) will be computed.
-    :param bool normalise: if True, normalise the result by the size
-    :param bool unbiased: if True && normalise is True, use a.size-|tau| to normalize instead of a.size
-    :return: ndarray -- cross-correlation of `a` and `b` up to lags `lag`
+        Default=None
+    :type normalise: bool
+    :param normalise: if True, normalise
+        Default=True
+    :type unbiased: bool
+    :param unbiased: if True and :normalise: is True, use a.size-|tau| to
+        normalize instead of a.size
+        Default=False
+    :returns: ndarray - cross-correlate of :a: and :b: upt to lags :lag:
     """
 
-    # init and check
+    # checks
     a = sp.asarray(a)
     if b is None:
         b = a
     else:
         b = sp.asarray(b)
     if not (a.ndim == b.ndim == 1):
-        raise ValueError("a.ndim != b.ndim != 1")
+        raise ValueError('a.ndim != b.ndim != 1')
     if a.size != b.size:
-        raise ValueError("a.size != b.size")
+        raise ValueError('a.size != b.size')
     if a.size < 2:
-        raise ValueError("a.size < 2")
+        raise ValueError('a.size < 2')
     if lag is None:
         lag = int(a.size - 1)
     if lag > a.size - 1:
-        raise ValueError("lag > vector size - 1")
+        raise ValueError('lag > vector size - 1')
+
+    # init
     T = a.size
     lag_range = xrange(int(-lag), int(lag) + 1)
     rval = sp.empty(len(lag_range), dtype=a.dtype)
@@ -196,52 +220,56 @@ def xcorr(a, b=None, lag=None, normalise=False, unbiased=False):
 
 
 def xcorrv(a, b=None, lag=None, dtype=None):
-    """cross-correlation of one-dimensional time series of equal size (vectorised version)
+    """vectorial cross correlation by taking the expectation over an outer product"""
 
-    :param ndarray a: first input time series. ndim=1
-    :param ndarray b: second input time series. ndim=1, if None `a` will be taken instead
-    :param int lag: lag up to which the cross correlation will be calculated. If
-        None all possible lags (2*a.size-1) will be computed.
-    :param dtype dtype: numpy.dtype
-    :return: ndarray -- cross-correlation of `a` and `b` up to lags `lag`
-    :except: ValueError -- a.ndim != b.ndim or lag > len(vector) - 1
-    """
-
-    # init and check
+    # checks
     a = sp.asarray(a)
     b = sp.asarray(b or a)
     if not (a.ndim == b.ndim):
-        raise ValueError("a.ndim !== b.ndim")
+        raise ValueError('a.ndim !== b.ndim')
+
+    #if a.size != b.size:
+    #    raise ValueError('a.size != b.size')
+    #if a.size < 2:
+    #    raise ValueError('a.size < 2')
+
     if lag is None:
         lag = int(a.shape[0] - 1)
     if lag > a.shape[0] - 1:
         raise ValueError('lag > vector len - 1')
-    lag_range = xrange(int(-lag), int(lag + 1))
+
+    # init
+    lag_range = xrange(int(-lag), int(lag) + 1)
     rval = sp.empty((a.shape[1], b.shape[1], len(lag_range)), dtype=dtype or a.dtype)
 
     # calc
     for tau in lag_range:
-        prod = a.T[:, None, max(0, +tau):min(len(a), len(a) + tau)] * \
+        prod = a.T[:, None, max(0, +tau):min(len(a), len(a) + tau)] *\
                b.T[None, :, max(0, -tau):min(len(b), len(b) - tau)].conj()
         rval[..., lag + tau] = prod.mean(axis=-1)
 
     # return
     return rval
 
+## filtering and related processing
 
 def shifted_matrix_sub(data, sub, tau, pad_val=0.0):
-    """Subtracts the multi-channeled vector (rows are channels) `sub` from
-    the vector `data` with a certain offset. `data` and `sub` may only overlap
-    in part, due to the offset.
+    """Subtracts the multi-channeled vector (rows are channels) y from
+    the vector x with a certain offset. x and y can due to the offset be only
+    partly overlapping.
 
     REM: from matlab
 
-    :param ndarray data: data array to apply the subtractor to
-    :param ndarray sub: sub tractor array
-    :param int tau: offset of sub w.r.t. start of data
-    :param float pad_val: value to use for the padding
-    :return: ndarray -- data minus sub at offset, len(data)
-    :except: ValueError -- data minus sub at offset, len(data)
+    :type data: ndarray
+    :param data: data array to apply the subtractor to
+    :type sub: ndarray
+    :param sub: subtractor array
+    :type tau: int
+    :param tau: offset of :sub: w.r.t. start of :data:
+    :type pad_val: float
+    :param pad_val: value to use for the padding
+        Default=0.0
+    :return: ndarray - data minus sub at offset, len(data)
     """
 
     ns_data, nc_data = data.shape
@@ -292,12 +320,15 @@ def dict_sort_ndarrays(in_dict):
             pass
     return in_dict
 
+## index calculations
 
 def get_idx(idxset, append=False):
-    """yields the first available index in a positive integer index set
+    """yields the first free index in a positive integer index set
 
-    :param bool append: if True, returns max(`idxset`)+1, else find the first free index in `idxset`
-    :return: int -- first available index
+    :type append: bool
+    :param append: if True, returns max(:idxset:)+1,
+        else find the first free index in :idxset:
+    :returns: int - the first free index
     """
 
     try:
@@ -311,7 +342,5 @@ def get_idx(idxset, append=False):
 
 ## MAIN
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pass
-
-## EOF
