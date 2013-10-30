@@ -80,7 +80,7 @@ from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
 from .prewhiten import PrewhiteningNode
-from .spike_detection import SDMteoNode, ThresholdDetectorNode
+from .spike_detection import SDMneoNode, ThresholdDetectorNode
 from ..common import (
     overlaps, epochs_from_spiketrain_set, shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
     matrix_argmax, dict_list_to_ndarray, get_cut, MxRingBuffer, mcvec_from_conc, get_aligned_spikes, vec2ten,
@@ -89,7 +89,7 @@ from ..datafile import GdfFile
 
 ## CONSTANTS
 
-MTEO_DET = SDMteoNode
+MTEO_DET = SDMneoNode
 MTEO_KWARGS = {'kvalues': [3, 9, 15, 21],
                'threshold_factor': 0.98,
                'min_dist': 32}

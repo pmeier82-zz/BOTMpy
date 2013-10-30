@@ -56,7 +56,7 @@
 to botmpy.mcfilter !!
 """
 __docformat__ = "restructuredtext"
-__all__ = ["xi_vs_f", "kteo", "mteo"]
+__all__ = ["xi_vs_f", "k_neo", "m_neo"]
 
 ## IMPORTS
 
@@ -75,17 +75,13 @@ def xi_vs_f(xi, f, nc=4):
     with a certain lag is returned as ndarray with dimensions [xi, f, tau].
     All multi-channeled vectors are presented in their concatenated form.
 
-    :type xi: ndarray
-    :param xi: The patterns, one concatenated pattern per row.
-    :type f: ndarray
-    :param f: The filters, one concatenated filter per row.
-    :type nc: int
-    :param nc: The channel count for the concatenated patterns and filters.
-
-        Default=4
-    :returns: ndarray - The tensor of cross-correlation for each pattern
-        with each filter. Dimensions as [xi, f, xcorr].
+    :param ndarray xi: patterns, one concatenated pattern per row
+    :param ndarray f: filters, one concatenated filter per row
+    :param int nc: channel count for the concatenated patterns and filters
+    :return: ndarray -- cross-correlation tensor for each pattern with each
+        filter [xi, f, xcorr]
     """
+
     # init and checks
     xi = sp.asarray(xi)
     f = sp.asarray(f)
@@ -114,81 +110,77 @@ def xi_vs_f(xi, f, nc=4):
     # return
     return rval
 
-## teager energy operator functions
+## nonlinear energy operator
 
-def mteo(data, kvalues=[1, 3, 5], condense=True):
-    """multiresolution teager energy operator using given k-values [MTEO]
+def k_neo(data, k=1):
+    """nonlinear energy operator of lag k
 
-    The multi-resolution teager energy operator (MTEO) applies TEO operators
-    of varying k-values and returns the reduced maximum response TEO for each
-    input sample.
+    The discrete nonlinear energy operator (NEO) of window size k is defined as:
 
-    To assure a constant noise power over all kteo channels, we convolve the
-    individual kteo responses with a window:
-    h_k(i) = hamming(4k+1) / sqrt(3sum(hamming(4k+1)^2) + sum(hamming(4k+1))
-    ^2), as suggested in Choi et al., 2006.
+    .. math::
+        \\Psi_k[x(t)] = x^2(t) - x(t-k) x(t+k)
 
-    :type data: ndarray
-    :param data: The signal to operate on. ndim=1
-    :type kvalues: list
-    :param kvalues: List of k-values to run the kteo for. If you want to give
-        a single k-value, either use the kteo directly or put it in a list
-        like [2].
-    :type condense: bool
-    :param condense: if True, use max operator condensing onto one time series,
-        else return a multichannel version with one channel per kvalue.
-        Default=True
-    :return: ndarray- Array of same shape as the input signal, holding the
-        response of the kteo which response was maximum after smoothing for
-        each sample in the input signal.
+    Also known as Teager's energy operator (TEO).
+
+    :param ndarray data: input data. ndim=1
+    :param int k: window size parameter.
+    :return: ndarray -- ndarray of same shape as the input data
+    :except: ValueError -- if input signal is not ndim=1
     """
-    # init
-    rval = sp.zeros((data.size, len(kvalues)))
 
-    # calculation
-    for i, k in enumerate(kvalues):
-        try:
-            rval[:, i] = kteo(data, k)
-            win = sp.hamming(4 * k + 1)
-            win /= sp.sqrt(3 * (win ** 2).sum() + win.sum() ** 2)
-            rval[:, i] = sp.convolve(rval[:, i], win, "same")
-        except:
-            rval[:, i] = 0.0
-            log.warning("MTEO: could not calculate kteo for k=%s, data-length=%s",
-                        k, data.size)
-    rval[:max(kvalues), i] = rval[-max(kvalues):, i] = 0.0
-
-    # return
-    if condense is True:
-        rval = rval.max(axis=1)
-    return rval
-
-
-def kteo(data, k=1):
-    """teager energy operator of range k [TEO]
-
-    The discrete teager energy operator (TEO) of window size k is defined as:
-    M{S{Psi}[x(n)] = x^2(n) - x(n-k) x(n+k)}
-
-    :type data: ndarray
-    :param data: The signal to operate on. ndim=1
-    :type k: int
-    :param k: Parameter defining the window size for the TEO.
-    :return: ndarray - Array of same shape as the input signal, holding the
-        kteo response.
-    :except: If inconsistant dims or shapes.
-    """
     # init and checks
     if data.ndim != 1:
         raise ValueError("ndim != 1! ndim=%s with shape=%s" % (data.ndim, data.shape))
 
     # calculation
-    rval = data ** 2 - sp.concatenate((
-        [0] * sp.ceil(k / 2.0),
+    return data ** 2 - sp.concatenate((
+        [0.0] * sp.ceil(k / 2.0),
         data[:-k] * data[k:],
-        [0] * sp.floor(k / 2.0)))
+        [0.0] * sp.floor(k / 2.0)))
+
+
+def m_neo(data, k_values=[1, 3, 5], reduce=True):
+    """multi-resolution nonlinear energy operator
+
+    The multi-resolution nonlinear energy operator (MNEO) applies NEO operators
+    of several k-values and returns the reduced maximum response NEO for each
+    input sample.
+
+    To assert a constant noise power over all k_neo responses, individual responses
+    are convolved with a window:
+
+    .. math::
+        w_k = \\frac{hamming(4k+1)}{\\sqrt{3\\sum hamming^2 (4k+1)+[\\sum hamming(4k+1 ]^2}},
+
+    as suggested in Choi et al., 2006.
+
+    :param ndarray data: input signal. ndim=1
+    :param list k_values: k-values for the k_neo instances.
+    :param bool reduce: if True, use max operator reducing the output time series to ndim=1.
+    :return: ndarray -- output of k_neos. reduced to ndim=1 Array of same shape as the input
+        signal, holding the response of the k_neo which response was maximum after smoothing
+        for each sample in the input signal. The max(k_values) first and last samples are set
+        to be 0.0.
+    """
+
+    # init
+    rval = sp.zeros((data.size, len(k_values)))
+
+    # calculation
+    for i, k in enumerate(k_values):
+        try:
+            rval[:, i] = k_neo(data, k)
+            win = sp.hamming(4 * k + 1)
+            win /= sp.sqrt(3 * (win ** 2).sum() + win.sum() ** 2)
+            rval[:, i] = sp.convolve(rval[:, i], win, "same")
+        except:
+            rval[:, i] = 0.0
+            log.warning("MNEO: could not calculate k_neo for k=%s, data-length=%s",k, data.size)
+    rval[:max(k_values), i] = rval[-max(k_values):, i] = 0.0
 
     # return
+    if reduce is True:
+        rval = rval.max(axis=1)
     return rval
 
 ## MAIN

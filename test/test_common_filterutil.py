@@ -1,0 +1,89 @@
+# -*- coding: utf-8 -*-
+#_____________________________________________________________________________
+#
+# Copyright (c) 2012-2013, Berlin Institute of Technology
+# All rights reserved.
+#
+# Developed by:	Philipp Meier <pmeier82@gmail.com>
+#
+#               Neural Information Processing Group (NI)
+#               School for Electrical Engineering and Computer Science
+#               Berlin Institute of Technology
+#               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
+#               http://www.ni.tu-berlin.de/
+#
+# Repository:   https://github.com/pmeier82/BOTMpy
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to
+# deal with the Software without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+# sell copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimers.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimers in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the names of Neural Information Processing Group (NI), Berlin
+#   Institute of Technology, nor the names of its contributors may be used to
+#   endorse or promote products derived from this Software without specific
+#   prior written permission.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# WITH THE SOFTWARE.
+#_____________________________________________________________________________
+#
+# Acknowledgements:
+#   Philipp Meier <pmeier82@gmail.com>
+#_____________________________________________________________________________
+#
+# Changelog:
+#   * <iso-date> <identity> :: <description>
+#_____________________________________________________________________________
+#
+
+## IMPORTS
+
+try:
+    import unittest2 as ut
+except ImportError:
+    import unittest as ut
+
+import scipy as sp
+import scipy.linalg as sp_la
+from numpy.testing import assert_equal, assert_almost_equal
+
+from botmpy.common import mcvec_to_conc
+from botmpy.common.funcs_filterutil import xi_vs_f, k_neo, m_neo
+
+## TESTS
+
+class TestCommonFuncsFilterutil(ut.TestCase):
+    def testXiVsF(self, nc=2):
+        xi1 = sp.array([[0, 0, 1, 0, 0]] * nc, dtype=float).T
+        xi2 = sp.array([[0, 0, 1, 0, 0]] * nc, dtype=float).T
+        xis = sp.asarray([mcvec_to_conc(xi1), mcvec_to_conc(xi2)])
+        xvf = xi_vs_f(xis, xis, nc=2)
+        assert_equal(xvf.shape, (nc, nc, 2 * xi1.shape[0] - 1))
+        assert_equal(xvf.sum(), 8.0)
+        assert_equal((xvf != 0.0).sum(), 4)
+
+    def testKTeo(self):
+        # TODO: how to test this?!
+        pass
+
+    def testMTeo(self):
+        # TODO: how to test this?!
+        pass
+
+## MAIN
+
+if __name__ == "__main__":
+    ut.main()

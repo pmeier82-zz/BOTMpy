@@ -60,14 +60,14 @@ discrimination.
 
 __docformat__ = 'restructuredtext'
 __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
-           'SDSqrNode', 'SDMteoNode', 'SDKteoNode', 'SDIntraNode', 'SDPeakNode']
+           'SDSqrNode', 'SDMneoNode', 'SDKteoNode', 'SDIntraNode', 'SDPeakNode']
 
 ##  IMPORTS
 
 import scipy as sp
 from scipy.stats.mstats import mquantiles
 from .base_nodes import Node
-from ..common import (threshold_detection, merge_epochs, get_cut, kteo, mteo, INDEX_DTYPE, get_aligned_spikes)
+from ..common import (threshold_detection, merge_epochs, get_cut, k_neo, m_neo, INDEX_DTYPE, get_aligned_spikes)
 
 ##  CLASSES
 
@@ -473,21 +473,22 @@ class SDSqrNode(ThresholdDetectorNode):
         super(SDSqrNode, self).__init__(**kwargs)
 
 
-class SDMteoNode(ThresholdDetectorNode):
+class SDMneoNode(ThresholdDetectorNode):
     """spike detector
 
     energy: multiresolution teager energy operator
     threshold: energy.std
     """
 
-    def __init__(self, kvalues=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
-        """
-        :type kvalues: list
-        :param kvalues: integers determining the kteo detectors to build the
-        multiresolution teo from.
-        :type quantile: float
-        :param quantile: quantile of the MTeo output to use for threshold
-        calculation.
+    def __init__(self, k_values=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
+        """uses the multi-resolution nonlinear energy operator to detect spikes
+
+        The m_neo will be called with `reduce`=True.
+
+        :param list k_values: k-values for the k_neo instances.
+        :param list k_values: list of int determining the k_neo detectors to
+            build for the m_neo neo detector from.
+        :param float quantile: threshold as a quantile of the reduced m_neo output
         """
 
         # super
@@ -496,14 +497,14 @@ class SDMteoNode(ThresholdDetectorNode):
             threshold_factor=kwargs.get('threshold_factor', 0.96),
             min_dist=kwargs.get('min_dist', 5),
             ch_separate=True)
-        super(SDMteoNode, self).__init__(**kwargs)
+        super(SDMneoNode, self).__init__(**kwargs)
 
         # members
-        self.kvalues = map(int, kvalues)
+        self.kvalues = map(int, k_values)
         self.quantile = quantile
 
     def _energy_func(self, x):
-        return sp.vstack([mteo(x[:, c], kvalues=self.kvalues, condense=True)
+        return sp.vstack([m_neo(x[:, c], k_values=self.kvalues, reduce=True)
                           for c in xrange(x.shape[1])]).T
 
     def _threshold_func(self, x):
@@ -545,7 +546,7 @@ class SDKteoNode(ThresholdDetectorNode):
             see ThresholdDetectorNode
 
             kvalue : int
-                Integer determining the kteo detector resolution.
+                Integer determining the k_neo detector resolution.
         """
 
         # super
@@ -561,7 +562,7 @@ class SDKteoNode(ThresholdDetectorNode):
         self.quantile = quantile
 
     def _energy_func(self, x):
-        return sp.vstack([kteo(x[:, c], k=self.kvalue)
+        return sp.vstack([k_neo(x[:, c], k=self.kvalue)
                           for c in xrange(x.shape[1])]).T
 
     def _threshold_func(self, x):
