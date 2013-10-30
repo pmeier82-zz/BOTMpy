@@ -16,16 +16,10 @@ install:
 
 ## SCRIPT
 
-before_script:
-  - echo
-  - echo "======================================================================"
-  - echo
+before_script: ~
 script:
-  - ci/scipt.sh
-after_script:
-  - echo
-  - echo "======================================================================"
-  - echo
+  - ci/script.sh
+after_script: ~
 
 ## REPORTING
 
