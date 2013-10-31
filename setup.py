@@ -84,7 +84,7 @@ if build_ext is not None:
     ext_mod_list.append(
         Extension(
             "botmpy.mcfilter.mcfilter_cy",
-            ["botmpy/mcfilter/_mcfilter_cy.pyx"],
+            ["botmpy/mcfilter/_cy_mcfilter.pyx"],
             include_dirs=[numpy.get_include()]))
     #
 
@@ -107,10 +107,10 @@ if __name__ == "__main__":
             "scipy>=0.9",
             "mdp",
             "sklearn"],
-        extras_require={
-            "test": ["pytest, tables"],
-            "speedup": ["cython>=0.15.1"],
-        },
+        # extras_require={
+        #     "TEST": ["pytest, tables"],
+        #     "CYTHON": ["cython>=0.15.1"],
+        # },
         zip_safe=False,
 
         # metadata
