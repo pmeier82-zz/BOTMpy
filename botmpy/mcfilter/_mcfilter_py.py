@@ -49,9 +49,9 @@
 #_____________________________________________________________________________
 #
 
-"""multi-channeled filter application for time domain FIR filters
+"""multi-channeled filter application for FIR filters in the time domain
 
-PYTHON IMPLEMENTATIONS USING SCIPY
+PYTHON IMPLEMENTATIONS
 """
 __docformat__ = "restructuredtext"
 __all__ = ["_mcfilter_py", "_mcfilter_hist_py", ]
@@ -84,9 +84,8 @@ def _mcfilter_hist_py(mc_data, mc_filt, mc_hist):
     rval = sp.zeros(mc_data.shape[0], dtype=mc_data.dtype)
     for t in xrange(mc_data.shape[0]):
         for c in xrange(mc_hist_and_data.shape[1]):
-            rval[t] += sp.dot(mc_hist_and_data[t:t + mc_filt.shape[0], c],
-                              mc_filt[:, c])
-    return rval, mc_data[t + 1:, :].copy()
+            rval[t] += sp.dot(mc_hist_and_data[t:t + mc_filt.shape[0], c], mc_filt[:, c])
+    return rval, mc_data[-(mc_hist.shape[0]):].copy()
 
 ## MAIN
 

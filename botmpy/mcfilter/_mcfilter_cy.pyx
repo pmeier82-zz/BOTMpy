@@ -42,19 +42,21 @@
 #_____________________________________________________________________________
 #
 
-"""multi-channeled filter application for time domain FIR filters
+"""multi-channeled filter application for FIR filters in the time domain
 
 CYTHON IMPLEMENTATIONS
 """
 __docformat__ = "restructuredtext"
-__all__ = []
+__all__ = ["_mcfilter_cy32", "_myfilter_cy64", "_mcfilter_hist_cy32", "_mc_filter_hist_cy64"]
 
 ## IMPORTS
 
 import cython
+
 cimport cython
 
 import numpy as np
+
 cimport numpy as np
 
 ## MCFILTER
@@ -170,9 +172,6 @@ def _mcfilter_hist_cy64(
             for c in range(nc):
                 mc_hist[t, c] = data[td + t, c]
     return fout, mc_hist
-
-def lib_info():
-    pass
 
 ## MAIN
 
