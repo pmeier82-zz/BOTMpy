@@ -64,7 +64,7 @@ import scipy as sp
 from .funcs_general import mcvec_from_conc
 from .funcs_spike import get_cut
 from .util import log
-from ..mcfilter import mcfilter
+from mcfilter import mcfilter
 
 ## FUNCTIONS
 

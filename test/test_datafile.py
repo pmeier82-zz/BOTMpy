@@ -60,9 +60,6 @@ import scipy as sp
 
 from numpy.testing import assert_equal, assert_almost_equal
 
-from botmpy.mcfilter.mcfilter_cy import _mcfilter_hist_cy32, _mcfilter_hist_cy64
-from botmpy.mcfilter._mcfilter_py import _mcfilter_py, _mcfilter_hist_py
-
 ## TESTS
 
 class TestDatafile(ut.TestCase):

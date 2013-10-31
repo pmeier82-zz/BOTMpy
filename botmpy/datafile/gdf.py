@@ -57,7 +57,7 @@ __all__ = ["GdfFile"]
 
 import scipy as sp
 from .datafile import DataFile
-from ..common import sortrows, dict_list_to_ndarray
+from botmpy.common import sortrows, dict_list_to_ndarray
 
 ## CLASSES
 

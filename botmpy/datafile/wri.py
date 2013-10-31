@@ -57,7 +57,7 @@ __all__ = ["WriFile", "_WRI_H"]
 
 import scipy as sp
 from .datafile import DataFile, DataFileError
-from ..common import dict_list_to_ndarray
+from botmpy.common import dict_list_to_ndarray
 
 ## CONSTANTS
 
