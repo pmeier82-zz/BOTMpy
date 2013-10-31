@@ -59,8 +59,9 @@ except ImportError:
 from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 import scipy.linalg as sp_la
+
 from botmpy.common import (
-    INDEX_DTYPE, xi_vs_f, k_neo, m_neo, sortrows, vec2ten, ten2vec,
+    INDEX_DTYPE, xi_vs_f, sortrows, vec2ten, ten2vec,
     mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
     dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
@@ -382,35 +383,6 @@ class TestCommonMatrixOps(ut.TestCase):
     def setUp(self):
         self.vec = sp.array([4.0, 2.0, 1.0])
         self.mat = sp_la.toeplitz(self.vec)
-
-    def old_code_container(self):
-        r = sp.array([1.0, 0.9, 0.8])
-        C = sp_la.toeplitz(r)
-        cnos = [10, 15.3, 50]
-
-        print 'initial matrix:'
-        print C
-        print
-
-        for cno in cnos:
-            print 'initial condition:', matrix_cond(C)
-            print 'target condition:', cno
-            print
-            Ddiag = diagonal_loading(C, cno)
-            Dcol = coloured_loading(C, cno)
-            print 'diagonally loaded:', matrix_cond(Ddiag)
-            print Ddiag
-            print 'coloured loaded:', matrix_cond(Dcol)
-            print Dcol
-            print
-
-        print 'C matrix:', matrix_cond(C)
-        print C
-        Cnew = coloured_loading(C, 10, overwrite_mat=True)
-        print 'Cnew loaded at condition:', matrix_cond(Cnew)
-        print Cnew
-        print 'same matrices: C is Cnew', C is Cnew
-        print
 
     def testMatrixCond(self):
         """test for matrix condition"""

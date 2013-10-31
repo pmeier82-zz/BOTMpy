@@ -76,6 +76,7 @@ class TestCommonFuncsFilterutil(ut.TestCase):
         assert_equal((xvf != 0.0).sum(), 4)
 
     def testKTeo(self):
+
         # TODO: how to test this?!
         pass
 

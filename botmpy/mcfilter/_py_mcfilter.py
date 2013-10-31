@@ -49,3 +49,37 @@
 #_____________________________________________________________________________
 #
 
+"""multi-channeled filter application for FIR filters in the time domain
+
+PYTHON IMPLEMENTATIONS
+"""
+__docformat__ = "restructuredtext"
+__all__ = ["mcfilter", "mcfilter_hist", ]
+
+## IMPORTS
+
+import scipy as sp
+
+## FUNCTIONS
+
+def mcfilter(mc_data, mc_filt):
+    return sp.sum(
+        [sp.correlate(mc_data[:, c], mc_filt[:, c], mode="same")
+         for c in xrange(mc_data.shape[1])],
+        axis=0)
+
+
+def mcfilter_hist(mc_data, mc_filt, mc_hist):
+    mc_hist_and_data = sp.vstack((mc_hist, mc_data))
+    rval = sp.zeros(mc_data.shape[0], dtype=mc_data.dtype)
+    for t in xrange(mc_data.shape[0]):
+        for c in xrange(mc_hist_and_data.shape[1]):
+            rval[t] += sp.dot(mc_hist_and_data[t:t + mc_filt.shape[0], c], mc_filt[:, c])
+    return rval, mc_data[-(mc_hist.shape[0]):].copy()
+
+## MAIN
+
+if __name__ == "__main__":
+    pass
+
+## EOF

@@ -47,7 +47,7 @@
 CYTHON IMPLEMENTATIONS
 """
 __docformat__ = "restructuredtext"
-__all__ = ["_mcfilter_cy32", "_myfilter_cy64", "_mcfilter_hist_cy32", "_mc_filter_hist_cy64"]
+__all__ = ["mcfilter_f32", "_myfilter_cy64", "mcfilter_hist_f32", "_mc_filter_hist_cy64"]
 
 ## IMPORTS
 
@@ -63,7 +63,7 @@ cimport numpy as np
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def _mcfilter_cy32(
+def mcfilter_f32(
         np.ndarray[np.float32_t, ndim=2] mc_data,
         np.ndarray[np.float32_t, ndim=2] mc_filt):
     cdef:
@@ -89,7 +89,7 @@ def _mcfilter_cy32(
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def _mcfilter_cy64(
+def mcfilter_f64(
         np.ndarray[np.float64_t, ndim=2] mc_data,
         np.ndarray[np.float64_t, ndim=2] mc_filt):
     cdef:
@@ -117,7 +117,7 @@ def _mcfilter_cy64(
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def _mcfilter_hist_cy32(
+def mcfilter_hist_f32(
         np.ndarray[np.float32_t, ndim=2] mc_data,
         np.ndarray[np.float32_t, ndim=2] mc_filt,
         np.ndarray[np.float32_t, ndim=2] mc_hist):
@@ -146,7 +146,7 @@ def _mcfilter_hist_cy32(
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def _mcfilter_hist_cy64(
+def mcfilter_hist_f64(
         np.ndarray[np.float64_t, ndim=2] mc_data,
         np.ndarray[np.float64_t, ndim=2] mc_filt,
         np.ndarray[np.float64_t, ndim=2] mc_hist):
@@ -175,7 +175,7 @@ def _mcfilter_hist_cy64(
 
 ## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
 
 ## EOF

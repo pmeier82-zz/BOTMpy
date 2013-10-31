@@ -122,7 +122,7 @@ class TestMxRingbuffer(ut.TestCase):
         self.rb.fill(sp.ones(self.rb.dimension))
         rb = self.rb.flush()
         assert_equal(rb, sp.array([
-        sp.ones(self.rb.dimension) for _ in xrange(6)
+            sp.ones(self.rb.dimension) for _ in xrange(6)
         ]))
         self.assertEqual(len(self.rb), 0)
 
@@ -161,5 +161,9 @@ class TestMxRingbuffer(ut.TestCase):
             assert_equal(self.rb[i], sp.eye(4) * (i + 4))
         assert_equal(self.rb[:2], sp.array([sp.eye(4) * 4, sp.eye(4) * 5]))
 
-if __name__ == '__main__':
+## MAIN
+
+if __name__ == "__main__":
     ut.main()
+
+## EOF
