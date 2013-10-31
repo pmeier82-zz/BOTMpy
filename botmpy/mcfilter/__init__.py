@@ -63,7 +63,7 @@ import the Cython function is being tried to load, on failure the python
 version is loaded as a fallback.
 """
 __docformat__ = "restructuredtext"
-__all__ = ["mcfilter", "mcfilter_hist", "USE_CYTHON"]
+__all__ = ["mcfilter", "mcfilter_hist", "CYTHON"]
 
 ## IMPORTS
 
@@ -78,29 +78,30 @@ try:
         _mcfilter_cy32, _mcfilter_cy64,
         _mcfilter_hist_cy32, _mcfilter_hist_cy64)
 
-    USE_CYTHON = True
+    CYTHON = True
 except ImportError, ex:
-    from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
+    from ._mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
     warnings.warn("Cython implementation not found! Falling back to Python!", ImportWarning)
-    USE_CYTHON = False
+    CYTHON = False
 
 ## FUNCTIONS
 
 def mcfilter(mc_data, mc_filt):
     """filter a multi-channeled signal with a multi-channeled filter
 
-    This is the Python implementation for batch mode filtering. The signal
-    will be zeros on both ends to overcome filter artifacts.
+    The signal will be padded with zeros on both ends to overcome filter
+    artifacts.
 
-    :type mc_data: ndarray
-    :param mc_data: signal data [data_samples, channels]
-    :type mc_filt: ndarray
-    :param mc_filt: FIR filter [filter_samples, channels]
-    :rtype: ndarray
-    :returns: filtered signal [data_samples]
+    If you compiled the cython extension, this will use the faster c code
+    variant.
+
+    :param ndarray mc_data: signal data [data_samples, channels]
+    :param ndarray mc_filt: FIR filter [filter_samples, channels]
+    :return: ndarray -- filtered signal [data_samples]
     """
-    if USE_CYTHON is True:
+
+    if CYTHON is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
@@ -140,7 +141,7 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     if mc_hist.shape[0] + 1 != mc_filt.shape[0]:
         raise ValueError("len(history)+1[%d] != len(filter)[%d]" %
                          ( mc_hist.shape[0] + 1, mc_filt.shape[0]))
-    if USE_CYTHON is True:
+    if CYTHON is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32

@@ -84,7 +84,7 @@ if build_ext is not None:
     ext_mod_list.append(
         Extension(
             "botmpy.mcfilter.mcfilter_cy",
-            ["botmpy/mcfilter/mcfilter_cy.pyx"],
+            ["botmpy/mcfilter/_mcfilter_cy.pyx"],
             include_dirs=[numpy.get_include()]))
     #
 
