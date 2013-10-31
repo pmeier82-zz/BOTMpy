@@ -179,6 +179,7 @@ class FilterBankSortingNode(FilterBankNode):
         if templates is not None:
             for temp in templates:
                 self.filter_create(temp)
+            self._update_internals()
 
     ## SortingNode interface
 

@@ -123,7 +123,7 @@ class AlignmentNode(Node):
         self.spikes = None
 
     def _execute(self, x):
-        # inits
+        # init
         n, dim = x.shape
         if n < 2:
             raise ValueError('too few spikes to align')
@@ -223,3 +223,5 @@ def shift_row(row, shift):
 
 if __name__ == '__main__':
     pass
+
+## EOF

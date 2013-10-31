@@ -209,7 +209,7 @@ class FilterNode(Node):
     ## filter interface
 
     def append_xi_buf(self, wf, recalc=False):
-        """append one waveform to the xi_buffer
+        """append waveforms to the xi_buffer
 
         :type wf: ndarray
         :param wf: wavefom data [self.tf, self.nc]

@@ -243,13 +243,11 @@ class FilterBankNode(Node):
             if hasattr(f, "rate"):
                 f.rate.reset()
 
-    def filter_create(self, xi, check=False, xi_count=1):
+    def filter_create(self, xi, check=False):
         """adds a new filter to the filter bank
 
         :param ndarray xi: template to build the filter for
         :param bool check: if True, call `_update_internals` after filter creation.
-        :param str xi_count: if None, `xi` will be filled into the filter's ringbuffer.
-            If int, add `xi` that many times to the filter's ringbuffer.
         :returns: int -- filter idx
         """
 
@@ -268,11 +266,7 @@ class FilterBankNode(Node):
             rb_cap=self._rb_cap,
             chan_set=self._cs,
             dtype=self.dtype)
-        # TODO: check this carefully!
-        if xi_count is None:
-            new_f.fill_xi_buf(xi)
-        elif isinstance(xi_count, int):
-            new_f.append_xi_buf([xi] * xi_count)
+        new_f.append_xi_buf(xi)
         idx = 0
         if len(self.bank):
             idx = max(self.bank.keys()) + 1
