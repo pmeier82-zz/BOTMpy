@@ -59,6 +59,11 @@ import numpy as np
 
 cimport numpy as np
 
+## INIT
+
+cdef init_cy_mcfilter():
+    pass
+
 ## MCFILTER
 
 @cython.boundscheck(False)
