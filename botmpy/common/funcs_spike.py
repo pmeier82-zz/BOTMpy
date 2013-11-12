@@ -525,8 +525,10 @@ def overlaps(sts, window):
             for spkI, spk in enumerate(trainI):
                 d = trainJ - spk
                 overlap_indices = sp.absolute(d) < window
-                if not sum(overlap_indices):
+                if not overlap_indices.sum():
                     continue
+                ovlp_nums[i_] += 1
+                ovlp_nums[j_] = overlap_indices.sum()
 
                 ovlp[i_][spkI] = True
                 ovlp[j_][overlap_indices] = True

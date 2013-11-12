@@ -638,32 +638,28 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 ## DEBUG
 
                 if self.verbose.get_has_plot(1):
-                    try:
-                        from spikeplot import xvf_tensor, plt, COLOURS
+                    from spikeplot import xvf_tensor, plt, COLOURS
 
-                        x_range = sp.arange(
-                            spk_ep[i, 0] + self._chunk_offset,
-                            spk_ep[i, 1] + self._chunk_offset)
-                        f = plt.figure()
-                        f.suptitle('spike epoch [%d:%d] #%d' %
-                                   (spk_ep[i, 0] + self._chunk_offset,
-                                    spk_ep[i, 1] + self._chunk_offset,
-                                    niter))
-                        ax1 = f.add_subplot(211)
-                        ax1.set_color_cycle(
-                            ['k'] + COLOURS[:self.nf] * 2)
-                        ax1.plot(x_range, sp.zeros_like(x_range),
-                                 ls='--')
-                        ax1.plot(x_range, ep_disc, label='pre_sub')
-                        ax1.axvline(x_range[ep_t], c='k')
-                        ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
-                        ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
-                        ax2.plot(x_range, sp.zeros_like(x_range),
-                                 ls='--')
-                        ax2.plot(x_range, sub)
-                        ax2.axvline(x_range[ep_t], c='k')
-                    except:
-                        pass
+                    x_range = sp.arange(ep_disc.shape[0])
+                    f = plt.figure()
+                    f.suptitle('spike epoch [%d:%d] #%d' %
+                               (spk_ep[i, 0] + self._chunk_offset,
+                                spk_ep[i, 1] + self._chunk_offset,
+                                niter))
+                    ax1 = f.add_subplot(211)
+                    ax1.set_color_cycle(
+                        ['k'] + COLOURS[:self.nf] * 2)
+                    ax1.plot(x_range, sp.zeros_like(x_range),
+                             ls='--')
+                    ax1.plot(x_range, ep_disc, label='pre_sub')
+                    ax1.axvline(x_range[ep_t], c='k')
+                    ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
+                    ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
+                    ax2.plot(x_range, sp.zeros_like(x_range),
+                             ls='--')
+                    ax2.plot(x_range, sub)
+                    ax2.axvline(x_range[ep_t], c='k')
+
 
                 ## BUGED
 
@@ -694,11 +690,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 ## DEBUG
 
                 if self.verbose.get_has_plot(1):
-                    try:
-                        ax1.plot(x_range, ep_disc, ls=':', lw=2,
-                                 label='post_sub')
-                    except:
-                        pass
+                    ax1.plot(x_range, ep_disc, ls=':', lw=2,
+                        label='post_sub')
 
                 ## BUGED
 
