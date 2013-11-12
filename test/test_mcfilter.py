@@ -59,8 +59,17 @@ except ImportError:
 import scipy as sp
 from numpy.testing import assert_equal, assert_almost_equal
 
-from botmpy.mcfilter._cy_mcfilter import mcfilter_hist_f32, mcfilter_hist_f64
-from botmpy.mcfilter._py_mcfilter import mcfilter, mcfilter_hist
+CYTHON_AVAILABLE = False
+
+try:
+    from botmpy.mcfilter import mcfilter_cy
+
+    CYTHON_AVAILABLE = True
+except ImportError, ex:
+    mcfilter_cy = None
+    raise RuntimeWarning('no cython extension!')
+
+from botmpy.mcfilter.mcfilter import mcfilter_hist
 
 ## TESTS
 
@@ -68,7 +77,6 @@ class TestMcFilterHist(ut.TestCase):
     def testHistoryPy(self):
         """test history and filter accuracy, python"""
 
-        ## init
         tf = 45
         nc = 4
         ns = 10000
@@ -76,18 +84,16 @@ class TestMcFilterHist(ut.TestCase):
         data = sp.randn(ns, nc).astype(dt)
         mean_at_ns_halve = data[ns / 2:ns / 2 + tf].mean()
         hist = sp.zeros((tf - 1, nc), dtype=dt)
-        # rolling average filter
         filt = sp.ones((tf, nc), dtype=dt) / (tf * nc)
         fout, hist = mcfilter_hist(data, filt, hist)
-
-        ## test
         assert_equal(hist, data[-(tf - 1):])
         assert_almost_equal(fout[ns / 2 + tf - 1], mean_at_ns_halve, decimal=15)
 
     def testHistoryCy32(self):
         """test history and filter accuracy, cython float32"""
 
-        ## init
+        if not CYTHON_AVAILABLE:
+            return
         tf = 45
         nc = 4
         ns = 10000
@@ -95,18 +101,16 @@ class TestMcFilterHist(ut.TestCase):
         data = sp.randn(ns, nc).astype(dt)
         mean_at_ns_halve = data[ns / 2:ns / 2 + tf].mean()
         hist = sp.zeros((tf - 1, nc), dtype=dt)
-        # rolling average filter
         filt = sp.ones((tf, nc), dtype=dt) / (tf * nc)
-        fout, hist = mcfilter_hist_f32(data, filt, hist)
-
-        ## test
+        fout, hist = mcfilter_cy.mcfilter_hist_f32(data, filt, hist)
         assert_equal(hist, data[-(tf - 1):])
         assert_almost_equal(fout[ns / 2 + tf - 1], mean_at_ns_halve, decimal=6)
 
     def testHistoryCy64(self):
         """test history and filter accuracy, cython float64"""
 
-        ## init
+        if not CYTHON_AVAILABLE:
+            return
         tf = 45
         nc = 4
         ns = 10000
@@ -114,17 +118,16 @@ class TestMcFilterHist(ut.TestCase):
         data = sp.randn(ns, nc).astype(dt)
         mean_at_ns_halve = data[ns / 2:ns / 2 + tf].mean()
         hist = sp.zeros((tf - 1, nc), dtype=dt)
-        # rolling average filter
         filt = sp.ones((tf, nc), dtype=dt) / (tf * nc)
-        fout, hist = mcfilter_hist_f64(data, filt, hist)
-
-        ## test
+        fout, hist = mcfilter_cy.mcfilter_hist_f64(data, filt, hist)
         assert_equal(hist, data[-(tf - 1):])
         assert_almost_equal(fout[ns / 2 + tf - 1], mean_at_ns_halve, decimal=15)
 
     def testPyVsCyOnesCy32(self):
         """test python and cython equivalent (using ones), float32"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 3
         nc = 2
         ns = 10000
@@ -134,7 +137,7 @@ class TestMcFilterHist(ut.TestCase):
         hist_py = sp.ones((tf - 1, nc), dtype=dt)
         hist_cy = sp.ones((tf - 1, nc), dtype=dt)
         fopy, hopy = mcfilter_hist(data, filt, hist_py)
-        focy, hocy = mcfilter_hist_f32(data, filt, hist_cy)
+        focy, hocy = mcfilter_cy.mcfilter_hist_f32(data, filt, hist_cy)
         assert_almost_equal(fopy, focy, decimal=6)
         assert_equal(fopy[sp.random.randint(ns)], tf * nc)
         assert_equal(focy[sp.random.randint(ns)], tf * nc)
@@ -142,6 +145,8 @@ class TestMcFilterHist(ut.TestCase):
     def testPyVsCyOnesCy64(self):
         """test python and cython equivalent (using ones), float64"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 3
         nc = 2
         ns = 10000
@@ -151,7 +156,7 @@ class TestMcFilterHist(ut.TestCase):
         hist_py = sp.ones((tf - 1, nc), dtype=dt)
         hist_cy = sp.ones((tf - 1, nc), dtype=dt)
         fopy, hopy = mcfilter_hist(data, filt, hist_py)
-        focy, hocy = mcfilter_hist_f64(data, filt, hist_cy)
+        focy, hocy = mcfilter_cy.mcfilter_hist_f64(data, filt, hist_cy)
         assert_almost_equal(fopy, focy, decimal=15)
         assert_equal(fopy[sp.random.randint(ns)], tf * nc)
         assert_equal(focy[sp.random.randint(ns)], tf * nc)
@@ -159,6 +164,10 @@ class TestMcFilterHist(ut.TestCase):
     def testPyVsCyZerosCy32(self):
         """test python and cython equivalent (using zeros), float32"""
 
+        if not CYTHON_AVAILABLE:
+            return
+
+        # init
         tf = 3
         nc = 2
         ns = 10000
@@ -168,7 +177,7 @@ class TestMcFilterHist(ut.TestCase):
         hist_py = sp.zeros((tf - 1, nc), dtype=dt)
         hist_cy = sp.zeros((tf - 1, nc), dtype=dt)
         fopy, hopy = mcfilter_hist(data, filt, hist_py)
-        focy, hocy = mcfilter_hist_f32(data, filt, hist_cy)
+        focy, hocy = mcfilter_cy.mcfilter_hist_f32(data, filt, hist_cy)
         assert_almost_equal(fopy, focy, decimal=6)
         assert_equal(fopy[sp.random.randint(ns)], 0.0)
         assert_equal(focy[sp.random.randint(ns)], 0.0)
@@ -176,6 +185,8 @@ class TestMcFilterHist(ut.TestCase):
     def testPyVsCyZerosCy64(self):
         """test python and cython equivalent (using zeros), float64"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 3
         nc = 2
         ns = 10000
@@ -185,7 +196,7 @@ class TestMcFilterHist(ut.TestCase):
         hist_py = sp.zeros((tf - 1, nc), dtype=dt)
         hist_cy = sp.zeros((tf - 1, nc), dtype=dt)
         fopy, hopy = mcfilter_hist(data, filt, hist_py)
-        focy, hocy = mcfilter_hist_f64(data, filt, hist_cy)
+        focy, hocy = mcfilter_cy.mcfilter_hist_f64(data, filt, hist_cy)
         assert_almost_equal(fopy, focy, decimal=15)
         assert_equal(fopy[sp.random.randint(ns)], 0.0)
         assert_equal(focy[sp.random.randint(ns)], 0.0)
@@ -193,6 +204,8 @@ class TestMcFilterHist(ut.TestCase):
     def testPyVsCyRandnCy32(self):
         """test python and cython equivalent (using random numbers), float32"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 3
         nc = 2
         ns = 10000
@@ -202,12 +215,14 @@ class TestMcFilterHist(ut.TestCase):
         hist_py = sp.zeros((tf - 1, nc), dtype=dt)
         hist_cy = sp.zeros((tf - 1, nc), dtype=dt)
         fopy, hopy = mcfilter_hist(data, filt, hist_py)
-        focy, hocy = mcfilter_hist_f32(data, filt, hist_cy)
+        focy, hocy = mcfilter_cy.mcfilter_hist_f32(data, filt, hist_cy)
         assert_almost_equal(fopy, focy, decimal=6)
 
     def testPyVsCyRandnCy64(self):
         """test python and cython"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 3
         nc = 2
         ns = 10000
@@ -217,7 +232,7 @@ class TestMcFilterHist(ut.TestCase):
         hist_py = sp.zeros((tf - 1, nc), dtype=dt)
         hist_cy = sp.zeros((tf - 1, nc), dtype=dt)
         fopy, hopy = mcfilter_hist(data, filt, hist_py)
-        focy, hocy = mcfilter_hist_f64(data, filt, hist_cy)
+        focy, hocy = mcfilter_cy.mcfilter_hist_f64(data, filt, hist_cy)
         assert_almost_equal(fopy, focy, decimal=15)
 
     def testDataConcatenationPy(self):
@@ -239,6 +254,8 @@ class TestMcFilterHist(ut.TestCase):
     def testDataConcatenationCy32(self):
         """history concatenation, float32"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 5
         middle = sp.floor(tf / 2.)
         nc = 1
@@ -249,12 +266,14 @@ class TestMcFilterHist(ut.TestCase):
         filt = sp.zeros((tf, nc), dtype=dt)
         filt[middle] = 1.0
         hist = sp.zeros((tf - 1, nc), dtype=dt)
-        fout, hout = mcfilter_hist_f32(data, filt, hist)
+        fout, hout = mcfilter_cy.mcfilter_hist_f32(data, filt, hist)
         assert_equal(data[:-middle], sp.array([fout[middle:]]).T)
 
     def testDataConcatenationCy64(self):
         """history concatenation, float64"""
 
+        if not CYTHON_AVAILABLE:
+            return
         tf = 5
         middle = sp.floor(tf / 2.)
         nc = 1
@@ -265,7 +284,7 @@ class TestMcFilterHist(ut.TestCase):
         filt = sp.zeros((tf, nc), dtype=dt)
         filt[middle] = 1.0
         hist = sp.zeros((tf - 1, nc), dtype=dt)
-        fout, hout = mcfilter_hist_f32(data, filt, hist)
+        fout, hout = mcfilter_cy.mcfilter_hist_f32(data, filt, hist)
         assert_equal(data[:-middle], sp.array([fout[middle:]]).T)
 
 ## MAIN

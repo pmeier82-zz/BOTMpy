@@ -56,7 +56,7 @@ try:
 except ImportError:
     import unittest as ut
 
-from numpy.testing import assert_equal, assert_almost_equal
+from numpy.testing import assert_equal, assert_array_almost_equal
 import scipy as sp
 from botmpy.nodes import HomoscedasticClusteringNode
 
@@ -79,122 +79,62 @@ class TestClusterNodes(ut.TestCase):
             self.labels[idx:idx + n] = c
             idx += n
 
-    def testClusteringKMeans(self):
-        # print
-        # print 'starting to cluster..',
-        cls = HomoscedasticClusteringNode(clus_type='kmeans',
-                                          crange=range(1, 15),
-                                          debug=False)
+    def _clusterRun(self, mode):
+
+        ## init
+        cls = HomoscedasticClusteringNode(
+            clus_type=mode,
+            crange=range(1, 15),
+            debug=False,
+            alpha=1e-2)
         cls(self.data)
         labls = cls.labels
-        means = sp.array([self.data[labls == i].mean(axis=0)
-                          for i in xrange(labls.max() + 1)])
-        # print 'done!'
-        # print
+        means = sp.array(
+            [self.data[labls == i].mean(axis=0)
+             for i in xrange(labls.max() + 1)])
 
+        ## test stats
         n_labls = labls.max() + 1
         simi_mx = sp.zeros((len(self.prio), n_labls))
         idx = sp.concatenate(([0], self.prio.cumsum()))
         for i in xrange(len(self.prio)):
             for j in xrange(n_labls):
                 simi_mx[i, j] = (labls[idx[i]:idx[i + 1]] == j).sum()
-        simi_map = simi_mx.argmax(axis=1)
-        # print simi_mx
-        # print simi_map
-        # print
+        simi_map = simi_mx.argmax(axis=1) # responsibilities
         labls_maped = sp.zeros_like(labls)
         for new, old in enumerate(simi_map):
             labls_maped[labls == old] = new
 
-        # print
-        # print 'labels found', labls_maped
-        # print 'labels expected', self.labels
-        # assert_almost_equal(labls_maped, self.labels, decimal=0,
-        #                     err_msg='labels dont match')
-        # print
-        # print 'means found:', means[simi_map]
-        # print 'means expected:', self.means
-        assert_almost_equal(means[simi_map], self.means, decimal=0,
-                            err_msg='means dont match')
-        # print
-
+        # tests
+        assert_array_almost_equal(
+            means[simi_map], self.means, decimal=-1,
+            err_msg='means do not match!')
         correct = (labls_maped == self.labels).sum() / float(self.labels.size)
         self.assertGreaterEqual(correct, 0.9)
 
-        # print 'classification error: %s%%' % ((1.0 - correct) * 100.0)
-        # print
+    def testClusteringKmeans(self):
+        """using the 'kmeans' mode"""
 
-    def testClusteringGMM(self):
-        # print
-        # print 'starting to cluster..',
-        cls = HomoscedasticClusteringNode(clus_type='gmm',
-                                          crange=range(1, 15),
-                                          debug=False)
-        cls(self.data)
-        labls = cls.labels
-        means = sp.array([self.data[labls == i].mean(axis=0)
-                          for i in xrange(labls.max() + 1)])
-        # print 'done!'
-        # print
+        self._clusterRun('kmeans')
 
-        n_labls = labls.max() + 1
-        simi_mx = sp.zeros((len(self.prio), n_labls))
-        idx = sp.concatenate(([0], self.prio.cumsum()))
-        for i in xrange(len(self.prio)):
-            for j in xrange(n_labls):
-                simi_mx[i, j] = (labls[idx[i]:idx[i + 1]] == j).sum()
-        simi_map = simi_mx.argmax(axis=1)
-        # print simi_mx
-        # print simi_map
-        # print
-        labls_maped = sp.zeros_like(labls)
-        for new, old in enumerate(simi_map):
-            labls_maped[labls == old] = new
+    def testClusteringGmm(self):
+        """using the 'gmm' mode"""
 
-        # print
-        # print 'labels found', labls_maped
-        # print 'labels expected', self.labels
-        # assert_almost_equal(labls_maped, self.labels, decimal=0,
-        #                     err_msg='labels dont match')
+        self._clusterRun('gmm')
 
+    def testClusteringDpGmm(self):
+        """using the 'dpgmm' mode"""
 
-        # print
-        # print 'means found:', means[simi_map]
-        # print 'means expected:', self.means
-        assert_almost_equal(means[simi_map], self.means, decimal=0,
-                            err_msg='means dont match')
-        # print
+        # self._clusterRun('dpgmm')
 
-        correct = (labls_maped == self.labels).sum() / float(self.labels.size)
-        self.assertGreaterEqual(correct, 0.9)
-        # print 'classification error: %s%%' % ((1.0 - correct) * 100# .0)
-        # print
-        cls.plot(self.data, show=True)
+    def testClusteringMeanShift(self):
+        """using the 'meanshift' mode"""
 
-    """
+        # self._clusterRun('meanshift')
 
-    # paramters for HomoscedasticClusteringNode
-    # clus_type = 'kmeans', crange = range(1, 16), maxiter = 32,
-    # repeats = 4, conv_th = 1e-4, sigma_factor = 4.0,
-    # uprior = False, dtype = sp.float32, debug = False):
+## MAIN
 
-    mul = 2.0
-    dim = 6
-    data = sp.vstack(
-        [sp.randn(50 * (i + 1), dim) + [5 * i * (-1) ** i] * dim for
-         i in
-         xrange(5)]) * mul
-    HCN = HomoscedasticClusteringNode(clus_type='gmm',
-                                      crange=[1, 2, 3, 4, 5, 6, 7,
-                                      8, 9],
-                                      maxiter=128,
-                                      repeats=4,
-                                      sigma_factor=mul * mul,
-                                      weights_uniform=False,
-                                      debug=True)
-    HCN(data)
-    HCN.plot(data, views=3, show=True)
-    """
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     ut.main()
+
+## EOF

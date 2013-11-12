@@ -71,21 +71,25 @@ import scipy as sp
 import warnings
 
 # suppress warnings after first presentation (most likely on import)
-warnings.simplefilter('once')
+warnings.simplefilter("once")
 
-import _py_mcfilter
+from .mcfilter import \
+    mcfilter as mcfilter_py, \
+    mcfilter_hist as mcfilter_hist_py
+
+CYTHON_AVAILABLE = False
 
 try:
-    import _cy_mcfilter
+    import mcfilter_cy
 
-    CYTHON = True
+    CYTHON_AVAILABLE = True
 except ImportError, ex:
+    mcfilter_cy = None
     warnings.warn("Cython implementation not found! Falling back to Python!", ImportWarning)
-    CYTHON = False
 
 ## FUNCTIONS
 
-def mcfilter(mc_data, mc_filt):
+def mcfilter(mc_data, mc_filt, force_py=False):
     """filter a multi-channeled signal with a multi-channeled filter
 
     The signal will be padded with zeros on both ends to overcome filter
@@ -97,6 +101,7 @@ def mcfilter(mc_data, mc_filt):
 
     :param ndarray mc_data: signal data [data_samples, channels]
     :param ndarray mc_filt: FIR filter [filter_samples, channels]
+    :param bool force_py: if True, force use of python implementation
     :return: ndarray -- filtered signal [data_samples]
     """
 
@@ -105,7 +110,7 @@ def mcfilter(mc_data, mc_filt):
     if mc_data.shape[1] != mc_filt.shape[1]:
         raise ValueError("channel count does not match")
 
-    if CYTHON is True:
+    if CYTHON_AVAILABLE is True and force_py is False:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
@@ -113,14 +118,14 @@ def mcfilter(mc_data, mc_filt):
             sp.ascontiguousarray(mc_data, dtype=dtype),
             sp.ascontiguousarray(mc_filt, dtype=dtype))
         if dtype == sp.float32:
-            return _cy_mcfilter.mcfilter_f32(mc_data, mc_filt)
+            return mcfilter_cy.mcfilter_f32(mc_data, mc_filt)
         elif dtype == sp.float64:
-            return _cy_mcfilter.mcfilter_f64(mc_data, mc_filt)
+            return mcfilter_cy.mcfilter_f64(mc_data, mc_filt)
     else:
-        return _py_mcfilter.mcfilter(mc_data, mc_filt)
+        return mcfilter_py(mc_data, mc_filt)
 
 
-def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
+def mcfilter_hist(mc_data, mc_filt, mc_hist=None, force_py=False):
     """filter a multi-channeled signal with a multi-channeled filter
 
     A history item will be used and prepended before applying the filter. This
@@ -134,6 +139,7 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     :param ndarray mc_hist: history [hist_samples, channels]. the history is
         of size ´filter_samples - 1´. If None, this will be substituted with
         all zeros.
+    :param bool force_py: if True, force use of python implementation
     :return: tuple(ndarray,ndarray) -- filter output [data_samples], history
         item [hist_samples, channels]
     """
@@ -146,35 +152,20 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
         mc_hist = sp.zeros((mc_filt.shape[0] - 1, mc_data.shape[0]))
     if mc_hist.shape[0] + 1 != mc_filt.shape[0]:
         raise ValueError(
-            "len(history)+1[%d] != len(filter)[%d]" %
-                         ( mc_hist.shape[0] + 1, mc_filt.shape[0]))
-    if CYTHON is True:
-        dtype = mc_data.dtype
-        if dtype not in [sp.float32, sp.float64]:
-            dtype = sp.float32
-        if mc_data.shape[1] != mc_filt.shape[1]:
-            raise ValueError("channel count does not match")
+            "history has wrong size (expected: %d, actual: %d" %
+            (mc_hist.shape[0] + 1, mc_filt.shape[0]))
+    dtype = mc_data.dtype
+    if CYTHON_AVAILABLE is True and force_py is False:
         mc_data, mc_filt, mc_hist = (
             sp.ascontiguousarray(mc_data, dtype=dtype),
             sp.ascontiguousarray(mc_filt, dtype=dtype),
             sp.ascontiguousarray(mc_hist, dtype=dtype))
-        try:
-            return {sp.float32: _mcfilter_hist_cy32,
-                    sp.float64: _mcfilter_hist_cy64}[dtype](mc_data, mc_filt, mc_hist)
-        except:
-            raise TypeError("dtype != float32 or float64: %s" % dtype)
+        if dtype == sp.float32:
+            return mcfilter_cy.mcfilter_hist_f32(mc_data, mc_filt, mc_hist)
+        elif dtype == sp.float64:
+            return mcfilter_cy.mcfilter_hist_f64(mc_data, mc_filt, mc_hist)
     else:
-        if mc_data.ndim != mc_filt.ndim > 2:
-            raise ValueError("wrong dimensions: %s, %s" %
-                             (mc_data.shape, mc_filt.shape))
-        if mc_data.shape[1] != mc_filt.shape[1]:
-            raise ValueError("channel count does not match")
-        mc_hist_and_data = sp.vstack((mc_hist, mc_data))
-        rval = sp.zeros(mc_data.shape[0], dtype=mc_data.dtype)
-        for t in xrange(mc_data.shape[0]):
-            for c in xrange(mc_hist_and_data.shape[1]):
-                rval[t] += sp.dot(mc_hist_and_data[t:t + mc_filt.shape[0], c], mc_filt[:, c])
-        return rval, mc_data[-(mc_hist.shape[0]):].copy()
+        return mcfilter_hist_py(mc_data, mc_filt, mc_hist)
 
 ## MAIN
 

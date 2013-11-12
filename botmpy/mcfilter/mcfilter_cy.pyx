@@ -69,8 +69,8 @@ cdef init_cy_mcfilter():
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def mcfilter_f32(
-        np.ndarray[np.float32_t, ndim=2] mc_data,
-        np.ndarray[np.float32_t, ndim=2] mc_filt):
+        np.ndarray[np.float32_t, ndim=2] mc_data not None,
+        np.ndarray[np.float32_t, ndim=2] mc_filt not None):
     cdef:
         unsigned int nc = mc_data.shape[1]
         unsigned int td = mc_data.shape[0]
@@ -95,8 +95,8 @@ def mcfilter_f32(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def mcfilter_f64(
-        np.ndarray[np.float64_t, ndim=2] mc_data,
-        np.ndarray[np.float64_t, ndim=2] mc_filt):
+        np.ndarray[np.float64_t, ndim=2] mc_data not None,
+        np.ndarray[np.float64_t, ndim=2] mc_filt not None):
     cdef:
         unsigned int nc = mc_data.shape[1]
         unsigned int td = mc_data.shape[0]
@@ -123,9 +123,9 @@ def mcfilter_f64(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def mcfilter_hist_f32(
-        np.ndarray[np.float32_t, ndim=2] mc_data,
-        np.ndarray[np.float32_t, ndim=2] mc_filt,
-        np.ndarray[np.float32_t, ndim=2] mc_hist):
+        np.ndarray[np.float32_t, ndim=2] mc_data not None,
+        np.ndarray[np.float32_t, ndim=2] mc_filt not None,
+        np.ndarray[np.float32_t, ndim=2] mc_hist not None):
     cdef:
         unsigned int nc = mc_data.shape[1]
         unsigned int td = mc_data.shape[0]
@@ -152,9 +152,9 @@ def mcfilter_hist_f32(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def mcfilter_hist_f64(
-        np.ndarray[np.float64_t, ndim=2] mc_data,
-        np.ndarray[np.float64_t, ndim=2] mc_filt,
-        np.ndarray[np.float64_t, ndim=2] mc_hist):
+        np.ndarray[np.float64_t, ndim=2] mc_data not None,
+        np.ndarray[np.float64_t, ndim=2] mc_filt not None,
+        np.ndarray[np.float64_t, ndim=2] mc_hist not None):
     cdef:
         unsigned int nc = mc_data.shape[1]
         unsigned int td = mc_data.shape[0]

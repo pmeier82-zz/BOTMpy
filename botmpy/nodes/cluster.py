@@ -150,7 +150,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         """
         :type clus_type: str
         :param clus_type: clustering algorithm to use. Must be one of:
-            'kmeans', 'gmm', 'meanshift'
+            'kmeans', 'gmm', 'dpgmm' ,'meanshift'
 
             Default='kmeans'
         :type crange: list
@@ -217,8 +217,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self.debug = bool(debug)
 
         self.clus_kwargs = {}
-        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm',
-                                                  'dpgmm']:
+        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm', 'dpgmm']:
             self.clus_kwargs.update(max_iter=max_iter)
         if conv_thresh is not None and clus_type in ['kmeans', 'gmm', 'dpgmm']:
             self.clus_kwargs.update(conv_thresh=conv_thresh)
@@ -288,7 +287,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 if self.gof_type == 'bic':
                     self._gof[idx] = model_gmm.bic(x)
 
-                print quant, k, self._gof[idx]
+                if self.debug is True:
+                    print quant, k, self._gof[idx]
 
 
     def _fit_kmeans(self, x):
@@ -314,8 +314,8 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 # build equivalent gmm
                 model_gmm = GMM(n_components=k, covariance_type=self.cvtype)
                 model_gmm.means_ = model.cluster_centers_
-                model_gmm.covars_ = sp.ones(
-                    (k, self.input_dim)) * self.sigma_factor
+                model_gmm.covars_ = sp.ones((k, self.input_dim)) * self.sigma_factor
+                model_gmm.covars_ = sp.eye(self.input_dim) * self.sigma_factor
                 model_gmm.weights_ = sp.array(
                     [(self._labels[idx] == i).sum() for i in xrange(k)])
 

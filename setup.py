@@ -58,6 +58,7 @@ from distutils.extension import Extension
 
 try:
     from Cython.Distutils import build_ext
+    # from Cython.Build import cythonize
 except ImportError:
     build_ext = None
 
@@ -84,7 +85,7 @@ if build_ext is not None:
     ext_mod_list.append(
         Extension(
             "botmpy.mcfilter.mcfilter_cy",
-            ["botmpy/mcfilter/_cy_mcfilter.pyx"],
+            ["botmpy/mcfilter/mcfilter_cy.pyx"],
             include_dirs=[numpy.get_include()]))
     #
 
@@ -106,7 +107,7 @@ if __name__ == "__main__":
             "numpy>=1.6.1",
             "scipy>=0.9",
             "mdp",
-            "sklearn"],
+            "scikit-learn"],
         # extras_require={
         #     "TEST": ["pytest, tables"],
         #     "CYTHON": ["cython>=0.15.1"],
