@@ -60,7 +60,7 @@ import scipy as sp
 from sklearn.mixture import DPGMM, GMM, VBGMM
 import sklearn.cluster
 from sklearn.metrics import euclidean_distances
-from .base_nodes import Node
+from .base import Node
 
 ## CLASSES
 

@@ -55,15 +55,15 @@ __docformat__ = 'restructuredtext'
 
 ## PACKAGE
 
-from .alignment import *
+from .base import *
+
 from .artifact_detector import *
-from .base_nodes import *
 from .cluster import *
-from .linear_filter import *
-from .filter_bank import *
 from .prewhiten import *
 from .smoothing import *
 from .spike_detection import *
+from .linear_filter import *
+from .filter_bank import *
 from .spike_sorting import *
 
 ## MAIN

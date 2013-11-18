@@ -85,6 +85,7 @@ try:
     CYTHON_AVAILABLE = True
 except ImportError, ex:
     mcfilter_cy = None
+    warnings.warn(str(ex), ImportWarning)
     warnings.warn("Cython implementation not found! Falling back to Python!", ImportWarning)
 
 ## FUNCTIONS

@@ -66,7 +66,7 @@ __all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
 
 import scipy as sp
 from scipy.stats.mstats import mquantiles
-from .base_nodes import Node
+from .base import Node
 from ..common import (threshold_detection, merge_epochs, get_cut, k_neo, m_neo, INDEX_DTYPE, get_aligned_spikes)
 
 ##  CLASSES

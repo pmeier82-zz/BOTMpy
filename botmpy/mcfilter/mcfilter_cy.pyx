@@ -47,7 +47,7 @@
 CYTHON IMPLEMENTATIONS
 """
 __docformat__ = "restructuredtext"
-__all__ = ["mcfilter_f32", "_myfilter_cy64", "mcfilter_hist_f32", "_mc_filter_hist_cy64"]
+__all__ = ["mcfilter_f32", "_myfilter_f64", "mcfilter_hist_f32", "_mc_filter_hist_f64"]
 
 ## IMPORTS
 

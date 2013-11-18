@@ -57,7 +57,7 @@ __all__ = ["FilterBankError", "FilterBankNode"]
 
 import logging
 import scipy as sp
-from .base_nodes import Node
+from .base import Node
 from .linear_filter import FilterNode, REMF
 from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
 

@@ -57,7 +57,7 @@ __all__ = ["FilterError", "FilterNode", "MatchedFilterNode", "NormalisedMatchedF
 
 import scipy as sp
 from collections import deque
-from .base_nodes import Node
+from .base import Node
 from ..common import mcvec_from_conc, mcvec_to_conc, TimeSeriesCovE, MxRingBuffer, snr_maha
 from ..mcfilter import mcfilter_hist
 

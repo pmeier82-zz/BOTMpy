@@ -76,7 +76,7 @@ from scipy import linalg as sp_la
 from sklearn.mixture import log_multivariate_normal_density
 from sklearn.utils.extmath import logsumexp
 
-from .base_nodes import PCANode
+from .base import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
 from .prewhiten import PrewhiteningNode

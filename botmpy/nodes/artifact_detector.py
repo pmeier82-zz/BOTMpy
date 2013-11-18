@@ -102,35 +102,23 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
     def __init__(self, wsize_ms=15.0, psize_ms=(5.0, 10.0), wfunc=sp.ones,
                  srate=32000.0, zcr_th=0.1, mindist_ms=10.0):
         """
-        :type wsize_ms: float
-        :param wsize_ms: window size of the integration window in `ms`. Should
+        :param float wsize_ms: window size of the integration window in `ms`. Should
             be large enough to cover the low band of the artifacts and not
             overlap with the lower band of spikes (spike clusters).
-            Default=15.0
-        :type psize_ms: tuple
-        :param psize_ms: window size of the padding windows in `ms`. Will be
+        :param tuple psize_ms: window size of the padding windows in `ms`. Will be
             applied to detected artifact epochs. (left_pad, right_pad)
-            Default=5.0
-        :type wfunc: function
-        :param wfunc: function that creates the integration window. The
+        :param function wfunc: function that creates the integration window. The
             function has to take one parameter denoting the window size in
             samples.
-            Default=scipy.ones
-        :type srate: float
-        :param srate: sample rate in `Hz`. Used to convert the windows sizes
+        :param float srate: sample rate in `Hz`. Used to convert the windows sizes
             from `ms` to data samples.
-            Default=32000.0
-        :type zcr_th: float
-        :param zrc_th: zrc (zero crossing rate) threshold, epochs of the data
+        :param float zrc_th: zrc (zero crossing rate) threshold, epochs of the data
             where the zrc falls below the threshold will be classified as
             artifact epochs.
-            Default=0.11
-        :type mindist_ms: float
-        :param mindist_ms: minimum size for non-artifact epochs in `ms`.
+        :param float mindist_ms: minimum size for non-artifact epochs in `ms`.
             Data epochs in between artifacts epochs that are smaller than this
             window, are merged into the artifact epochs to reduce
             segmentation.
-            Default=10.0
         """
 
         # super
@@ -184,7 +172,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
         """returns the artifact fragmentation"""
 
         if self.size is None:
-            raise RuntimeError('No data given!')
+            raise RuntimeError("No data given!")
         nae_len = float(
             self.size - (self.events[:, 1] - self.events[:, 0]).sum())
         return - sp.log(nae_len / (self.size * (self.events.shape[0] + 1)))
@@ -193,7 +181,7 @@ class ArtifactDetectorNode(ThresholdDetectorNode):
         """return the index set that represents the non-artifact epochs"""
 
         if self.size is None:
-            raise RuntimeError('No data given!')
+            raise RuntimeError("No data given!")
         if self.events.size == 0:
             return sp.array([[0, self.size]])
         else:
@@ -206,10 +194,19 @@ class SpectrumArtifactDetector(ThresholdDetectorNode):
     ## constructor
 
     def __init__(self, wsize_ms=8.0, srate=32000.0, cutoff_hz=2000.0, nfft=512,
-                 en_func='max_normed', overlap=1, max_merge_dist=6,
+                 en_func="max_normed", overlap=1, max_merge_dist=6,
                  min_allowed_length=2, **kw):
-        """lala"""
-
+        """lala
+        :param float wsize_ms: windo size in
+        :param srate:
+        :param cutoff_hz:
+        :param nfft:
+        :param en_func:
+        :param overlap:
+        :param max_merge_dist:
+        :param min_allowed_length:
+        :param kw:
+        """
 
         # depending on matplotlib.mlab, for this, com'on!!
         try:

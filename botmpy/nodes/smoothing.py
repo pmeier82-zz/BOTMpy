@@ -57,7 +57,7 @@ __all__ = ['SmoothingNode', 'smooth']
 ## IMPORTS
 
 import scipy as N
-from .base_nodes import Node
+from .base import Node
 
 ## CONSTANTS
 

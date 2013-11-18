@@ -58,7 +58,7 @@ __all__ = ['PrewhiteningNode', 'PrewhiteningNode2']
 
 import scipy as sp
 from scipy import linalg as sp_la
-from .base_nodes import Node
+from .base import Node
 from ..common import coloured_loading, mad_scaling, TimeSeriesCovE
 
 ##  CLASSES
