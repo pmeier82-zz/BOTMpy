@@ -519,22 +519,26 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
                                 .5 * self.get_xcorrs_at(i))
 
+        self._build_overlap(ns, self._disc, self._ovlp_taus)
+
+    def _build_overlap(self, ns, disc, ovlp_taus):
         # build overlap channels from filter outputs for overlap channels
-        if self._ovlp_taus is not None:
+        if ovlp_taus is not None:
             self._oc_idx = {}
             oc_idx = self.nf
             for f0 in xrange(self.nf):
                 for f1 in xrange(f0 + 1, self.nf):
-                    for tau in self._ovlp_taus:
+                    for tau in ovlp_taus:
                         self._oc_idx[oc_idx] = (f0, f1, tau)
                         f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
                         f1_lim = [max(0, 0 + tau), min(ns, ns + tau)]
-                        self._disc[f0_lim[0]:f0_lim[1], oc_idx] = (
-                            self._disc[f0_lim[0]:f0_lim[1], f0] +
-                            self._disc[f1_lim[0]:f1_lim[1], f1] -
+                        disc[f0_lim[0]:f0_lim[1], oc_idx] = (
+                            disc[f0_lim[0]:f0_lim[1], f0] +
+                            disc[f1_lim[0]:f1_lim[1], f1] -
                             self.get_xcorrs_at(f0, f1, tau))
                         oc_idx += 1
 
+    import copy
     def _sort_chunk(self):
         """sort this chunk on the calculated discriminant functions
 
@@ -552,10 +556,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         if self.nf == 0:
             return
         spk_ep = epochs_from_binvec(
-            sp.nanmax(self._disc, axis=1) > -10000)
+            sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
             return
-        """l, r = get_cut(self._tf)
+        l, r = get_cut(2 * self._tf)
+
         for i in xrange(spk_ep.shape[0]):
             # FIX: for now we just continue for empty epochs,
             # where do they come from anyways?!
@@ -564,7 +569,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             mc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].argmax(0).argmax()
             s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[
                 i, 0]
-            spk_ep[i] = [s - l, s + r]"""
+            spk_ep[i] = [s - l, s + r]
+            spk_ep[i][0] = max(0, spk_ep[i][0])
+            spk_ep[i][1] = min(self._disc.shape[0], spk_ep[i][1])
 
         # check epochs
         spk_ep = merge_epochs(spk_ep)
@@ -660,32 +667,28 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     ax2.plot(x_range, sub)
                     ax2.axvline(x_range[ep_t], c='k')
 
-
                 ## BUGED
 
                 ep_disc[:, :self.nf] += sub
                 ep_fout[:, :self.nf] += sub
                 ep_fout_norm = sp_la.norm(ep_fout)
-                if self._pr_s_b is not None:  # TODO: For both spikes
+                if self._pr_s_b is not None:
                     bias, extend = self._pr_s_b
-                    ep_disc[ep_t:min(ep_t + extend,
-                                     ep_disc.shape[0]), ep_c] -= bias
+                    if ep_c < self.nf:
+                        ep_disc[ep_t:min(ep_t + extend,
+                                         ep_disc.shape[0]), ep_c] -= bias
+                    else:
+                        my_oc_idx = self._oc_idx[ep_c]
+                        fid0 = self.get_idx_for(my_oc_idx[0])
+                        ep_disc[ep_t:min(ep_t + extend, ep_disc.shape[0]),
+                                fid0] -= bias
+                        fid1 = self.get_idx_for(my_oc_idx[1])
+                        ep_disc[max(ep_t + my_oc_idx[2], 0):
+                                min(ep_t + my_oc_idx[2] + extend,
+                                ep_disc.shape[0]), fid1] -= bias
 
-                ns = self._disc.shape[0]
-                if ovlp_taus is not None:
-                    self._oc_idx = {}
-                    oc_idx = self.nf
-                    for f0 in xrange(self.nf):
-                        for f1 in xrange(f0 + 1, self.nf):
-                            for tau in ovlp_taus:
-                                self._oc_idx[oc_idx] = (f0, f1, tau)
-                                f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
-                                f1_lim = [max(0, 0 + tau), min(ns, ns + tau)]
-                                ep_disc[f0_lim[0]:f0_lim[1], oc_idx] = (
-                                    ep_disc[f0_lim[0]:f0_lim[1], f0] +
-                                    ep_disc[f1_lim[0]:f1_lim[1], f1] -
-                                    self.get_xcorrs_at(f0, f1, tau))
-                                oc_idx += 1
+                ns = ep_disc.shape[0]
+                self._build_overlap(ns, ep_disc, ovlp_taus)
 
                 ## DEBUG
 
