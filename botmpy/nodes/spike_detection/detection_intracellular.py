@@ -49,20 +49,32 @@
 #_____________________________________________________________________________
 #
 
-"""nodes using the mdp-toolkit node interface"""
-
+"""detector nodes for intra-cellular signals"""
 __docformat__ = 'restructuredtext'
+__all__ = ['SDIntraNode']
 
-## PACKAGE
+## IMPORTS
 
-from .base_node import *
+from .threshold_detector import ThresholdDetectorNode
 
-from .artifact_detection import *
-from .cluster import *
-from .prewhiten import *
-from .smoothing import *
-from .spike_detection import *
-from .spike_sorting import *
+## CLASSES
+
+class SDIntraNode(ThresholdDetectorNode):
+    """spike detector node
+
+    energy: identity
+    threshold: zero
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :Parameters:
+            see ThresholdDetectorNode
+        """
+
+        # super
+        kwargs.update(threshold_base="signal")
+        super(SDIntraNode, self).__init__(**kwargs)
 
 ## MAIN
 

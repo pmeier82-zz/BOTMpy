@@ -57,17 +57,14 @@ a chunk of data, which is featured by deriving from ResetNode. There are
 different kinds of detectors, distinguished by their way of feature to noise
 discrimination.
 """
-
-__docformat__ = 'restructuredtext'
-__all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode', 'SDAbsNode',
-           'SDSqrNode', 'SDMneoNode', 'SDKteoNode', 'SDIntraNode', 'SDPeakNode']
+__docformat__ = "restructuredtext"
+__all__ = ["EnergyNotCalculatedError", "ThresholdDetectorNode"]
 
 ##  IMPORTS
 
 import scipy as sp
-from scipy.stats.mstats import mquantiles
-from .base import Node
-from ..common import (threshold_detection, merge_epochs, get_cut, k_neo, m_neo, INDEX_DTYPE, get_aligned_spikes)
+from botmpy.common import threshold_detection, merge_epochs, get_cut, INDEX_DTYPE, get_aligned_spikes
+from botmpy.nodes.base_node import Node
 
 ##  CLASSES
 
@@ -84,7 +81,7 @@ class ThresholdDetectorNode(Node):
     channel in each column (or one multi-channeled observation/sample per
     row).
 
-    The output will be a timeseries of detected feature in the input signal.
+    The output will be a time series of detected feature in the input signal.
     To find the features, the input signal is transformed by applying an
     operator
     (called the energy function from here on) that produces an
@@ -93,7 +90,7 @@ class ThresholdDetectorNode(Node):
     remainder of the input signal. A threshold is then applied to this energy
     representation of the input signal to find the feature epochs.
 
-    The output timeseries either holds the onsets of the feature epochs or the
+    The output time series either holds the onsets of the feature epochs or the
     maximum of the energy function within the feature epoch, in samples.
 
     Extra information about the events or the internals has to be saved in
@@ -103,8 +100,8 @@ class ThresholdDetectorNode(Node):
     ## constructor
 
     def __init__(self, input_dim=None, output_dim=None, dtype=None,
-                 energy_func=None, threshold_func=None, threshold_mode='gt',
-                 threshold_base='energy', threshold_factor=1.0, tf=47,
+                 energy_func=None, threshold_func=None, threshold_mode="gt",
+                 threshold_base="energy", threshold_factor=1.0, tf=47,
                  min_dist=1, find_max=True, ch_separate=False):
         """
         see mdp.Node
@@ -168,12 +165,11 @@ class ThresholdDetectorNode(Node):
         self.tf = int(tf)
         self.min_dist = int(min_dist)
         self.find_max = bool(find_max)
-        if threshold_mode not in ['gt', 'lt']:
-            raise ValueError('threshold mode must be either "gt" or "lt"')
+        if threshold_mode not in ["gt", "lt"]:
+            raise ValueError("threshold mode must be either \"gt\" or \"lt\"")
         self.th_mode = threshold_mode
-        if threshold_base not in ['signal', 'energy']:
-            raise ValueError(
-                'threshold base must be either "signal" or "energy"')
+        if threshold_base not in ["signal", "energy"]:
+            raise ValueError("threshold base must be either \"signal\" or \"energy\"")
         self.th_base = threshold_base
         self.th_fac = float(threshold_factor)
         self.data = []
@@ -234,7 +230,7 @@ class ThresholdDetectorNode(Node):
         self.data.append(x)
 
     def _stop_training(self, *args, **kwargs):
-        # produce data in one piece
+        # concatenate data strips
         self.data = sp.vstack(self.data)
         # calculate energy
         self.energy = self._energy_func(self.data)
@@ -243,7 +239,7 @@ class ThresholdDetectorNode(Node):
         self.size, self.nchan = self.energy.shape
 
     def _execute(self, x, **kwargs):
-        """calls self._apply_threshold() and return the events found"""
+        """calls self._apply_threshold() and returns event time series"""
 
         # assert energy and threshold
         if self.energy is None:
@@ -386,10 +382,9 @@ class ThresholdDetectorNode(Node):
 
         Overwrite this method in subclasses, default behaviour: zero
 
-        This method calculates the threshold to use during feature detection
-        . It
-        will be applied to each channel individually and must return a scalar
-        when called with x, which is a ndim=1 ndarray.
+        This method calculates the threshold to use during feature detection.
+        The threshold will be applied to each channel individually and must
+        return a scalar.
         """
 
         return 0.0
@@ -397,10 +392,7 @@ class ThresholdDetectorNode(Node):
     def _calc_threshold(self):
         """calculates the threshold"""
 
-        base = {
-            'signal': self.data,
-            'energy': self.energy
-        }[self.th_base]
+        base = dict(signal=self.data, energy=self.energy)[self.th_base]
         if self.ch_sep is False:
             base = sp.atleast_2d(sp.absolute(base).max(axis=1)).T
         self.threshold = sp.asarray(
@@ -408,185 +400,9 @@ class ThresholdDetectorNode(Node):
              for c in xrange(base.shape[1])], dtype=self.dtype)
         self.threshold *= self.th_fac
 
-    def plot(self, show=False):
-        """plot detection in mcdata plot"""
+## MAIN
 
-        try:
-            from spikeplot import plt, mcdata, COLOURS
-        except ImportError:
-            return None
-
-        fig = mcdata(self.data, other=self.energy, events={0: self.events},
-                     show=False)
-        for i, th in enumerate(self.threshold):
-            fig.axes[-1].axhline(th, c=COLOURS[i % len(COLOURS)])
-        self._plot_additional(fig)
-        if show is True:
-            plt.show()
-        return fig
-
-    def _plot_additional(self, fig):
-        pass
-
-## spike detector implementations
-
-class SDAbsNode(ThresholdDetectorNode):
-    """spike detector
-
-    energy: absolute of the signal
-    threshold: signal.std
-    """
-
-    def __init__(self, **kwargs):
-        """
-        :Parameters:
-            see ThresholdDetectorNode
-        """
-
-        # super
-        kwargs.update(energy_func=sp.absolute,
-                      threshold_base='signal',
-                      threshold_func=sp.std)
-        super(SDAbsNode, self).__init__(**kwargs)
-
-    def _threshold_func(self, x):
-        return self.th_fac * x.std(axis=0)
-
-
-class SDSqrNode(ThresholdDetectorNode):
-    """spike detector
-
-    energy: square of the signal
-    threshold: signal.var
-    """
-
-    def __init__(self, **kwargs):
-        """
-        :Parameters:
-            see ThresholdDetectorNode
-        """
-
-        # super
-        kwargs.update(energy_func=sp.square,
-                      threshold_base='signal',
-                      threshold_func=sp.var)
-        super(SDSqrNode, self).__init__(**kwargs)
-
-
-class SDMneoNode(ThresholdDetectorNode):
-    """spike detector
-
-    energy: multiresolution teager energy operator
-    threshold: energy.std
-    """
-
-    def __init__(self, k_values=[1, 3, 5, 7, 9], quantile=0.98, **kwargs):
-        """uses the multi-resolution nonlinear energy operator to detect spikes
-
-        The m_neo will be called with `reduce`=True.
-
-        :param list k_values: k-values for the k_neo instances.
-        :param list k_values: list of int determining the k_neo detectors to
-            build for the m_neo neo detector from.
-        :param float quantile: threshold as a quantile of the reduced m_neo output
-        """
-
-        # super
-        kwargs.update(
-            threshold_base='energy',
-            threshold_factor=kwargs.get('threshold_factor', 0.96),
-            min_dist=kwargs.get('min_dist', 5),
-            ch_separate=True)
-        super(SDMneoNode, self).__init__(**kwargs)
-
-        # members
-        self.kvalues = map(int, k_values)
-        self.quantile = quantile
-
-    def _energy_func(self, x):
-        return sp.vstack([m_neo(x[:, c], k_values=self.kvalues, reduce=True)
-                          for c in xrange(x.shape[1])]).T
-
-    def _threshold_func(self, x):
-        return mquantiles(x, prob=[self.quantile])[0]
-
-
-class SDPeakNode(ThresholdDetectorNode):
-    """spike detector
-
-    energy: absolute of the signal
-    threshold: signal.std
-    """
-
-    def __init__(self, **kwargs):
-        """
-        :Parameters:
-            see ThresholdDetectorNode
-        """
-
-        # super
-        kwargs.update(threshold_base='signal',
-                      threshold_func=sp.std)
-        super(SDPeakNode, self).__init__(**kwargs)
-
-    def _threshold_func(self, x):
-        return self.th_fac * x.std(axis=0)
-
-
-class SDKteoNode(ThresholdDetectorNode):
-    """spike detector
-
-    energy: teager energy operator
-    threshold: energy.std
-    """
-
-    def __init__(self, kvalue=1, quantile=0.98, **kwargs):
-        """
-        :Parameters:
-            see ThresholdDetectorNode
-
-            kvalue : int
-                Integer determining the k_neo detector resolution.
-        """
-
-        # super
-        kwargs.update(
-            threshold_base='energy',
-            threshold_factor=kwargs.get('threshold_factor', 0.96),
-            min_dist=kwargs.get('min_dist', 5),
-            ch_separate=True)
-        super(SDKteoNode, self).__init__(**kwargs)
-
-        # members
-        self.kvalue = int(kvalue)
-        self.quantile = quantile
-
-    def _energy_func(self, x):
-        return sp.vstack([k_neo(x[:, c], k=self.kvalue)
-                          for c in xrange(x.shape[1])]).T
-
-    def _threshold_func(self, x):
-        return mquantiles(x, prob=[self.quantile])[0]
-
-
-class SDIntraNode(ThresholdDetectorNode):
-    """spike detector
-
-    energy: identity
-    threshold: zero
-    """
-
-    def __init__(self, **kwargs):
-        """
-        :Parameters:
-            see ThresholdDetectorNode
-        """
-
-        # super
-        kwargs.update(threshold_base='signal')
-        super(SDIntraNode, self).__init__(**kwargs)
-
-##  MAIN
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF

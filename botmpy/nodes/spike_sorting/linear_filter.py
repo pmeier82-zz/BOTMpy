@@ -49,17 +49,17 @@
 #_____________________________________________________________________________
 #
 
-"""filter classes for linear filters in the time domain"""
+"""linear filters in the time domain"""
 __docformat__ = "restructuredtext"
-__all__ = ["FilterError", "FilterNode", "MatchedFilterNode", "NormalisedMatchedFilterNode"]
+__all__ = ["FilterError", "LinearFilterNode", "MatchedFilterNode"]
 
 ## IMPORTS
 
 import scipy as sp
 from collections import deque
-from .base import Node
-from ..common import mcvec_from_conc, mcvec_to_conc, TimeSeriesCovE, MxRingBuffer, snr_maha
-from ..mcfilter import mcfilter_hist
+from ...common import mcvec_from_conc, mcvec_to_conc, TimeSeriesCovE, MxRingBuffer, snr_maha
+from ...mcfilter import mcfilter_hist
+from ..base_node import Node
 
 ## CLASSES
 
@@ -67,7 +67,7 @@ class FilterError(Exception):
     pass
 
 
-class FilterNode(Node):
+class LinearFilterNode(Node):
     """linear filter in the time domain
 
     This node applies a linear filter to the data and returns the filtered
@@ -76,28 +76,22 @@ class FilterNode(Node):
     classmethod. The template will be averaged from a ringbuffer of
     observations. The covariance matrix is supplied from an external
     covariance estimator.
+
+    This implementation uses `mcfilter.mcfilter_hist` method and only filters
+    causal part of the input and stored the remainder in a history buffer.
     """
 
     ## special
 
     def __init__(self, tf, nc, ce, chan_set=None, rb_cap=None, dtype=None):
         """
-        :type tf: int
-        :param tf: template length in samples
-        :type nc: int
-        :type nc: template channel count
-        :type ce: TimeSeriesCovE
-        :param ce: covariance estimator instance
-        :type chan_set: tuple
-        :param chan_set: tuple of int designating the subset of channels this
-            filter operates on.
-            Default=tuple(range(nc))
-        :type rb_cap: int
-        :param rb_cap: capacity of the xi buffer
-            Default=350
-        :type dtype: dtype resolvable
-        :param dtype: determines the internal dtype
-            Default=None
+        :param int tf: template length in samples
+        :param int nc: template channel count
+        :param TimeSeriesCovE ce: covariance estimator instance
+        :param tuple chan_set: tuple of int designating the subset of channels this
+            filter operates on. Defaults to tuple(range(nc))
+        :param int rb_cap: capacity of the xi buffer
+        :param dtype dtype: determines the internal dtype
         """
 
         # checks
@@ -109,7 +103,7 @@ class FilterNode(Node):
             chan_set = tuple(range(nc))
 
         # super
-        super(FilterNode, self).__init__(output_dim=1, dtype=dtype)
+        super(LinearFilterNode, self).__init__(output_dim=1, dtype=dtype)
 
         # members
         self._xi_buf = MxRingBuffer(
@@ -123,9 +117,7 @@ class FilterNode(Node):
         self.active = True
 
     def __str__(self):
-        return '%s(tf=%s,nc=%s,cs=%s)' % (self.__class__.__name__,
-                                          self.tf, self.nc,
-                                          str(self._chan_set))
+        return "%s(tf=%s,nc=%s,cs=%s)" % (self.__class__.__name__, self.tf, self.nc, str(self._chan_set))
 
     ## properties - not settable
 
@@ -186,13 +178,13 @@ class FilterNode(Node):
 
     snr = property(get_snr, doc="signal to noise ratio (mahalanobis distance)")
 
-    ## mdp.Node interface
+    ## Node interface
 
     def _execute(self, x):
         """apply the filter to data"""
 
-        # DOC:  sp.ascontiguousarray is here to assert continuous memory for
-        #       the array. This important for ctypes/cython implementations.
+        # DOC: sp.ascontiguousarray is here to assert continuous memory for
+        #      the array. This is important for ctypes/cython implementations.
         x_in = sp.ascontiguousarray(x, dtype=self.dtype)[:, self._chan_set]
         rval, self._hist = mcfilter_hist(x_in, self._f, self._hist)
         return rval
@@ -211,10 +203,8 @@ class FilterNode(Node):
     def append_xi_buf(self, wf, recalc=False):
         """append waveforms to the xi_buffer
 
-        :type wf: ndarray
-        :param wf: wavefom data [self.tf, self.nc]
-        :type recalc: bool
-        :param recalc: if True, call self.calc_filter after appending
+        :param ndarray wf: wavefom data [self.tf, self.nc]
+        :param bool recalc: if True, call self.calc_filter after appending
         """
 
         self._xi_buf.append(wf)
@@ -274,37 +264,26 @@ class FilterNode(Node):
         raise NotImplementedError
 
 
-class MatchedFilterNode(FilterNode):
+class MatchedFilterNode(LinearFilterNode):
     """matched filters in the time domain optimise the signal to noise ratio
     (SNR) of the pattern with respect to a covariance matrix describing the
-    noise background (deconvolution).
+    noise background. Approximate deconvolution.
+
+    If `normalise` is set to true the output is normalised s.t. the response
+    of the pattern `xi` to the filter `f` is a peak of unit amplitude.
+
     """
+
+    normalise = False
 
     @classmethod
     def filter_calculation(cls, xi, ce, cs, *args, **kwargs):
         tf, nc = xi.shape
         icmx = ce.get_icmx(tf=tf, chan_set=cs)
         f = sp.dot(mcvec_to_conc(xi), icmx)
-        return sp.ascontiguousarray(
-            mcvec_from_conc(f, nc=nc),
-            dtype=xi.dtype)
-
-
-class NormalisedMatchedFilterNode(FilterNode):
-    """matched filters in the time domain optimise the signal to noise ratio
-    (SNR) of the pattern with respect to a covariance matrix describing the
-    noise background (deconvolution). Here the deconvolution output is
-    normalised s.t. the response of the pattern is a peak of unit amplitude.
-    """
-
-    @classmethod
-    def filter_calculation(cls, xi, ce, cs, *args, **kwargs):
-        tf, nc = xi.shape
-        icmx = ce.get_icmx(tf=tf, chan_set=cs)
-        f = sp.dot(mcvec_to_conc(xi), icmx)
-        norm_factor = sp.dot(mcvec_to_conc(xi), f)
-        return sp.ascontiguousarray(mcvec_from_conc(f / norm_factor, nc=nc),
-                                    dtype=sp.float32)
+        if cls.normalise is True:
+            f /= sp.dot(mcvec_to_conc(xi), f)
+        return sp.ascontiguousarray(mcvec_from_conc(f, nc=nc), dtype=sp.float32)
 
 
 class RateEstimator(object):
@@ -361,16 +340,6 @@ class REMF(MatchedFilterNode):
         srate = kwargs.pop("sample_rate", 32000.0)
         nsample = kwargs.pop("n_sample_max", sp.inf)
         super(REMF, self).__init__(*args, **kwargs)
-        self.rate = RateEstimator(srate, nsample)
-
-
-class RENMF(NormalisedMatchedFilterNode):
-    """normalised matched filter with rate estimation"""
-
-    def __init__(self, *args, **kwargs):
-        srate = kwargs.pop("sample_rate", 32000.0)
-        nsample = kwargs.pop("n_sample_max", sp.inf)
-        super(RENMF, self).__init__(*args, **kwargs)
         self.rate = RateEstimator(srate, nsample)
 
 ## MAIN

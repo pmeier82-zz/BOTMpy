@@ -57,15 +57,15 @@ __all__ = ['SmoothingNode', 'smooth']
 ## IMPORTS
 
 import scipy as N
-from .base import Node
+from .base_node import Node
 
 ## CONSTANTS
 
 FILTER_KERNELS = {
-    5:N.array([-3, 12, 17, 12, -3]),
-    7:N.array([-2, 3, 6, 7, 6, 3, -2]),
-    9:N.array([-21, 14, 39, 54, 59, 54, 39, 14, -21]),
-    11:N.array([-36, 9, 44, 69, 84, 89, 84, 69, 44, 9, -36])
+    5: N.array([-3, 12, 17, 12, -3]),
+    7: N.array([-2, 3, 6, 7, 6, 3, -2]),
+    9: N.array([-21, 14, 39, 54, 59, 54, 39, 14, -21]),
+    11: N.array([-36, 9, 44, 69, 84, 89, 84, 69, 44, 9, -36])
 }
 
 ## CLASSES

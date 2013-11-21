@@ -49,20 +49,83 @@
 #_____________________________________________________________________________
 #
 
-"""nodes using the mdp-toolkit node interface"""
-
+"""detector nodes using intrinsic statistical thresholds"""
 __docformat__ = 'restructuredtext'
+__all__ = ['SDAbsNode', 'SDSqrNode', 'SDPeakNode']
 
-## PACKAGE
+## IMPORTS
 
-from .base_node import *
+import scipy as sp
+from .threshold_detector import ThresholdDetectorNode
 
-from .artifact_detection import *
-from .cluster import *
-from .prewhiten import *
-from .smoothing import *
-from .spike_detection import *
-from .spike_sorting import *
+## CLASSES
+
+class SDAbsNode(ThresholdDetectorNode):
+    """spike detector node
+
+    energy: absolute of the signal
+    threshold: signal.std
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :Parameters:
+            see ThresholdDetectorNode
+        """
+
+        # super
+        kwargs.update(
+            energy_func=sp.absolute,
+            threshold_base="signal",
+            threshold_func=sp.std)
+        super(SDAbsNode, self).__init__(**kwargs)
+
+    def _threshold_func(self, x):
+        return self.th_fac * x.std(axis=0)
+
+
+class SDSqrNode(ThresholdDetectorNode):
+    """spike detector node
+
+    energy: square of the signal
+    threshold: signal.var
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :Parameters:
+            see ThresholdDetectorNode
+        """
+
+        # super
+        kwargs.update(
+            energy_func=sp.square,
+            threshold_base="signal",
+            threshold_func=sp.var)
+        super(SDSqrNode, self).__init__(**kwargs)
+
+
+class SDPeakNode(ThresholdDetectorNode):
+    """spike detector node
+
+    energy: signal
+    threshold: signal.std
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :Parameters:
+            see ThresholdDetectorNode
+        """
+
+        # super
+        kwargs.update(
+            threshold_base="signal",
+            threshold_func=sp.std)
+        super(SDPeakNode, self).__init__(**kwargs)
+
+    def _threshold_func(self, x):
+        return self.th_fac * x.std(axis=0)
 
 ## MAIN
 

@@ -49,20 +49,55 @@
 #_____________________________________________________________________________
 #
 
-"""nodes using the mdp-toolkit node interface"""
+"""abstract base classes derived from MDP nodes"""
+__docformat__ = "restructuredtext"
+__all__ = ["Node", "TrainingResetMixin", "PCANode"]
 
-__docformat__ = 'restructuredtext'
+## MPD environment settings - disable importing several libraries
 
-## PACKAGE
+import os
 
-from .base_node import *
+os.environ["MDP_DISABLE_PARALLEL_PYTHON"] = "True"
+os.environ["MDP_DISABLE_MONKEYPATCH_PP"] = "True"
+os.environ["MDP_DISABLE_SHOGUN"] = "True"
+os.environ["MDP_DISABLE_LIBSVM"] = "True"
+os.environ["MDP_DISABLE_JOBLIB"] = "True"
+os.environ["MDP_DISABLE_SKLEARN"] = "True"
 
-from .artifact_detection import *
-from .cluster import *
-from .prewhiten import *
-from .smoothing import *
-from .spike_detection import *
-from .spike_sorting import *
+## IMPORTS
+
+from mdp import Node as mdp_Node
+from mdp.nodes import PCANode
+
+## CLASSES
+
+class TrainingResetMixin(object):
+    """allows :py:class:`mdp.Node` to reset to training state
+
+    This is a mixin class for subclasses of :py:class:`mdp.Node`. To use it
+    inherit from :py:class:`mdp.Node` and put this mixin prior in the class
+    list.
+    """
+
+    ## reset interface
+
+    def reset(self):
+        """reset handler, calls the reset hook and resets to training phase"""
+
+        # reset training capability
+        self._train_phase = 0
+        self._train_phase_started = False
+        self._training = True
+        self._reset()
+
+    def _reset(self):
+        pass
+
+
+class Node(TrainingResetMixin, mdp_Node):
+    """botmpy base node class with reset ability"""
+
+    pass
 
 ## MAIN
 

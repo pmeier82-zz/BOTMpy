@@ -49,24 +49,43 @@
 #_____________________________________________________________________________
 #
 
-"""nodes using the mdp-toolkit node interface"""
+"""detector nodes for multi-channeled data
 
+These detectors find features and feature epochs on multi-channeled signals by
+application of a threshold to a transform of the input signal. There are several
+kinds of standard detectors implemented already.
+
+To implement a new spike detector node create a new module in this package. The
+module has to end with "_detection" to be recognized as an implementation file.
+Create a new class subclassing
+`botmpy.nodes.spike_detection.base.ThresholdDetectorNode`.
+"""
 __docformat__ = 'restructuredtext'
+__all__ = ['EnergyNotCalculatedError', 'ThresholdDetectorNode']
 
 ## PACKAGE
 
-from .base_node import *
+from .threshold_detector import EnergyNotCalculatedError, ThresholdDetectorNode
 
-from .artifact_detection import *
-from .cluster import *
-from .prewhiten import *
-from .smoothing import *
-from .spike_detection import *
-from .spike_sorting import *
+# import all spike_detection implementations from namespace
+import os
+import sys
+
+_pkg_path = os.path.dirname(os.path.abspath(__file__))
+
+for _mod_name in [_n for _n, _e in [os.path.splitext(_f) for _f in os.listdir(_pkg_path)]
+                  if _n.startswith('detection_') and _e == '.py']:
+    _mod = __import__('.'.join([__name__, _mod_name]), fromlist=[_mod_name])
+    _mod_cls = [getattr(_mod, _attr) for _attr in dir(_mod) if isinstance(getattr(_mod, _attr), type)]
+    for _cls in _mod_cls:
+        setattr(sys.modules[__name__], _cls.__name__, _cls)
+        __all__.append(_cls.__name__)
+# clean up namespace
+del os, sys, _pkg_path, _mod_name, _n, _e, _f, _mod, _mod_cls, _attr, _cls
 
 ## MAIN
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pass
 
 ## EOF

@@ -57,9 +57,9 @@ __all__ = ["FilterBankError", "FilterBankNode"]
 
 import logging
 import scipy as sp
-from .base import Node
-from .linear_filter import FilterNode, REMF
-from ..common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
+from ...common import (TimeSeriesCovE, xi_vs_f, VERBOSE)
+from ..base_node import Node
+from .linear_filter import LinearFilterNode, REMF
 
 ## CLASSES
 
@@ -117,7 +117,7 @@ class FilterBankNode(Node):
         # checks
         if not issubclass(ce.__class__, TimeSeriesCovE):
             raise TypeError("'ce' of type TimeSeriesCovE is required!")
-        if not issubclass(filter_cls, FilterNode):
+        if not issubclass(filter_cls, LinearFilterNode):
             raise TypeError("'filter_cls' of type FilterNode is required!")
         if chan_set is None:
             chan_set = tuple(range(ce.get_nc()))

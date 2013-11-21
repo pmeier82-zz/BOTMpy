@@ -49,55 +49,26 @@
 #_____________________________________________________________________________
 #
 
-"""abstract base classes derived from MDP nodes"""
+"""spike sorting using the deconfusion method
+
+F. Franke, M. Natora, C. Boucsein, M. Munk, and K. Obermayer. An online
+spike detection and spike classification algorithm capable of instantaneous
+resolution of overlapping spikes. Journal of Computational Neuroscience, 2009
+"""
 __docformat__ = "restructuredtext"
-__all__ = ["Node", "Node", "TrainingResetMixin", "PCANode"]
-
-## MPD environment settings - disable importing several libraries
-
-import os
-
-os.environ["MDP_DISABLE_PARALLEL_PYTHON"] = "True"
-os.environ["MDP_DISABLE_MONKEYPATCH_PP"] = "True"
-os.environ["MDP_DISABLE_SHOGUN"] = "True"
-os.environ["MDP_DISABLE_LIBSVM"] = "True"
-os.environ["MDP_DISABLE_JOBLIB"] = "True"
-os.environ["MDP_DISABLE_SKLEARN"] = "True"
+__all__ = ["DeconfusionSortingNode"]
 
 ## IMPORTS
 
-from mdp import Node as mdp_Node
-from mdp.nodes import PCANode
+import scipy as sp
 
 ## CLASSES
 
-class TrainingResetMixin(object):
-    """allows :py:class:`mdp.Node` to reset to training state
+class DeconfusionSortingNode:
+    """to be implemented"""
 
-    This is a mixin class for subclasses of :py:class:`mdp.Node`. To use it
-    inherit from :py:class:`mdp.Node` and put this mixin prior in the class
-    list.
-    """
-
-    ## reset interface
-
-    def reset(self):
-        """reset handler, calls the reset hook and resets to training phase"""
-
-        # reset training capability
-        self._train_phase = 0
-        self._train_phase_started = False
-        self._training = True
-        self._reset()
-
-    def _reset(self):
+    def __init__(self, **kwargs):
         pass
-
-
-class Node(TrainingResetMixin, mdp_Node):
-    """botmpy base node class with reset ability"""
-
-    pass
 
 ## MAIN
 

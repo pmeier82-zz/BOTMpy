@@ -49,20 +49,21 @@
 #_____________________________________________________________________________
 #
 
-"""nodes using the mdp-toolkit node interface"""
+"""spike sorting using conventional clustering"""
+__docformat__ = "restructuredtext"
+__all__ = ["ClusterSortingNode"]
 
-__docformat__ = 'restructuredtext'
+## IMPORTS
 
-## PACKAGE
+import scipy as sp
 
-from .base_node import *
+## CLASSES
 
-from .artifact_detection import *
-from .cluster import *
-from .prewhiten import *
-from .smoothing import *
-from .spike_detection import *
-from .spike_sorting import *
+class ClusterSortingNode:
+    """to be implemented"""
+
+    def __init__(self, **kwargs):
+        pass
 
 ## MAIN
 
