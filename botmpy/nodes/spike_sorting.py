@@ -954,7 +954,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :keyword minimum_snr: Templates with a signal to noise ratio below this
             value are dropped.
 
-            Default = 0.5
+            Default = 0.3
 
         :type minimum_rate: float
         :keyword minimum_rate: Templates with a firing rate (in Hertz) below
@@ -992,7 +992,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._merge_dist = kwargs.pop('clus_merge_dist', 0.0)
         self._merge_rsf = kwargs.pop('clus_merge_rsf', 16)
         self._external_spike_train = None
-        self._minimum_snr = kwargs.pop('minimum_snr', 0.5)
+        self._minimum_snr = kwargs.pop('minimum_snr', 0.3)
         self._minimum_rate = kwargs.pop('minimum_rate', 0.1)
 
         # check det_cls
