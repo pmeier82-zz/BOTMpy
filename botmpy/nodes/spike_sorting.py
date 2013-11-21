@@ -428,6 +428,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             discriminant will be biased by the `bias` for `extend` samples.
 
             Default=None
+        :type sic_guard: bool
+        :keyword sic_guard: when True, test before setting a spike that
+            removing it does not increase the norm of all discriminants.
         """
 
         # kwargs
@@ -435,6 +438,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         noi_pr = kwargs.pop('noi_pr', 1e0)
         spk_pr = kwargs.pop('spk_pr', 1e-6)
         spk_pr_bias = kwargs.pop('spk_pr_bias', None)
+        self.use_sic_guard = kwargs.pop('sic_guard', True)
 
         # super
         super(BayesOptimalTemplateMatchingNode, self).__init__(**kwargs)
@@ -641,7 +645,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     tidx[1] + ep_t - self._tf + 1)
 
             # apply subtrahend
-            if True: #ep_fout_norm > sp_la.norm(ep_fout + sub):
+            if not self.use_sic_guard or \
+                    ep_fout_norm > sp_la.norm(ep_fout + sub):
                 ## DEBUG
 
                 if self.verbose.get_has_plot(1):
