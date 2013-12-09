@@ -606,8 +606,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         spk_ep[i][0] + self._chunk_offset,
                         spk_ep[i][1] + self._chunk_offset,
                         niter))
-                if niter > 2 * self.nf:
-                    break
+                #if niter > 2 * self.nf:
+                #    break
 
             # find epoch details
             ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
@@ -680,15 +680,19 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                 if self._pr_s_b is not None:
                     bias, extend = self._pr_s_b
                     if ep_c < self.nf:
-                        ep_disc[ep_t:min(ep_t + extend,
-                                         ep_disc.shape[0]), ep_c] -= bias
+                        ep_disc[
+                            max(ep_t - extend, 0):
+                            min(ep_t + extend, ep_disc.shape[0]),
+                            ep_c] -= bias
                     else:
                         my_oc_idx = self._oc_idx[ep_c]
                         fid0 = self.get_idx_for(my_oc_idx[0])
-                        ep_disc[ep_t:min(ep_t + extend, ep_disc.shape[0]),
-                                fid0] -= bias
+                        ep_disc[
+                            max(ep_t - extend, 0):
+                            min(ep_t + extend, ep_disc.shape[0]),
+                            fid0] -= bias
                         fid1 = self.get_idx_for(my_oc_idx[1])
-                        ep_disc[max(ep_t + my_oc_idx[2], 0):
+                        ep_disc[max(ep_t + my_oc_idx[2] - extend, 0):
                                 min(ep_t + my_oc_idx[2] + extend,
                                 ep_disc.shape[0]), fid1] -= bias
 
