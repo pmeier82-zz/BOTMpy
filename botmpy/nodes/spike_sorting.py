@@ -530,16 +530,31 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         if ovlp_taus is not None:
             self._oc_idx = {}
             oc_idx = self.nf
+
+            # Build correct indices when filters are deactivated
+            oc_map = {}
+            off = 0
+            for f in xrange(self.nf):
+                if not self.bank[f].active:
+                    off += 1
+                    oc_map[f] = None
+                else:
+                    oc_map[f] = f - off
+
             for f0 in xrange(self.nf):
                 for f1 in xrange(f0 + 1, self.nf):
                     for tau in ovlp_taus:
-                        self._oc_idx[oc_idx] = (f0, f1, tau)
+                        self._oc_idx[oc_idx] = (
+                            oc_map[f0], oc_map[f1], tau)
                         f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
                         f1_lim = [max(0, 0 + tau), min(ns, ns + tau)]
-                        disc[f0_lim[0]:f0_lim[1], oc_idx] = (
-                            disc[f0_lim[0]:f0_lim[1], f0] +
-                            disc[f1_lim[0]:f1_lim[1], f1] -
-                            self.get_xcorrs_at(f0, f1, tau))
+                        if oc_map[f0] is None or oc_map[f1] is None:
+                            disc[f0_lim[0]:f0_lim[1], oc_idx] = 0
+                        else:
+                            disc[f0_lim[0]:f0_lim[1], oc_idx] = (
+                                disc[f0_lim[0]:f0_lim[1], f0] +
+                                disc[f1_lim[0]:f1_lim[1], f1] -
+                                self.get_xcorrs_at(f0, f1, tau))
                         oc_idx += 1
 
     import copy
