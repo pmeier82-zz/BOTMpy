@@ -235,7 +235,7 @@ def epochs_from_binvec(binvec):
     output = sp.correlate(sp.concatenate(([0], binvec, [0])), [-1, 1], 'same')
     return sp.vstack((
         (output > 0).nonzero()[0] - 1,
-        (output < 0).nonzero()[0] - 2)).T
+        (output < 0).nonzero()[0] - 1)).T
 
 
 def epochs_from_spiketrain(st, cut, end=None, with_corrected_st=False):
