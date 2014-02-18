@@ -108,7 +108,7 @@ def threshold_detection(data, th, min_dist=1, mode='gt', find_max=True):
     rval = []
     ep_func = {'gt': lambda d, t: epochs_from_binvec(d > t).tolist(),
                'lt': lambda d, t: epochs_from_binvec(d < t).tolist(),
-              }[mode]
+    }[mode]
 
     # per channel detection
     for c in xrange(data.shape[1]):
@@ -275,6 +275,13 @@ def epochs_from_spiketrain(st, cut, end=None, with_corrected_st=False):
     rval = sp.vstack((
         st[st_ok] - cut[0],
         st[st_ok] + cut[1])).T.astype(INDEX_DTYPE)
+    ## FIX: astype is handling float entries weird sometimes! take care to pass spiketrains as integer arrays!
+    ## we are now correcting spike epochs to be of length sum(cut) by pruning the start of the epoch
+    tf = sum(cut)
+    for i in xrange(rval.shape[0]):
+        if rval[i, 1] - rval[i, 0] != tf:
+            rval[i, 0] = rval[i, 1] - tf
+    ## XIF
     if with_corrected_st is True:
         return rval, st[st_ok]
     else:
@@ -388,11 +395,11 @@ def extract_spikes(data, epochs, mc=False):
             if epochs[s, 1] > data.shape[0]:
                 clamp = epochs[s, 1] - data.shape[0]
             if mc is True:
-                rval[s, :tf - clamp, c] =\
-                data[epochs[s, 0]:epochs[s, 1] - clamp, c]
+                rval[s, :tf - clamp, c] = \
+                    data[epochs[s, 0]:epochs[s, 1] - clamp, c]
             else:
-                rval[s, c * tf:(c + 1) * tf - clamp] =\
-                data[epochs[s, 0]:epochs[s, 1] - clamp, c]
+                rval[s, c * tf:(c + 1) * tf - clamp] = \
+                    data[epochs[s, 0]:epochs[s, 1] - clamp, c]
 
     # return
     return rval
