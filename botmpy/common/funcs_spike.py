@@ -282,6 +282,13 @@ def epochs_from_spiketrain(st, cut, end=None, with_corrected_st=False):
     rval = sp.vstack((
         st[st_ok] - cut[0],
         st[st_ok] + cut[1])).T.astype(INDEX_DTYPE)
+    ## FIX: astype is handling float entries weird sometimes! take care to pass spiketrains as integer arrays!
+    ## we are now correcting spike epochs to be of length sum(cut) by pruning the start of the epoch
+    tf = sum(cut)
+    for i in xrange(rval.shape[0]):
+        if rval[i, 1] - rval[i, 0] != tf:
+            rval[i, 0] = rval[i, 1] - tf
+    ## XIF
     if with_corrected_st is True:
         return rval, st[st_ok]
     else:

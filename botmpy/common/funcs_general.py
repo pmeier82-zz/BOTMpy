@@ -70,6 +70,9 @@ def sortrows(data):
     :return: ndarray -- data sorted by its rows.
     """
 
+    ## FIX: this method assumes the dta to be continuous! we now make sure of that explicitely
+    data = sp.ascontiguousarray(data)
+    ## XIF
     return sp.sort(
         data.view([('', data.dtype)] * data.shape[1]), axis=0
     ).view(data.dtype)
