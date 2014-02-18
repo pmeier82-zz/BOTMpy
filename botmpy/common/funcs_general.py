@@ -67,6 +67,9 @@ def sortrows(data):
     :returns: ndarray - data sorted by its rows.
     """
 
+    ## FIX: this method assumes the dta to be continuous! we now make sure of that explicitely
+    data = sp.ascontiguousarray(data)
+    ## XIF
     return sp.sort(
         data.view([('', data.dtype)] * data.shape[1]), axis=0
     ).view(data.dtype)
@@ -237,7 +240,7 @@ def xcorrv(a, b=None, lag=None, dtype=None):
 
     # calc
     for tau in lag_range:
-        prod = a.T[:, None, max(0, +tau):min(len(a), len(a) + tau)] *\
+        prod = a.T[:, None, max(0, +tau):min(len(a), len(a) + tau)] * \
                b.T[None, :, max(0, -tau):min(len(b), len(b) - tau)].conj()
         rval[..., lag + tau] = prod.mean(axis=-1)
 

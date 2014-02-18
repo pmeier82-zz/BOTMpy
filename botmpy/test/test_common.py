@@ -52,7 +52,7 @@ from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 import scipy.linalg as sp_la
 from botmpy.common import (
-    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec, deprecated,
+    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec, #deprecated,
     mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
     dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
