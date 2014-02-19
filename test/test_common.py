@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
 #_____________________________________________________________________________
 #
-# Copyright (c) 2012-2013, Berlin Institute of Technology
+# Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
 #
-# Developed by:	Philipp Meier <pmeier82@gmail.com>
-#
-#               Neural Information Processing Group (NI)
+# Developed by:	Neural Information Processing Group (NI)
 #               School for Electrical Engineering and Computer Science
 #               Berlin Institute of Technology
 #               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
 #               http://www.ni.tu-berlin.de/
-#
-# Repository:   https://github.com/pmeier82/BOTMpy
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -44,12 +40,8 @@
 #   Philipp Meier <pmeier82@gmail.com>
 #_____________________________________________________________________________
 #
-# Changelog:
-#   * <iso-date> <identity> :: <description>
-#_____________________________________________________________________________
-#
 
-## IMPORTS
+##---IMPORTS
 
 try:
     import unittest2 as ut
@@ -59,9 +51,8 @@ except ImportError:
 from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 import scipy.linalg as sp_la
-
 from botmpy.common import (
-    INDEX_DTYPE, xi_vs_f, sortrows, vec2ten, ten2vec,
+    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec, #deprecated,
     mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
     dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
@@ -70,7 +61,7 @@ from botmpy.common import (
     matrix_argmax, matrix_argmin, get_tau_for_alignment, get_tau_align_min,
     get_tau_align_max, get_tau_align_energy, get_aligned_spikes)
 
-## TESTS-alphabetic-by-file
+##---TESTS-alphabetic-by-file
 
 class TestCommonFuncsFilterutil(ut.TestCase):
     def testXiVsF(self, nc=2):
@@ -94,7 +85,6 @@ class TestCommonFuncsFilterutil(ut.TestCase):
 class TestCommonFuncsGeneral(ut.TestCase):
     def testSortrows(self):
         """shamelessly stolen from matlab-docu"""
-
         data = sp.array([
             [95, 45, 92, 41, 13, 1, 84],
             [95, 7, 73, 89, 20, 74, 52],
@@ -150,7 +140,7 @@ class TestCommonFuncsGeneral(ut.TestCase):
         assert_equal(xcorr(data), xcorr_test)
         assert_equal(xcorr(data, sp.zeros(n)), sp.zeros(2 * n - 1))
         assert_equal(xcorr(data, lag=lag_n),
-                     xcorr_test[n - lag_n - 1:n + lag_n])
+            xcorr_test[n - lag_n - 1:n + lag_n])
         assert_equal(xcorr(data), xcorr(data, data))
         assert_equal(xcorr(data, data * 2), 2 * xcorr_test)
         assert_equal(xcorr(data, 2 * data), xcorr(data) * 2)
@@ -172,7 +162,7 @@ class TestCommonFuncsGeneral(ut.TestCase):
             -1.26604444e+00, -4.13175911e-01, 4.44089210e-16, 1.11022302e-16])
         assert_almost_equal(xcorr(data), xcorr_test)
         assert_almost_equal(xcorr(data, lag=lag_n),
-                            xcorr_test[n - lag_n - 1:n + lag_n])
+            xcorr_test[n - lag_n - 1:n + lag_n])
 
     def testShiftedMatrixSub(self):
         """test for shifted matrix subtraction"""
@@ -278,7 +268,7 @@ class TestCommonFuncsSpike(ut.TestCase):
         assert_equal(epochs_from_spiketrain(st, cut), st_ep)
         assert_equal(epochs_from_spiketrain(st, cut, end=150), st_ep[:-1])
         assert_equal(epochs_from_spiketrain(st, cut),
-                     epochs_from_spiketrain(st, sum(cut)))
+            epochs_from_spiketrain(st, sum(cut)))
 
     def testEpochsFromSpiketrainSet(self):
         """test for epoch generation from a spiketrain set"""
@@ -362,7 +352,7 @@ class TestCommonFuncsSpike(ut.TestCase):
             sp.sqrt((data * data).sum(axis=1) / data.shape[1]))
 
     def testOverlaps(self):
-        """test for overlaps"""
+        """test for overlap finder"""
 
         sts = {
             'A': sp.array([50, 150, 250]),
@@ -384,6 +374,35 @@ class TestCommonMatrixOps(ut.TestCase):
         self.vec = sp.array([4.0, 2.0, 1.0])
         self.mat = sp_la.toeplitz(self.vec)
 
+    def old_code_container(self):
+        r = sp.array([1.0, 0.9, 0.8])
+        C = sp_la.toeplitz(r)
+        cnos = [10, 15.3, 50]
+
+        print 'initial matrix:'
+        print C
+        print
+
+        for cno in cnos:
+            print 'initial condition:', matrix_cond(C)
+            print 'target condition:', cno
+            print
+            Ddiag = diagonal_loading(C, cno)
+            Dcol = coloured_loading(C, cno)
+            print 'diagonally loaded:', matrix_cond(Ddiag)
+            print Ddiag
+            print 'coloured loaded:', matrix_cond(Dcol)
+            print Dcol
+            print
+
+        print 'C matrix:', matrix_cond(C)
+        print C
+        Cnew = coloured_loading(C, 10, overwrite_mat=True)
+        print 'Cnew loaded at condition:', matrix_cond(Cnew)
+        print Cnew
+        print 'same matrices: C is Cnew', C is Cnew
+        print
+
     def testMatrixCond(self):
         """test for matrix condition"""
 
@@ -400,7 +419,7 @@ class TestCommonMatrixOps(ut.TestCase):
         # application
         c = 5.2445626465380286
         assert_equal(diagonal_loading(self.mat, 3.0),
-                     sp.array([[c, 2, 1], [2, c, 2], [1, 2, c]]))
+            sp.array([[c, 2, 1], [2, c, 2], [1, 2, c]]))
         assert_almost_equal(coloured_loading(self.mat, 3.0), sp.array([
             [4.1713186830564446, 1.7111326024008537, 1.1713186830564448],
             [1.7111326024008537, 4.4870710649124632, 1.7111326024008537],
@@ -461,7 +480,20 @@ class TestCommonUtil(ut.TestCase):
     def testIndexDtype(self):
         self.assertEqual(INDEX_DTYPE, sp.dtype(sp.int64))
 
-## MAIN
+    def testDeprecatedDecorator(self):
+        # --- new function
+        def sum_many(*args):
+            return sum(args)
+
+        # --- old / deprecated function
+        @deprecated(sum_many)
+        def sum_couple(a, b):
+            return a + b
+
+        # --- test
+        assert_equal(sum_couple(2, 2), 4)
+
+##---MAIN
 
 if __name__ == '__main__':
     ut.main()
