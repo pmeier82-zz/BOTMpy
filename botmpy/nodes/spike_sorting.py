@@ -242,6 +242,7 @@ class FilterBankSortingNode(FilterBankNode):
         self.rval = dict_list_to_ndarray(self.rval)
         correct = int(self._tf / 2)
         for k in self.rval:
+            self.rval[k].sort()
             self.rval[k] -= correct
 
     ## result access
