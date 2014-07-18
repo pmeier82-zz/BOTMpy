@@ -161,27 +161,17 @@ def merge_epochs(*args, **kwargs):
     # rval_ovlp overlaps
     rval_ovlp = [epochs.pop(0)]
     k = 0
+    min_dist = int(kwargs.get('min_dist', -1))
+
     while len(epochs) > 0:
         ep = epochs.pop(0)
-        if ep[0] <= rval_ovlp[k][1] - 1:
+        if ep[0] <= rval_ovlp[k][1] + min_dist:
             rval_ovlp[k] = [min(ep[0], rval_ovlp[k][0]),
                             max(ep[1], rval_ovlp[k][1])]
         else:
             k += 1
             rval_ovlp.append(ep)
     rval = rval_ovlp
-
-    # rval_ovlp epochs with gaps smaller than minimum distance
-    min_dist = int(kwargs.get('min_dist', 0))
-    if min_dist > 0:
-        rval_gaps = [rval_ovlp.pop(0)]
-        while len(rval_ovlp) > 0:
-            ep = rval_ovlp.pop(0)
-            if ep[0] - rval_gaps[-1][1] < min_dist:
-                rval_gaps[-1][1] = ep[1]
-            else:
-                rval_gaps.append(ep)
-        rval = rval_gaps
 
     # return
     rval = sp.asarray(rval, dtype=INDEX_DTYPE)
