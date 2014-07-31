@@ -316,7 +316,7 @@ def epochs_from_spiketrain_set(sts, cut, end=None):
 
 ## spike and data extraction
 
-def chunk_data(data, epochs=None, invert=False):
+def chunk_data(data, epochs=None, invert=False, min_len=0):
     """returns a generator of chunks from data given epochs
 
     :type data: ndarray
@@ -325,6 +325,8 @@ def chunk_data(data, epochs=None, invert=False):
     :param epochs: epoch set, positive mask
     :type invert: bool
     :param invert: invert epochs, negative mask instead of positive mask
+    :param min_len: epochs with fewer samples will be ignored and not returned
+    :type min_len: int
     :returns: generator - data chunks as per :epochs:
     """
 
@@ -342,7 +344,8 @@ def chunk_data(data, epochs=None, invert=False):
 
     # yield data chunks
     for ep in epochs:
-        yield data[ep[0]:ep[1], :], list(ep)
+        if ep[1] - ep[0] >= min_len:
+            yield data[ep[0]:ep[1], :], list(ep)
 
 
 def extract_spikes(data, epochs, mc=False):
