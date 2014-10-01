@@ -91,6 +91,9 @@ class GdfFile(DataFile):
     def _closed(self):
         return False
 
+    def _close(self):
+        pass
+
     @staticmethod
     def write_gdf(filename, gdf):
         """Writes GDF data file.
@@ -154,6 +157,7 @@ class GdfFile(DataFile):
 
         return GdfFile.convert_dict_to_matrix(self.data)
 
+
 if __name__ == '__main__':
     import os
 
@@ -168,7 +172,7 @@ if __name__ == '__main__':
             '0003 1291',
             '0001 1350',
             '0002 1400',
-            ]
+        ]
         with open(fname1, 'w') as f:
             f.write('\n'.join(test_data))
         g1 = GdfFile(fname1)
