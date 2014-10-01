@@ -2,24 +2,37 @@
 
 language: python
 python:
-  # don't do more than 5
-  - 2.7
-virtualenv:
-  system_site_packages: true
+#  - "2.6"
+  - "2.7"
+#  - "3.3"
+#  - "3.4"
 
 ## INSTALL
 
 before_install:
-  - ci/before_install.sh
+  - sudo apt-get update -qq
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget http://repo.continuum.io/miniconda/Miniconda3-3.4.2-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+
 install:
-  - ci/install.sh
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION python-dev python-numpy python-numpy-dev python-scipy
+  - source activate test-environment
+  - python setup.py build_ext install
 
 ## SCRIPT
 
-before_script: ~
 script:
-  - ci/script.sh
-after_script: ~
+  - nosetests
 
 ## REPORTING
 
