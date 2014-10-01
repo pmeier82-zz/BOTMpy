@@ -51,7 +51,7 @@ __all__ = ['ClusteringNode', 'HomoscedasticClusteringNode']
 
 import scipy as sp
 from sklearn.mixture import DPGMM, GMM, VBGMM
-import sklearn.cluster
+from sklearn.cluster import DBSCAN, SpectralClustering, MeanShift, estimate_bandwidth, KMeans
 from sklearn.metrics import euclidean_distances
 from .base_nodes import ResetNode
 
@@ -139,11 +139,11 @@ class HomoscedasticClusteringNode(ClusteringNode):
     def __init__(
             self, clus_type='kmeans', crange=range(1, 16), repeats=4,
             sigma_factor=4.0, max_iter=None, conv_thresh=None, alpha=None,
-            cvtype='tied', gof_type='bic', dtype=None, debug=False):
+            cvtype='diag', gof_type='bic', dtype=None, debug=False, **kwargs):
         """
         :type clus_type: str
         :param clus_type: clustering algorithm to use. Must be one of:
-            'kmeans', 'gmm', 'meanshift'
+            'kmeans', 'gmm', 'meanshift', 'dbscan'
 
             Default='kmeans'
         :type crange: list
@@ -199,24 +199,26 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._winner = None
         self.clus_type = str(clus_type)
         self.gof_type = str(gof_type)
-        allowed_types = ['kmeans', 'gmm', 'dpgmm', 'meanshift']
+        allowed_types = ['kmeans', 'gmm', 'dpgmm', 'meanshift', 'dbscan']
         if self.clus_type not in allowed_types:
             raise ValueError(
                 'clus_type must be one of: %s!' % str(allowed_types))
         self.cvtype = str(cvtype)
+        if self.clus_type == "dbscan":
+            self.cvtype = "full"
         self.crange = list(crange)
         self.repeats = int(repeats)
         self.sigma_factor = float(sigma_factor)
         self.debug = bool(debug)
 
         self.clus_kwargs = {}
-        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm',
-                                                  'dpgmm']:
+        if max_iter is not None and clus_type in ['kmeans', 'gmm', 'vbgmm', 'dpgmm']:
             self.clus_kwargs.update(max_iter=max_iter)
         if conv_thresh is not None and clus_type in ['kmeans', 'gmm', 'dpgmm']:
             self.clus_kwargs.update(conv_thresh=conv_thresh)
         if alpha is not None and clus_type in ['vbgmm', 'dpgmm']:
             self.clus_kwargs.update(alpha=alpha)
+        self.clus_kwargs.update(kwargs)
 
     def _reset(self):
         super(HomoscedasticClusteringNode, self)._reset()
@@ -244,7 +246,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 idx = c * self.repeats + r
 
                 # evaluate model
-                model = sklearn.cluster.SpectralClustering(k=k)
+                model = SpectralClustering(k=k)
                 model.fit(A)
                 self._labels[idx] = model.labels_
                 means = sp.zeros((k, x.shape[1]))
@@ -256,10 +258,10 @@ class HomoscedasticClusteringNode(ClusteringNode):
         for c in xrange(len(self.crange)):
             quant = 0.015 * (c + 1)
             for r in xrange(self.repeats):
-                bandwidth = sklearn.cluster.estimate_bandwidth(
+                bandwidth = estimate_bandwidth(
                     x, quantile=quant, random_state=r)
                 idx = c * self.repeats + r
-                model = sklearn.cluster.MeanShift(
+                model = MeanShift(
                     bandwidth=bandwidth, bin_seeding=True)
                 model.fit(x)
                 self._labels[idx] = model.labels_
@@ -296,11 +298,14 @@ class HomoscedasticClusteringNode(ClusteringNode):
                 idx = c * self.repeats + r
 
                 # fit kmeans model
-                model_kwargs = {}
+                model_kwargs = {"init": "k-means++"}
                 if 'max_iter' in self.clus_kwargs:
                     model_kwargs.update(max_iter=self.clus_kwargs['max_iter'])
-                model = sklearn.cluster.KMeans(
-                    n_clusters=k, init='k-means++', **model_kwargs)
+                if 'init' in self.clus_kwargs:
+                    model_kwargs.update(init=self.clus_kwargs['init'])
+                else:
+                    model_kwargs.update(init='k-means++')
+                model = KMeans(n_clusters=k, **model_kwargs)
                 self._labels[idx] = model.fit_predict(x)
                 self._parameters[idx] = model.cluster_centers_
 
@@ -345,7 +350,7 @@ class HomoscedasticClusteringNode(ClusteringNode):
                     n_components=k,
                     covariance_type=self.cvtype,
                     params='wmc',
-                    init_params='wmc',
+                    init_params='mc',
                     **model_kwargs)
                 model.covars_ = {'spherical': sp.ones((k, self.input_dim)),
                                  'diag': sp.ones((k, self.input_dim)),
@@ -443,6 +448,39 @@ class HomoscedasticClusteringNode(ClusteringNode):
             if self.debug is True:
                 print self._gof[r], model.n_components, model.weights_.shape[0]
 
+    def _fit_dbscan(self, x):
+        # clustering
+        for r in xrange(self.repeats):
+            # info
+            if self.debug is True:
+                print '\t[%s][c:%d][r:%d]' % (self.clus_type, k, r + 1),
+
+            # fit and evaluate model
+            model = DBSCAN(eps=1.0, min_samples=100)
+            model.fit_predict(x)
+            k = len(set(model.labels_)) - (1 if -1 in model.labels_ else 0)
+            self._labels[r] = model.labels_
+            self._parameters[r] = model.core_sample_indices_
+
+            # build equivalent gmm
+            model_gmm = GMM(n_components=k, covariance_type="full")
+            model_gmm.means_ = model.core_sample_indices_
+            model_gmm.covars_ = sp.ones(
+                (k, self.input_dim)) * self.sigma_factor
+            model_gmm.weights_ = sp.array(
+                [(self._labels[r] == i).sum() for i in xrange(k)])
+
+            # evaluate goodness of fit
+            self._ll[r] = model_gmm.score(x).sum()
+            if self.gof_type == 'aic':
+                self._gof[r] = model_gmm.aic(x)
+            if self.gof_type == 'bic':
+                self._gof[r] = model_gmm.bic(x)
+
+            # debug info
+            if self.debug is True:
+                print self._gof[r]
+
     ## mdp.node interface
 
     def _execute(self, x, *args, **kwargs):
@@ -458,13 +496,15 @@ class HomoscedasticClusteringNode(ClusteringNode):
         self._parameters = [None] * len(self.crange) * self.repeats
 
         # clustering
-        fit_func = {'kmeans': self._fit_kmeans,
-                    'gmm': self._fit_gmm,
-                    #'vbgmm': self._fit_vbgmm,
-                    'dpgmm': self._fit_dpgmm,
-                    'spectral': self._fit_spectral,
-                    'meanshift': self._fit_mean_shift}[self.clus_type]
-        fit_func(x)
+        fit_func = {
+            'kmeans': self._fit_kmeans,
+            'gmm': self._fit_gmm,
+            #'vbgmm': self._fit_vbgmm,
+            'dpgmm': self._fit_dpgmm,
+            'spectral': self._fit_spectral,
+            'meanshift': self._fit_mean_shift,
+            'dbscan': self._fit_dbscan
+        }[self.clus_type](x)
 
         self._winner = sp.nanargmin(self._gof)
         self.parameters = self._parameters[self._winner]
@@ -472,12 +512,12 @@ class HomoscedasticClusteringNode(ClusteringNode):
 
     ## plot interface
 
-    def plot(self, data, views=2, show=False):
+    def plot(self, data, views=2, show=False, filename=None):
         """plot clustering"""
 
         # get plotting tools
         try:
-            from spikeplot import plt, cluster
+            from spikeplot import plt, cluster, save_figure
         except ImportError:
             return None
 
@@ -518,7 +558,9 @@ class HomoscedasticClusteringNode(ClusteringNode):
         axg.set_ylabel(str(self.gof_type).upper())
         axg.set_xlim(-1, len(labels))
 
-        # show?
+        # handle the resulting plot
+        if filename is not None:
+            save_figure(fig, filename, '')
         if show is True:
             plt.show()
         return True
