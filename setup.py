@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
@@ -55,6 +55,7 @@ from distutils.extension import Extension
 try:
     from Cython.Distutils import build_ext
 except ImportError:
+    print "Cython could not be imported in setup.py!"
     build_ext = None
 
 # other imports
