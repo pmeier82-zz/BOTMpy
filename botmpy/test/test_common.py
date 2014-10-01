@@ -480,19 +480,6 @@ class TestCommonUtil(ut.TestCase):
     def testIndexDtype(self):
         self.assertEqual(INDEX_DTYPE, sp.dtype(sp.int64))
 
-    def testDeprecatedDecorator(self):
-        # --- new function
-        def sum_many(*args):
-            return sum(args)
-
-        # --- old / deprecated function
-        @deprecated(sum_many)
-        def sum_couple(a, b):
-            return a + b
-
-        # --- test
-        assert_equal(sum_couple(2, 2), 4)
-
 ##---MAIN
 
 if __name__ == '__main__':
