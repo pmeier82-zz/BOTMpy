@@ -1,44 +1,37 @@
 ## INIT
 
-language: python
-python:
-#  - "2.6"
-  - "2.7"
-#  - "3.3"
-#  - "3.4"
+language: c
+env:
+  # - PYTHON_VER=2.6 NUMPY_VER=1.6.2 CYTHON_VER=0.21
+  # - PYTHON_VER=2.7 NUMPY_VER=1.7.1 CYTHON_VER=0.21
+  - PYTHON_VER=2.7 NUMPY_VER=1.8.2 CYTHON_VER=0.21
+
 
 ## INSTALL
 
 before_install:
-  - sudo apt-get update -qq
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget http://repo.continuum.io/miniconda/Miniconda-3.4.2-Linux-x86_64.sh -O miniconda.sh;
-    else
-      wget http://repo.continuum.io/miniconda/Miniconda3-3.4.2-Linux-x86_64.sh -O miniconda.sh;
-    fi
-  - bash miniconda.sh -b -p $HOME/miniconda
+  # grab `conda` and bring it up to date
+  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
+  - chmod +x ./miniconda.sh;
+  - ./miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
+  - conda update --yes --quiet conda
   - conda info -a
 
+  # fix for the /dev/shm slink annoyance (bugs out `multiprocessing`)
+  # - sudo rm -rf /dev/shm
+  # - sudo ln -s /run/shm /dev/shm
+
 install:
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION python-dev python-numpy python-numpy-dev python-scipy
-  - source activate test-environment
-  - python setup.py build_ext install
+  - conda create --yes --quiet -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} numpy=${NUMPY_VER} pip scipy nose scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER}
+  - source activate py-${PYTHON_VER}_np-${NUMPY_VER}
+  - python --version
+  - python setup.py build_ext --inplace
+  - python setup.py install
 
 ## SCRIPT
 
 script:
   - nosetests
-
-## REPORTING
-
-after_success:
-  email: true
-after_failure:
-  email: true
 
 ## EOF

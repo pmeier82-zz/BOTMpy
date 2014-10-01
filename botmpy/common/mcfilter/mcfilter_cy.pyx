@@ -44,20 +44,20 @@
 
 """multichanneled filter application for time domain FIR filters
 
-CYTHON IMPLEMENTATIONS
+CYTHON IMPLEMENTATION
 """
 __docformat__ = 'restructuredtext'
 __all__ = []
 
-##---IMPORTS
-
-import cython
-import numpy as np
+## IMPORTS
 
 cimport cython
-cimport numpy as np
+import cython
 
-##---FUNCTIONS
+cimport numpy as np
+import numpy as np
+
+## FUNCTIONS
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -172,5 +172,10 @@ def _mcfilter_hist_cy64(
 def lib_info():
     pass
 
-if __name__ == '__main__':
+
+## MAIN
+
+if __name__ == "__main__":
     pass
+
+## EOF
