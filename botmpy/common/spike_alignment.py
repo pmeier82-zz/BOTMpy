@@ -113,11 +113,13 @@ def get_tau_for_alignment(spikes, align_at):
     tau = [spikes[i, :, dchan[i]].argmax() - align_at for i in xrange(ns)]
     return sp.asarray(tau, dtype=INDEX_DTYPE)
 
+
 get_tau_align_min = lambda spks, ali: get_tau_for_alignment(-spks, ali)
 get_tau_align_max = lambda spks, ali: get_tau_for_alignment(spks, ali)
 get_tau_align_energy = lambda spks, ali: get_tau_for_alignment(spks * spks, ali)
 
-def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
+
+def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, look_ahead=0, mc=True,
                        kind='none', rsf=1., sample_back=True):
     """return the set of aligned spikes waveforms and the aligned spike train
 
@@ -129,6 +131,8 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
     :param align_at: align feature at this sample in the waveform
     :type tf: int
     :param tf: temporal extend of the waveform in samples
+    :type look_ahead: int
+    :param look_ahead: samples to look beyond the cut window for finding the align feature
     :type mc: bool
     :param mc: if True, return mc waveforms, else return concatenated waveforms.
         Default=True
@@ -155,12 +159,12 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
         tf *= rsf
         align_at *= rsf
         spike_train *= rsf
+        look_ahead *= rsf
 
     # init
-    cut = align_at, tf - align_at
     ep, st = epochs_from_spiketrain(
         spike_train,
-        cut,
+        (align_at + look_ahead, tf - align_at + look_ahead),
         end=data.shape[0],
         with_corrected_st=True)
 
@@ -174,18 +178,19 @@ def get_aligned_spikes(data, spike_train, align_at=-1, tf=47, mc=True,
                    'max': get_tau_align_max,
                    'energy': get_tau_align_energy}[kind](spikes, align_at)
             st += tau
+            st -= look_ahead
 
             ep, st = epochs_from_spiketrain(
                 st,
-                cut,
+                (align_at, tf - align_at),
                 end=data.shape[0],
                 with_corrected_st=True)
         spikes = extract_spikes(data, ep, mc=mc)
     else:
         if mc is True:
-            size = 0, sum(cut), data.shape[1]
+            size = 0, tf, data.shape[1]
         else:
-            size = 0, sum(cut) * data.shape[1]
+            size = 0, tf * data.shape[1]
         spikes = sp.zeros(size)
 
     # re-resample?
