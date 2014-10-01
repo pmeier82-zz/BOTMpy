@@ -48,7 +48,7 @@ try:
 except ImportError:
     import unittest as ut
 
-from numpy.testing import assert_equal, assert_almost_equal
+from numpy.testing import assert_almost_equal
 import scipy as sp
 from botmpy.nodes import HomoscedasticClusteringNode
 

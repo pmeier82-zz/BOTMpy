@@ -21,7 +21,8 @@ before_install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
-  - echo $DISPLAY
+  - python -c \"import os; print os.environ['DISPLAY'];\"
+  - "echo $DISPLAY"
   # The next couple lines fix a crash with multiprocessing on Travis and are not specific to using Miniconda
   - sudo rm -rf /dev/shm
   - sudo ln -s /run/shm /dev/shm

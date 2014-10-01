@@ -126,7 +126,7 @@ class VERBOSE(object):
     has_print = property(get_has_print)
 
     def get_has_plot(self, n=0):
-        return self.level >= self.PLOT + n
+        return self.level >= self.PLOT + n and "DISPLAY"
 
     has_plot = property(get_has_plot)
 
