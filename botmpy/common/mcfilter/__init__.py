@@ -9,7 +9,7 @@
 # School for Electrical Engineering and Computer Science
 # Berlin Institute of Technology
 # MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
-#               http://www.ni.tu-berlin.de/
+# http://www.ni.tu-berlin.de/
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -57,7 +57,7 @@ import the Cython function is being tried to load, on failure the python
 version is loaded as a fallback.
 """
 __docformat__ = "restructuredtext"
-__all__ = ["mcfilter", "mcfilter_hist", "USE_CYTHON"]
+__all__ = ["mcfilter", "mcfilter_hist", "CYTHON_AVAILABLE"]
 
 ## IMPORTS
 
@@ -69,17 +69,14 @@ warnings.simplefilter("once")
 ## USE_CYTHON
 
 try:
-    import os
-
-    print os.listdir(os.path.dirname(__file__))
     from .mcfilter_cy import (_mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32, _mcfilter_hist_cy64)
 
-    USE_CYTHON = True
+    CYTHON_AVAILABLE = True
 except ImportError, ex:
     from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
     warnings.warn("Cython implementation not found! Falling back to Python!\n{}".format(ex), ImportWarning)
-    USE_CYTHON = False
+    CYTHON_AVAILABLE = False
 
 ##---FUNCTIONS
 
@@ -97,7 +94,7 @@ def mcfilter(mc_data, mc_filt):
     :returns: filtered signal [data_samples]
     """
 
-    if USE_CYTHON is True:
+    if CYTHON_AVAILABLE is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
@@ -138,7 +135,7 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     if mc_hist.shape[0] + 1 != mc_filt.shape[0]:
         raise ValueError("len(history)+1[%d] != len(filter)[%d]" %
                          (mc_hist.shape[0] + 1, mc_filt.shape[0]))
-    if USE_CYTHON is True:
+    if CYTHON_AVAILABLE is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
