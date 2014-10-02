@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
@@ -165,7 +165,7 @@ class TestMcFilter(ut.TestCase):
         filt[2] = 1.0
         hist = sp.zeros((4, 1), dtype=sp.float64)
         fout = _mcfilter_hist_cy64(data, filt, hist)[0]
-        cut = sp.floor(5.0 / 2)
+        cut = int(sp.floor(5.0 / 2))
         assert_equal(data[:-cut], sp.array([fout[cut:]]).T)
 
     def testMcfilterRecoveryPy(self):
@@ -176,6 +176,7 @@ class TestMcFilter(ut.TestCase):
         fout = _mcfilter_py(data, filt)
         self.assertTupleEqual(data.shape, (fout.shape[0], 1))
         assert_equal(data, sp.array([fout]).T)
+
 
 """
 def mcfilter_hist_py_test(inp=None, plot=False):
