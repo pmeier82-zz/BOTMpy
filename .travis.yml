@@ -15,7 +15,7 @@ before_install:
   - chmod +x ./miniconda.sh;
   - ./miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
-  - conda update --yes --quiet conda
+  - conda update --yes conda
   - conda info -a
 
   # fix for the /dev/shm slink annoyance (bugs out `multiprocessing`)
@@ -23,7 +23,7 @@ before_install:
   # - sudo ln -s /run/shm /dev/shm
 
 install:
-  - conda create --yes --quiet -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} numpy=${NUMPY_VER} pip scipy nose scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER} coverage
+  - conda create --yes -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} numpy=${NUMPY_VER} pip scipy nose scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER} coverage
   - source activate py-${PYTHON_VER}_np-${NUMPY_VER}
   - python --version
   - python setup.py build_ext --inplace
