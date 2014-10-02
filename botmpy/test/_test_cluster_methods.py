@@ -42,19 +42,19 @@
 #
 
 import sklearn.cluster
-
 import scipy as sp
 import scipy.linalg as sp_la
-# from spikedb import MunkSession
-from botmpy.common import (
-    TimeSeriesCovE, get_aligned_spikes, epochs_from_spiketrain,
-    invert_epochs, merge_epochs, snr_maha)
 from tables import openFile
 from mdp.nodes import PCANode
-import spikeplot as plot
 import cPickle
 
-plot.plt.interactive(False)
+try:
+    import spikeplot as plot
+    plot.plt.interactive(False)
+    WITH_PLOT = True
+except ImportError:
+    WITH_PLOT = False
+
 
 ARC_PATH = './data.h5'
 
@@ -283,8 +283,9 @@ def main():
     for i in xrange(labels_km.max() + 1):
         obs_km[i] = input_obs[labels_km == i]
         wf_km[i] = spks[labels_km == i]
-    plot.cluster(obs_km, title='kmeans', show=False)
-    plot.waveforms(obs_km, tf=TF, title='kmeans', show=False)
+    if WITH_PLOT:
+        plot.cluster(obs_km, title='kmeans', show=False)
+        plot.waveforms(obs_km, tf=TF, title='kmeans', show=False)
 
     # gmm
     labels_gmm = cluster_gmm(input_obs)
@@ -293,8 +294,9 @@ def main():
     for i in xrange(labels_km.max() + 1):
         obs_gmm[i] = input_obs[labels_gmm == i]
         wf_gmm[i] = spks[labels_gmm == i]
-    plot.cluster(obs_gmm, title='gmm', show=False)
-    plot.waveforms(wf_gmm, tf=TF, title='gmm', show=False)
+    if WITH_PLOT:
+        plot.cluster(obs_gmm, title='gmm', show=False)
+        plot.waveforms(wf_gmm, tf=TF, title='gmm', show=False)
 
     # ward
     labels_ward = cluster_ward(input_obs)
@@ -303,16 +305,15 @@ def main():
     for i in xrange(labels_km.max() + 1):
         obs_ward[i] = input_obs[labels_ward == i]
         wf_ward[i] = spks[labels_ward == i]
-    plot.cluster(obs_ward, title='ward', show=False)
-    plot.waveforms(wf_ward, tf=TF, title='ward', show=False)
-
-
-
+    if WITH_PLOT:
+        plot.cluster(obs_ward, title='ward', show=False)
+        plot.waveforms(wf_ward, tf=TF, title='ward', show=False)
 
     # spectral
     #cluster_spectral(spks)
 
-    plot.plt.show()
+    if WITH_PLOT:
+        plot.plt.show()
 
 if __name__ == '__main__':
     main()
