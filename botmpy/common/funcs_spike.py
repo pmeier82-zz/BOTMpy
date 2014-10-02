@@ -161,27 +161,17 @@ def merge_epochs(*args, **kwargs):
     # rval_ovlp overlaps
     rval_ovlp = [epochs.pop(0)]
     k = 0
+    min_dist = int(kwargs.get('min_dist', -1))
+
     while len(epochs) > 0:
         ep = epochs.pop(0)
-        if ep[0] <= rval_ovlp[k][1] - 1:
+        if ep[0] <= rval_ovlp[k][1] + min_dist:
             rval_ovlp[k] = [min(ep[0], rval_ovlp[k][0]),
                             max(ep[1], rval_ovlp[k][1])]
         else:
             k += 1
             rval_ovlp.append(ep)
     rval = rval_ovlp
-
-    # rval_ovlp epochs with gaps smaller than minimum distance
-    min_dist = int(kwargs.get('min_dist', 0))
-    if min_dist > 0:
-        rval_gaps = [rval_ovlp.pop(0)]
-        while len(rval_ovlp) > 0:
-            ep = rval_ovlp.pop(0)
-            if ep[0] - rval_gaps[-1][1] < min_dist:
-                rval_gaps[-1][1] = ep[1]
-            else:
-                rval_gaps.append(ep)
-        rval = rval_gaps
 
     # return
     rval = sp.asarray(rval, dtype=INDEX_DTYPE)
@@ -235,7 +225,7 @@ def epochs_from_binvec(binvec):
     output = sp.correlate(sp.concatenate(([0], binvec, [0])), [-1, 1], 'same')
     return sp.vstack((
         (output > 0).nonzero()[0] - 1,
-        (output < 0).nonzero()[0] - 2)).T
+        (output < 0).nonzero()[0] - 1)).T
 
 
 def epochs_from_spiketrain(st, cut, end=None, with_corrected_st=False):
@@ -326,7 +316,7 @@ def epochs_from_spiketrain_set(sts, cut, end=None):
 
 ## spike and data extraction
 
-def chunk_data(data, epochs=None, invert=False):
+def chunk_data(data, epochs=None, invert=False, min_len=0):
     """returns a generator of chunks from data given epochs
 
     :type data: ndarray
@@ -335,6 +325,8 @@ def chunk_data(data, epochs=None, invert=False):
     :param epochs: epoch set, positive mask
     :type invert: bool
     :param invert: invert epochs, negative mask instead of positive mask
+    :param min_len: epochs with fewer samples will be ignored and not returned
+    :type min_len: int
     :returns: generator - data chunks as per :epochs:
     """
 
@@ -352,7 +344,8 @@ def chunk_data(data, epochs=None, invert=False):
 
     # yield data chunks
     for ep in epochs:
-        yield data[ep[0]:ep[1], :], list(ep)
+        if ep[1] - ep[0] >= min_len:
+            yield data[ep[0]:ep[1], :], list(ep)
 
 
 def extract_spikes(data, epochs, mc=False):
@@ -533,8 +526,10 @@ def overlaps(sts, window):
             for spkI, spk in enumerate(trainI):
                 d = trainJ - spk
                 overlap_indices = sp.absolute(d) < window
-                if not sum(overlap_indices):
+                if not overlap_indices.sum():
                     continue
+                ovlp_nums[i_] += 1
+                ovlp_nums[j_] = overlap_indices.sum()
 
                 ovlp[i_][spkI] = True
                 ovlp[j_][overlap_indices] = True

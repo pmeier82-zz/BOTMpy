@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-# _____________________________________________________________________________
+#_____________________________________________________________________________
 #
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
 #
 # Developed by:	Neural Information Processing Group (NI)
-# School for Electrical Engineering and Computer Science
-# Berlin Institute of Technology
-# MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
-# http://www.ni.tu-berlin.de/
+#               School for Electrical Engineering and Computer Science
+#               Berlin Institute of Technology
+#               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
+#               http://www.ni.tu-berlin.de/
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -18,9 +18,9 @@
 # furnished to do so, subject to the following conditions:
 #
 # * Redistributions of source code must retain the above copyright notice,
-# this list of conditions and the following disclaimers.
+#   this list of conditions and the following disclaimers.
 # * Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimers in the documentation
+#   this list of conditions and the following disclaimers in the documentation
 #   and/or other materials provided with the distribution.
 # * Neither the names of Neural Information Processing Group (NI), Berlin
 #   Institute of Technology, nor the names of its contributors may be used to
@@ -52,7 +52,7 @@ from numpy.testing import assert_equal, assert_almost_equal
 import scipy as sp
 import scipy.linalg as sp_la
 from botmpy.common import (
-    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec,  #deprecated,
+    INDEX_DTYPE, xi_vs_f, kteo, mteo, sortrows, vec2ten, ten2vec,
     mcvec_from_conc, mcvec_to_conc, xcorr, shifted_matrix_sub,
     dict_list_to_ndarray, dict_sort_ndarrays, get_idx, merge_epochs,
     invert_epochs, epochs_from_binvec, epochs_from_spiketrain,
@@ -140,7 +140,7 @@ class TestCommonFuncsGeneral(ut.TestCase):
         assert_equal(xcorr(data), xcorr_test)
         assert_equal(xcorr(data, sp.zeros(n)), sp.zeros(2 * n - 1))
         assert_equal(xcorr(data, lag=lag_n),
-                     xcorr_test[n - lag_n - 1:n + lag_n])
+            xcorr_test[n - lag_n - 1:n + lag_n])
         assert_equal(xcorr(data), xcorr(data, data))
         assert_equal(xcorr(data, data * 2), 2 * xcorr_test)
         assert_equal(xcorr(data, 2 * data), xcorr(data) * 2)
@@ -162,7 +162,7 @@ class TestCommonFuncsGeneral(ut.TestCase):
             -1.26604444e+00, -4.13175911e-01, 4.44089210e-16, 1.11022302e-16])
         assert_almost_equal(xcorr(data), xcorr_test)
         assert_almost_equal(xcorr(data, lag=lag_n),
-                            xcorr_test[n - lag_n - 1:n + lag_n])
+            xcorr_test[n - lag_n - 1:n + lag_n])
 
     def testShiftedMatrixSub(self):
         """test for shifted matrix subtraction"""
@@ -268,7 +268,7 @@ class TestCommonFuncsSpike(ut.TestCase):
         assert_equal(epochs_from_spiketrain(st, cut), st_ep)
         assert_equal(epochs_from_spiketrain(st, cut, end=150), st_ep[:-1])
         assert_equal(epochs_from_spiketrain(st, cut),
-                     epochs_from_spiketrain(st, sum(cut)))
+            epochs_from_spiketrain(st, sum(cut)))
 
     def testEpochsFromSpiketrainSet(self):
         """test for epoch generation from a spiketrain set"""

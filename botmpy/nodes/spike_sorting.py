@@ -72,6 +72,7 @@ from sklearn.utils.extmath import logsumexp
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
+from .linear_filter import MatchedFilterNode
 from .prewhiten import PrewhiteningNode
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
@@ -80,7 +81,7 @@ from ..common import (
     matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
     mcvec_from_conc, get_aligned_spikes, vec2ten, get_tau_align_min,
     get_tau_align_max, get_tau_align_energy, mad_scaling, mad_scale_op_mx,
-    mad_scale_op_vec)
+    mad_scale_op_vec, xi_vs_f)
 
 ##---CONSTANTS
 
@@ -241,6 +242,7 @@ class FilterBankSortingNode(FilterBankNode):
         self.rval = dict_list_to_ndarray(self.rval)
         correct = int(self._tf / 2)
         for k in self.rval:
+            self.rval[k].sort()
             self.rval[k] -= correct
 
     ## result access
@@ -427,6 +429,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             discriminant will be biased by the `bias` for `extend` samples.
 
             Default=None
+        :type sic_guard: bool
+        :keyword sic_guard: when True, test before setting a spike that
+            removing it does not increase the norm of all discriminants.
         """
 
         # kwargs
@@ -434,6 +439,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         noi_pr = kwargs.pop('noi_pr', 1e0)
         spk_pr = kwargs.pop('spk_pr', 1e-6)
         spk_pr_bias = kwargs.pop('spk_pr_bias', None)
+        self.use_sic_guard = kwargs.pop('sic_guard', True)
 
         # super
         super(BayesOptimalTemplateMatchingNode, self).__init__(**kwargs)
@@ -518,22 +524,41 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
                                 .5 * self.get_xcorrs_at(i))
 
+        self._build_overlap(ns, self._disc, self._ovlp_taus)
+
+    def _build_overlap(self, ns, disc, ovlp_taus):
         # build overlap channels from filter outputs for overlap channels
-        if self._ovlp_taus is not None:
+        if ovlp_taus is not None:
             self._oc_idx = {}
             oc_idx = self.nf
+
+            # Build correct indices when filters are deactivated
+            oc_map = {}
+            off = 0
+            for f in xrange(self.nf):
+                if not self.bank[f].active:
+                    off += 1
+                    oc_map[f] = None
+                else:
+                    oc_map[f] = f - off
+
             for f0 in xrange(self.nf):
                 for f1 in xrange(f0 + 1, self.nf):
-                    for tau in self._ovlp_taus:
-                        self._oc_idx[oc_idx] = (f0, f1, tau)
+                    for tau in ovlp_taus:
+                        self._oc_idx[oc_idx] = (
+                            oc_map[f0], oc_map[f1], tau)
                         f0_lim = [max(0, 0 - tau), min(ns, ns - tau)]
                         f1_lim = [max(0, 0 + tau), min(ns, ns + tau)]
-                        self._disc[f0_lim[0]:f0_lim[1], oc_idx] = (
-                            self._disc[f0_lim[0]:f0_lim[1], f0] +
-                            self._disc[f1_lim[0]:f1_lim[1], f1] -
-                            self.get_xcorrs_at(f0, f1, tau))
+                        if oc_map[f0] is None or oc_map[f1] is None:
+                            disc[f0_lim[0]:f0_lim[1], oc_idx] = 0
+                        else:
+                            disc[f0_lim[0]:f0_lim[1], oc_idx] = (
+                                disc[f0_lim[0]:f0_lim[1], f0] +
+                                disc[f1_lim[0]:f1_lim[1], f1] -
+                                self.get_xcorrs_at(f0, f1, tau))
                         oc_idx += 1
 
+    import copy
     def _sort_chunk(self):
         """sort this chunk on the calculated discriminant functions
 
@@ -554,7 +579,8 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             sp.nanmax(self._disc, axis=1) > self._lpr_n)
         if spk_ep.size == 0:
             return
-        l, r = get_cut(self._tf)
+        l, r = get_cut(2 * self._tf)
+
         for i in xrange(spk_ep.shape[0]):
             # FIX: for now we just continue for empty epochs,
             # where do they come from anyways?!
@@ -564,125 +590,157 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             s = self._disc[spk_ep[i, 0]:spk_ep[i, 1], mc].argmax() + spk_ep[
                 i, 0]
             spk_ep[i] = [s - l, s + r]
+            spk_ep[i][0] = max(0, spk_ep[i][0])
+            spk_ep[i][1] = min(self._disc.shape[0], spk_ep[i][1])
 
         # check epochs
         spk_ep = merge_epochs(spk_ep)
         n_ep = spk_ep.shape[0]
 
         for i in xrange(n_ep):
-            #
-            # method: overlap channels
-            #
-            if self._ovlp_taus is not None:
-                # get event time and channel
-                ep_t, ep_c = matrix_argmax(
-                    self._disc[spk_ep[i, 0]:spk_ep[i, 1]])
-                ep_t += spk_ep[i, 0]
+            ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1]+1, :]
+            ep_fout_norm = sp_la.norm(ep_fout)
+            ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1]+1, :].copy()
+            self._sort_sic(
+                i, spk_ep, n_ep, ep_fout, ep_fout_norm, ep_disc,
+                self._ovlp_taus)
+
+        #del ep_fout, ep_disc, sub
+
+    def _sort_sic(self, i, spk_ep, n_ep, ep_fout, ep_fout_norm, ep_disc,
+                 ovlp_taus):
+        """ Perform sorting on given discriminants
+        """
+        niter = 0
+        while sp.nanmax(ep_disc) > self._lpr_n:
+            # warn on spike overflow
+            niter += 1
+            if niter > self.nf:
+                logging.warn(
+                    'more spikes than filters found! '
+                    'epoch: [%d:%d] %d' % (
+                        spk_ep[i][0] + self._chunk_offset,
+                        spk_ep[i][1] + self._chunk_offset,
+                        niter))
+                #if niter > 2 * self.nf:
+                #    break
+
+            # find epoch details
+            ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
+            ep_c = sp.nanargmax(ep_disc[ep_t])
+
+            # Find involved templates
+            templ_idx = []
+            if ep_c < self.nf:
+                templ_idx.append((ep_c, 0))
+            else:
+                # was overlap
+                my_oc_idx = self._oc_idx[ep_c]
+
+                # Corner case?
+                if my_oc_idx[2] == max(ovlp_taus) or \
+                        my_oc_idx[2] == min(ovlp_taus):
+                    self._sort_sic(
+                        i, spk_ep, n_ep, ep_fout[:, :self.nf],
+                        ep_fout_norm, ep_disc[:, :self.nf], None)
+                    return
+
+                templ_idx.append((self.get_idx_for(my_oc_idx[0]), 0))
+                templ_idx.append(
+                    (self.get_idx_for(my_oc_idx[1]), my_oc_idx[2]))
+
+            # build subtrahend
+            sub = shifted_matrix_sub(
+                sp.zeros_like(ep_disc[:, :self.nf]),
+                self._xcorrs[templ_idx[0][0], :, :].T,
+                templ_idx[0][1] + ep_t - self._tf + 1)
+            for tidx in templ_idx[1:]:
+                sub += shifted_matrix_sub(
+                    sp.zeros_like(ep_disc[:, :self.nf]),
+                    self._xcorrs[tidx[0], :, :].T,
+                    tidx[1] + ep_t - self._tf + 1)
+
+            # apply subtrahend
+            if not self.use_sic_guard or \
+                    ep_fout_norm > sp_la.norm(ep_fout + sub):
+                ## DEBUG
+
+                if self.verbose.get_has_plot(1):
+                    from spikeplot import xvf_tensor, plt, COLOURS
+
+                    x_range = sp.arange(ep_disc.shape[0])
+                    f = plt.figure()
+                    f.suptitle('spike epoch [%d:%d] #%d' %
+                               (spk_ep[i, 0] + self._chunk_offset,
+                                spk_ep[i, 1] + self._chunk_offset,
+                                niter))
+                    ax1 = f.add_subplot(211)
+                    ax1.set_color_cycle(
+                        ['k'] + COLOURS[:self.nf] * 2)
+                    ax1.plot(x_range, sp.zeros_like(x_range),
+                             ls='--')
+                    ax1.plot(x_range, ep_disc, label='pre_sub')
+                    ax1.axvline(x_range[ep_t], c='k')
+                    ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
+                    ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
+                    ax2.plot(x_range, sp.zeros_like(x_range),
+                             ls='--')
+                    ax2.plot(x_range, sub)
+                    ax2.axvline(x_range[ep_t], c='k')
+
+                ## BUGED
+
+                ep_disc[:, :self.nf] += sub
+                ep_fout[:, :self.nf] += sub
+                ep_fout_norm = sp_la.norm(ep_fout)
+                if self._pr_s_b is not None:
+                    bias, extend = self._pr_s_b
+                    if ep_c < self.nf:
+                        ep_disc[
+                            max(ep_t - extend, 0):
+                            min(ep_t + extend, ep_disc.shape[0]),
+                            ep_c] -= bias
+                    else:
+                        my_oc_idx = self._oc_idx[ep_c]
+                        fid0 = self.get_idx_for(my_oc_idx[0])
+                        ep_disc[
+                            max(ep_t - extend, 0):
+                            min(ep_t + extend, ep_disc.shape[0]),
+                            fid0] -= bias
+                        fid1 = self.get_idx_for(my_oc_idx[1])
+                        ep_disc[max(ep_t + my_oc_idx[2] - extend, 0):
+                                min(ep_t + my_oc_idx[2] + extend,
+                                ep_disc.shape[0]), fid1] -= bias
+
+                ns = ep_disc.shape[0]
+                self._build_overlap(ns, ep_disc, ovlp_taus)
+
+                ## DEBUG
+
+                if self.verbose.get_has_plot(1):
+                    ax1.plot(x_range, ep_disc, ls=':', lw=2,
+                        label='post_sub')
+
+                ## BUGED
 
                 # lets fill in the results
                 if ep_c < self.nf:
                     # was single unit
                     fid = self.get_idx_for(ep_c)
-                    self.rval[fid].append(ep_t + self._chunk_offset)
+                    self.rval[fid].append(
+                        spk_ep[i, 0] + ep_t + self._chunk_offset)
                 else:
                     # was overlap
                     my_oc_idx = self._oc_idx[ep_c]
                     fid0 = self.get_idx_for(my_oc_idx[0])
-                    self.rval[fid0].append(ep_t + self._chunk_offset)
+                    self.rval[fid0].append(
+                        spk_ep[i, 0] + ep_t + self._chunk_offset)
                     fid1 = self.get_idx_for(my_oc_idx[1])
                     self.rval[fid1].append(
-                        ep_t + my_oc_idx[2] + self._chunk_offset)
-
-            #
-            # method: subtractive interference cancellation
-            #
+                        spk_ep[i, 0] + ep_t + my_oc_idx[2] +
+                        self._chunk_offset)
             else:
-                ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1], :]
-                ep_fout_norm = sp_la.norm(ep_fout)
-                ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1], :].copy()
-
-                niter = 0
-                while sp.nanmax(ep_disc) > self._lpr_n:
-                    # warn on spike overflow
-                    niter += 1
-                    if niter > self.nf:
-                        logging.warn(
-                            'more spikes than filters found! '
-                            'epoch: [%d:%d] %d' % (
-                                spk_ep[i][0] + self._chunk_offset,
-                                spk_ep[i][1] + self._chunk_offset,
-                                niter))
-                        if niter > 2 * self.nf:
-                            break
-
-                    # find epoch details
-                    ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
-                    ep_c = sp.nanargmax(ep_disc[ep_t])
-
-                    # build subtrahend
-                    sub = shifted_matrix_sub(
-                        sp.zeros_like(ep_disc),
-                        self._xcorrs[ep_c, :, :].T,
-                        ep_t - self._tf + 1)
-
-                    # apply subtrahend
-                    if ep_fout_norm > sp_la.norm(ep_fout + sub):
-                        ## DEBUG
-
-                        if self.verbose.get_has_plot(1):
-                            try:
-                                from spikeplot import xvf_tensor, plt, COLOURS
-
-                                x_range = sp.arange(
-                                    spk_ep[i, 0] + self._chunk_offset,
-                                    spk_ep[i, 1] + self._chunk_offset)
-                                f = plt.figure()
-                                f.suptitle('spike epoch [%d:%d] #%d' %
-                                           (spk_ep[i, 0] + self._chunk_offset,
-                                            spk_ep[i, 1] + self._chunk_offset,
-                                            niter))
-                                ax1 = f.add_subplot(211)
-                                ax1.set_color_cycle(
-                                    ['k'] + COLOURS[:self.nf] * 2)
-                                ax1.plot(x_range, sp.zeros_like(x_range),
-                                         ls='--')
-                                ax1.plot(x_range, ep_disc, label='pre_sub')
-                                ax1.axvline(x_range[ep_t], c='k')
-                                ax2 = f.add_subplot(212, sharex=ax1, sharey=ax1)
-                                ax2.set_color_cycle(['k'] + COLOURS[:self.nf])
-                                ax2.plot(x_range, sp.zeros_like(x_range),
-                                         ls='--')
-                                ax2.plot(x_range, sub)
-                                ax2.axvline(x_range[ep_t], c='k')
-                            except:
-                                pass
-
-                        ## BUGED
-
-                        ep_disc += sub + self._lpr_s
-                        if self._pr_s_b is not None:
-                            bias, extend = self._pr_s_b
-                            ep_disc[ep_t:min(ep_t + extend,
-                                             ep_disc.shape[0]), ep_c] -= bias
-
-                        ## DEBUG
-
-                        if self.verbose.get_has_plot(1):
-                            try:
-                                ax1.plot(x_range, ep_disc, ls=':', lw=2,
-                                         label='post_sub')
-                                ax1.legend(loc=2)
-                            except:
-                                pass
-
-                        ## BUGED
-
-                        fid = self.get_idx_for(ep_c)
-                        self.rval[fid].append(
-                            spk_ep[i, 0] + ep_t + self._chunk_offset)
-                    else:
-                        break
-                del ep_fout, ep_disc, sub
+                break
 
     ## BOTM implementation
 
@@ -921,7 +979,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         :keyword minimum_snr: Templates with a signal to noise ratio below this
             value are dropped.
 
-            Default = 0.5
+            Default = 0.3
 
         :type minimum_rate: float
         :keyword minimum_rate: Templates with a firing rate (in Hertz) below
@@ -959,7 +1017,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._merge_dist = kwargs.pop('clus_merge_dist', 0.0)
         self._merge_rsf = kwargs.pop('clus_merge_rsf', 16)
         self._external_spike_train = None
-        self._minimum_snr = kwargs.pop('minimum_snr', 0.5)
+        self._minimum_snr = kwargs.pop('minimum_snr', 0.3)
         self._minimum_rate = kwargs.pop('minimum_rate', 0.1)
 
         # check det_cls
