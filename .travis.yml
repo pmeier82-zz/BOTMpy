@@ -26,6 +26,7 @@ before_install:
 
 install:
   - conda create --yes -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} atlas numpy=${NUMPY_VER} scipy scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER} pip nose coverage coveralls
+  - conda install --yes -n py-${PYTHON_VER}_np-${NUMPY_VER} -c dan_blanchard python-coveralls nose-cov
   - source activate py-${PYTHON_VER}_np-${NUMPY_VER}
   - python --version
   - python setup.py build_ext --inplace
