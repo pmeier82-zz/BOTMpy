@@ -2,8 +2,6 @@
 |coveralls|
 |waffle|
 
-----
-
 BOTMpy : spike sorting using Bayes Optimal Template Matching in Python
 
 BOTMpy is a Python package that implements spike sorting with the Bayes Optimal
