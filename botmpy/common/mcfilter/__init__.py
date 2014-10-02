@@ -5,10 +5,10 @@
 # All rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
-#               Neural Information Processing Group (NI)
-#               School for Electrical Engineering and Computer Science
-#               Berlin Institute of Technology
-#               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
+# Neural Information Processing Group (NI)
+# School for Electrical Engineering and Computer Science
+# Berlin Institute of Technology
+# MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
 #               http://www.ni.tu-berlin.de/
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -64,12 +64,13 @@ __all__ = ["mcfilter", "mcfilter_hist", "USE_CYTHON"]
 import scipy as sp
 import warnings
 
-warnings.simplefilter('once')
+warnings.simplefilter("once")
 
 ## USE_CYTHON
 
 try:
     import os
+
     print os.listdir(os.path.dirname(__file__))
     from .mcfilter_cy import (_mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32, _mcfilter_hist_cy64)
 
@@ -77,7 +78,7 @@ try:
 except ImportError, ex:
     from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
-    warnings.warn('Cython implementation not found! Falling back to Python!', ImportWarning)
+    warnings.warn("Cython implementation not found! Falling back to Python!\n{}".format(ex), ImportWarning)
     USE_CYTHON = False
 
 ##---FUNCTIONS
@@ -101,7 +102,7 @@ def mcfilter(mc_data, mc_filt):
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
         if mc_data.shape[1] != mc_filt.shape[1]:
-            raise ValueError('channel count does not match')
+            raise ValueError("channel count does not match")
         mc_data, mc_filt = (sp.ascontiguousarray(mc_data, dtype=dtype),
                             sp.ascontiguousarray(mc_filt, dtype=dtype))
         if dtype == sp.float32:
@@ -109,7 +110,7 @@ def mcfilter(mc_data, mc_filt):
         elif dtype == sp.float64:
             return _mcfilter_cy64(mc_data, mc_filt)
         else:
-            raise TypeError('dtype is not float32 or float64: %s' % dtype)
+            raise TypeError("dtype is not float32 or float64: %s" % dtype)
     else:
         return _mcfilter_py(mc_data, mc_filt)
 
@@ -135,14 +136,14 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
     if mc_hist is None:
         mc_hist = sp.zeros((mc_filt.shape[0] - 1, mc_data.shape[0]))
     if mc_hist.shape[0] + 1 != mc_filt.shape[0]:
-        raise ValueError('len(history)+1[%d] != len(filter)[%d]' %
-                         ( mc_hist.shape[0] + 1, mc_filt.shape[0]))
+        raise ValueError("len(history)+1[%d] != len(filter)[%d]" %
+                         (mc_hist.shape[0] + 1, mc_filt.shape[0]))
     if USE_CYTHON is True:
         dtype = mc_data.dtype
         if dtype not in [sp.float32, sp.float64]:
             dtype = sp.float32
         if mc_data.shape[1] != mc_filt.shape[1]:
-            raise ValueError('channel count does not match')
+            raise ValueError("channel count does not match")
         mc_data, mc_filt, mc_hist = (
             sp.ascontiguousarray(mc_data, dtype=dtype),
             sp.ascontiguousarray(mc_filt, dtype=dtype),
@@ -152,11 +153,13 @@ def mcfilter_hist(mc_data, mc_filt, mc_hist=None):
         elif dtype == sp.float64:
             return _mcfilter_hist_cy64(mc_data, mc_filt, mc_hist)
         else:
-            raise TypeError('dtype is not float32 or float64: %s' % dtype)
+            raise TypeError("dtype is not float32 or float64: %s" % dtype)
     else:
         return _mcfilter_hist_py(mc_data, mc_filt, mc_hist)
 
-##---MAIN
+## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF
