@@ -1,3 +1,6 @@
+.. image:: https://badge.waffle.io/pmeier82/BOTMpy.png?label=ready&title=Ready 
+ :target: https://waffle.io/pmeier82/BOTMpy
+ :alt: 'Stories in Ready'
 BOTMpy : spike sorting using Bayes Optimal Template Matching in Python
 
 BOTMpy is a Python package that implements spike sorting with the Bayes Optimal
