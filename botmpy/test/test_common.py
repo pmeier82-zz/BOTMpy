@@ -18,9 +18,9 @@
 # furnished to do so, subject to the following conditions:
 #
 # * Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimers.
+# this list of conditions and the following disclaimers.
 # * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimers in the documentation
+# this list of conditions and the following disclaimers in the documentation
 #   and/or other materials provided with the distribution.
 # * Neither the names of Neural Information Processing Group (NI), Berlin
 #   Institute of Technology, nor the names of its contributors may be used to
@@ -417,7 +417,7 @@ class TestCommonMatrixOps(ut.TestCase):
         assert_equal(coloured_loading(self.mat, 1.0), sp.eye(3))
 
         # application
-        assert_equal(
+        assert_almost_equal(
             diagonal_loading(self.mat, 3.0),
             sp.array([
                 [5.2445626465380286, 2, 1],
