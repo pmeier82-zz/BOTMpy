@@ -24,9 +24,9 @@
 # this list of conditions and the following disclaimers in the documentation
 # and/or other materials provided with the distribution.
 # * Neither the names of Neural Information Processing Group (NI), Berlin
-#   Institute of Technology, nor the names of its contributors may be used to
-#   endorse or promote products derived from this Software without specific
-#   prior written permission.
+# Institute of Technology, nor the names of its contributors may be used to
+# endorse or promote products derived from this Software without specific
+# prior written permission.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -35,7 +35,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # WITH THE SOFTWARE.
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Acknowledgements:
 #   Philipp Meier <pmeier82@gmail.com>
@@ -46,7 +46,6 @@ __docformat__ = "restructuredtext"
 
 ## IMPORTS
 
-# setup tools and cython
 from setuptools import setup, Extension
 
 try:
@@ -55,6 +54,16 @@ except ImportError:
     print "Cython could not be imported in setup.py!"
     build_ext = None
 import numpy
+
+## CYTHON
+
+ext_modules = []
+if build_ext is not None:
+    ext_modules.append(
+        Extension(
+            "botmpy.common.mcfilter.mcfilter_cy",
+            ["botmpy/common/mcfilter/mcfilter_cy.pyx"],
+            include_dirs=[numpy.get_include()]))
 
 ## HELPERS
 
@@ -75,16 +84,6 @@ def find_version():
         rval = "0"
     return rval
 
-## CYTHON
-
-ext_modules = []
-if build_ext is not None:
-    ext_modules.append(
-        Extension(
-            "botmpy.common.mcfilter.mcfilter_cy",
-            ["botmpy/common/mcfilter/mcfilter_cy.pyx"],
-            include_dirs=[numpy.get_include()]))
-
 ## MAIN
 
 if __name__ == "__main__":
@@ -101,27 +100,27 @@ if __name__ == "__main__":
         zip_safe=False,
 
         # metadata
-        author='Philipp Meier',
-        author_email='pmeier82@gmail.com',
-        maintainer='Philipp Meier',
-        maintainer_email='pmeier82@gmail.com',
-        description=open('README.rst', 'r').readline().strip(),
-        long_description=open('README.rst', 'r').read(),
-        license='University of Illinois/NCSA Open Source License',
-        url='http://www.ni.tu-berlin.de',
+        author="Philipp Meier",
+        author_email="pmeier82@gmail.com",
+        maintainer="Philipp Meier",
+        maintainer_email="pmeier82@gmail.com",
+        description=open("README.rst", "r").readline().strip(),
+        long_description=open("README.rst", "r").read(),
+        license="University of Illinois/NCSA Open Source License",
+        url="http://www.ni.tu-berlin.de",
         classifiers=[
-            'Development Status :: 4 - Beta',
-            'Intended Audience :: Science/Research',
-            'License :: OSI Approved :: University of Illinois/NCSA Open Source License',
-            'Natural Language :: English',
-            'Operating System :: OS Independent',
-            'Programming Language :: Python',
-            'Programming Language :: Cython',
-            'Topic :: Scientific/Engineering :: Bio-Informatics',
-            'Topic :: Scientific/Engineering :: Information Analysis'],
+            "Development Status :: 4 - Beta",
+            "Intended Audience :: Science/Research",
+            "License :: OSI Approved :: University of Illinois/NCSA Open Source License",
+            "Natural Language :: English",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python",
+            "Programming Language :: Cython",
+            "Topic :: Scientific/Engineering :: Bio-Informatics",
+            "Topic :: Scientific/Engineering :: Information Analysis"],
 
         # cython
-        cmdclass={'build_ext': build_ext},
+        cmdclass={"build_ext": build_ext},
         ext_modules=ext_modules)
 
 ## EOF

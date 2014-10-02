@@ -26,7 +26,8 @@ install:
   - conda create --yes --quiet -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} numpy=${NUMPY_VER} pip scipy nose scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER}
   - source activate py-${PYTHON_VERSION}_np-${NUMPY_VER}
   - python --version
-  - python setup.py develop
+  - python setup.py build_ext --inplace
+  - python setup.py install
 
 ## SCRIPT
 
