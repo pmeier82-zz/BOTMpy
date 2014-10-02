@@ -252,7 +252,7 @@ class TestCommonFuncsSpike(ut.TestCase):
         data = sp.array([
             False, True, True, True, False, False, False, False,
             False, True, True, True, False, True, True, True])
-        data_ep_test = sp.array([[1, 3], [9, 11], [13, 15]])
+        data_ep_test = sp.array([[1, 4], [9, 12], [13, 16]])
         assert_equal(epochs_from_binvec(data), data_ep_test)
 
     def testEpochsFromSpiketrain(self):
