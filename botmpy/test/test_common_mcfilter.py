@@ -155,7 +155,7 @@ class TestMcFilter(ut.TestCase):
         filt[2] = 1.0
         hist = sp.zeros((4, 1), dtype=sp.float32)
         fout = _mcfilter_hist_cy32(data, filt, hist)[0]
-        cut = sp.floor(5.0 / 2)
+        cut = int(sp.floor(5.0 / 2))
         assert_equal(data[:-cut], sp.array([fout[cut:]]).T)
 
     def testDataConcatenationCy64(self):
