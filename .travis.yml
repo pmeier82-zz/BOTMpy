@@ -25,7 +25,7 @@ before_install:
   # - sudo ln -s /run/shm /dev/shm
 
 install:
-  - conda create --yes -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} atlas numpy=${NUMPY_VER} scipy  scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER} pip nose coverage python-coveralls
+  - conda create --yes -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} atlas numpy=${NUMPY_VER} scipy scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER} pip nose coverage coveralls
   - source activate py-${PYTHON_VER}_np-${NUMPY_VER}
   - python --version
   - python setup.py build_ext --inplace
@@ -34,7 +34,7 @@ install:
 ## SCRIPT
 
 script:
-  - nosetests --with-coverage --cover-package=botmpy
+  - nosetests --with-coverage --cover-package=botmpy --logging-level=INFO
 after_success:
   - coveralls
 
