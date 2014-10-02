@@ -27,7 +27,7 @@ before_install:
 install:
   - conda create --yes -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} atlas numpy=${NUMPY_VER} scipy scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER} pip nose
   - source activate py-${PYTHON_VER}_np-${NUMPY_VER}
-  - pip install coveralls --use-mirrors
+  - pip install coveralls
   - python --version
   - python setup.py build_ext --inplace
   - python setup.py install
@@ -35,7 +35,7 @@ install:
 ## SCRIPT
 
 script:
-  - nosetests --with-coverage --cover-package=botmpy --logging-level=INFO
+  - nosetests --cover-inclusive --cover-package=botmpy --logging-level=INFO
 after_success:
   - coveralls
 
