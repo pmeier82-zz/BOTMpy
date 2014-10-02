@@ -24,7 +24,7 @@ before_install:
   # - sudo ln -s /run/shm /dev/shm
 
 install:
-  - conda create --yes --quite -n py-${PYTHON_VERSION}_np-${NUMPY_VERSION} python=$PYTHON_VERSION numpy=${NUMPY_VERSION} pip scipy nose scikit-learn MDP pyyaml pytables $CYTHON
+  - conda create --yes --quiet -n py-${PYTHON_VERSION}_np-${NUMPY_VERSION} python=$PYTHON_VERSION numpy=${NUMPY_VERSION} pip scipy nose scikit-learn MDP pyyaml pytables $CYTHON
   - source activate py-${PYTHON_VERSION}_np-${NUMPY_VERSION}
   - python --version
   - python setup.py install
