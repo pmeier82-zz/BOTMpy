@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
@@ -56,35 +56,32 @@ Implementations are given in Python and alternatively as in Cython. On
 import the Cython function is being tried to load, on failure the python
 version is loaded as a fallback.
 """
-__docformat__ = 'restructuredtext'
-__all__ = ['mcfilter', 'mcfilter_hist', 'USE_CYTHON']
+__docformat__ = "restructuredtext"
+__all__ = ["mcfilter", "mcfilter_hist", "USE_CYTHON"]
 
-##---IMPORTS
+## IMPORTS
 
 import scipy as sp
 import warnings
 
 warnings.simplefilter('once')
 
-##---USE_CYTHON
+## USE_CYTHON
 
 try:
-    from .mcfilter_cy import (
-        _mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32,
-        _mcfilter_hist_cy64)
+    from .mcfilter_cy import (_mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32, _mcfilter_hist_cy64)
 
     USE_CYTHON = True
 except ImportError, ex:
     from .mcfilter_py import _mcfilter_py, _mcfilter_hist_py
 
-    warnings.warn('Cython implementation not found! Falling back to Python!',
-                  ImportWarning)
+    warnings.warn('Cython implementation not found! Falling back to Python!', ImportWarning)
     USE_CYTHON = False
 
 ##---FUNCTIONS
 
 def mcfilter(mc_data, mc_filt):
-    """filter a multichanneled signal with a multichanneled filter
+    """filter a multi-channeled signal with a multi-channeled filter
 
     This is the Python implementation for batch mode filtering. The signal
     will be zeros on both ends to overcome filter artifacts.

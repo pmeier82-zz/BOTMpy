@@ -50,18 +50,26 @@ except ImportError:
 
 from botmpy.common import mad_scaling
 from botmpy.common.datafile import XpdFile
-from spikeplot import mcdata, plt
 import scipy as sp
+
+try:
+    from spikeplot import mcdata, plt
+    WITH_PLOT = True
+except ImportError:
+    WITH_PLOT = False
 
 if __name__ == '__main__':
     xpd = XpdFile('/home/pmeier/Data/Munk/Louis/L014/L0140001.xpd')
 
     data = xpd.get_data(item=1)
-    mcdata(data, show=False)
+    if WITH_PLOT:
+        mcdata(data, show=False)
 
     data_scaled, scale = mad_scaling(data)
-    mcdata(data_scaled, show=False)
+    if WITH_PLOT:
+        mcdata(data_scaled, show=False)
 
     print 'magic eq', sp.stats.norm.ppf(0.75)
     print 'STD:', sp.std(data, 0), sp.std(data_scaled, 0)
-    plt.show()
+    if WITH_PLOT:
+        plt.show()

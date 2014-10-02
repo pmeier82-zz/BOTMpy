@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
@@ -45,15 +45,17 @@
 
 """spike sorter package from BOTMpy"""
 
-__docformat__ = 'restructuredtext'
-__version__ = '0.3.0'
+__docformat__ = "restructuredtext"
+__version__ = "0.3.0"
 
-##---IMPORTS
+## IMPORTS
 
 import common
 import nodes
 
-##---MAIN
+## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
+
+## EOF

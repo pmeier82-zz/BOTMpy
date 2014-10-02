@@ -5,11 +5,11 @@
 # All rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
-#               Neural Information Processing Group (NI)
-#               School for Electrical Engineering and Computer Science
-#               Berlin Institute of Technology
-#               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
-#               http://www.ni.tu-berlin.de/
+# Neural Information Processing Group (NI)
+# School for Electrical Engineering and Computer Science
+# Berlin Institute of Technology
+# MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
+# http://www.ni.tu-berlin.de/
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -19,10 +19,10 @@
 # furnished to do so, subject to the following conditions:
 #
 # * Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimers.
+# this list of conditions and the following disclaimers.
 # * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimers in the documentation
-#   and/or other materials provided with the distribution.
+# this list of conditions and the following disclaimers in the documentation
+# and/or other materials provided with the distribution.
 # * Neither the names of Neural Information Processing Group (NI), Berlin
 #   Institute of Technology, nor the names of its contributors may be used to
 #   endorse or promote products derived from this Software without specific
@@ -42,66 +42,62 @@
 #_____________________________________________________________________________
 #
 
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 
-##---IMPORTS
+## IMPORTS
 
 # setup tools and cython
-from setuptools import setup, find_packages
-# Warning : do not import the distutils extension before setuptools
-# It does break the cythonize function calls
-from distutils.extension import Extension
+from setuptools import setup, Extension
 
 try:
     from Cython.Distutils import build_ext
 except ImportError:
     print "Cython could not be imported in setup.py!"
     build_ext = None
-
-# other imports
 import numpy
 
-##--HELPERS
+## HELPERS
 
 def find_version():
     """read version from botmpy.__init__"""
 
+    rval = "0"
     try:
-        f = open('./botmpy/__init__.py', 'r')
+        f = open("./botmpy/__init__.py", "r")
         try:
             for line in f:
-                if line.startswith('__version__'):
+                if line.startswith("__version__"):
                     rval = line.split()[-1][1:-1]
                     break
         finally:
             f.close()
     except:
-        rval = '0'
+        rval = "0"
     return rval
 
-##---CYTHON
+## CYTHON
 
-ext_mod_list = []
+ext_modules = []
 if build_ext is not None:
-    ext_mod_list.append(
+    ext_modules.append(
         Extension(
-            'botmpy.common.mcfilter.mcfilter_cy',
-            ['botmpy/common/mcfilter/mcfilter_cy.pyx'],
+            "botmpy.common.mcfilter.mcfilter_cy",
+            ["botmpy/common/mcfilter/mcfilter_cy.pyx"],
             include_dirs=[numpy.get_include()]))
 
-##---MAIN
+## MAIN
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     setup(
-        #main
-        name='BOTMpy',
+        # main
+        name="BOTMpy",
         version=find_version(),
-        packages=['botmpy',
-                  'botmpy.common',
-                  'botmpy.common.datafile',
-                  'botmpy.common.mcfilter',
-                  'botmpy.nodes'],
-        requires=['numpy', 'scipy', 'mdp', 'sklearn', 'yaml'],
+        packages=["botmpy",
+                  "botmpy.common",
+                  "botmpy.common.datafile",
+                  "botmpy.common.mcfilter",
+                  "botmpy.nodes"],
+        requires=["numpy", "scipy", "mdp", "sklearn", "yaml"],
         zip_safe=False,
 
         # metadata
@@ -126,4 +122,6 @@ if __name__ == '__main__':
 
         # cython
         cmdclass={'build_ext': build_ext},
-        ext_modules=ext_mod_list)
+        ext_modules=ext_modules)
+
+## EOF
