@@ -1,35 +1,32 @@
 ## INIT
 
-language: python
-python:
-#  - 2.6
-  - 2.7
-#  - 3.3
-#  - 3.4
-notifications:
+language: c
+env:
+  - PYTHON_VERSION=2.6  NUMPY_VERSION=1.6.2 CYTHON="cython>=0.20"
+  - PYTHON_VERSION=2.7  NUMPY_VERSION=1.7.1 CYTHON="cython>=0.20"
+  - PYTHON_VERSION=2.7  NUMPY_VERSION=1.8.1 CYTHON="cython>=0.20"
+  - PYTHON_VERSION=3.4  NUMPY_VERSION=1.8.1 CYTHON="cython>=0.20"
 
 
 ## INSTALL
 
 before_install:
-  - sudo apt-get update -qq
+  # grab `conda` and bring it up to date
   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
+  - chmod +x ./miniconda.sh;
+  - ./miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
+  - conda update --yes --quiet conda
   - conda info -a
-  - "echo $DISPLAY"
-  # The next couple lines fix a crash with multiprocessing on Travis and are not specific to using Miniconda
-  - sudo rm -rf /dev/shm
-  - sudo ln -s /run/shm /dev/shm
+
+  # fix for the /dev/shm slink annoyance (bugs out `multiprocessing`)
+  # - sudo rm -rf /dev/shm
+  # - sudo ln -s /run/shm /dev/shm
 
 install:
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pip numpy scipy scikit-learn MDP pyyaml cython pytables
-  - source activate test-environment
-  - python setup.py build_ext
+  - conda create --yes --quite -n py-${PYTHON_VERSION}_np-${NUMPY_VERSION} python=$PYTHON_VERSION numpy=${NUMPY_VERSION} pip scipy nose scikit-learn MDP pyyaml pytables $CYTHON
+  - source activate py-${PYTHON_VERSION}_np-${NUMPY_VERSION}
+  - python --version
   - python setup.py install
 
 ## SCRIPT
