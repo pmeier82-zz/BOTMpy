@@ -2,9 +2,9 @@
 
 language: c
 env:
-  # - PYTHON_VERSION=2.6  NUMPY_VERSION=1.6.2 CYTHON="cython>=0.21"
-  # - PYTHON_VERSION=2.7  NUMPY_VERSION=1.7.1 CYTHON="cython>=0.21"
-  - PYTHON_VERSION=2.7  NUMPY_VERSION=1.8.2 CYTHON="cython>=0.21"
+  # - PYTHON_VER=2.6  NUMPY_VER=1.6.2 CYTHON_VER=0.21
+  # - PYTHON_VER=2.7  NUMPY_VER=1.7.1 CYTHON_VER=0.21
+  - PYTHON_VER=2.7  NUMPY_VER=1.8.2 CYTHON_VER=0.21
 
 
 ## INSTALL
@@ -23,8 +23,8 @@ before_install:
   # - sudo ln -s /run/shm /dev/shm
 
 install:
-  - conda create --yes --quiet -n py-${PYTHON_VERSION}_np-${NUMPY_VERSION} python=$PYTHON_VERSION numpy=${NUMPY_VERSION} pip scipy nose scikit-learn MDP pyyaml pytables $CYTHON
-  - source activate py-${PYTHON_VERSION}_np-${NUMPY_VERSION}
+  - conda create --yes --quiet -n py-${PYTHON_VER}_np-${NUMPY_VER} python=${PYTHON_VER} numpy=${NUMPY_VERS} pip scipy nose scikit-learn MDP pyyaml pytables cython>=${CYTHON_VER}
+  - source activate py-${PYTHON_VERSION}_np-${NUMPY_VER}
   - python --version
   - python setup.py install
 
