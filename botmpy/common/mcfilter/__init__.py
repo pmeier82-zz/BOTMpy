@@ -69,6 +69,8 @@ warnings.simplefilter('once')
 ## USE_CYTHON
 
 try:
+    import os
+    print os.listdir(os.path.dirname(__file__))
     from .mcfilter_cy import (_mcfilter_cy32, _mcfilter_cy64, _mcfilter_hist_cy32, _mcfilter_hist_cy64)
 
     USE_CYTHON = True
