@@ -38,13 +38,13 @@
 # _____________________________________________________________________________
 #
 # Acknowledgements:
-#   Philipp Meier <pmeier82@gmail.com>
-#_____________________________________________________________________________
+# Philipp Meier <pmeier82@gmail.com>
+# _____________________________________________________________________________
 #
 
 __docformat__ = "restructuredtext"
 
-## IMPORTS
+# # IMPORTS
 
 from setuptools import setup, Extension
 
@@ -55,7 +55,7 @@ except ImportError:
     build_ext = None
 import numpy
 
-## CYTHON
+# # CYTHON
 
 ext_modules = []
 if build_ext is not None:
@@ -96,7 +96,10 @@ if __name__ == "__main__":
                   "botmpy.common.datafile",
                   "botmpy.common.mcfilter",
                   "botmpy.nodes"],
-        requires=["numpy", "scipy", "mdp", "sklearn", "yaml"],
+        install_requires=["numpy>=1.8", "scipy>=0.13", "mdp", "scikit-learn", "pyyaml"],
+        extras_require={
+            "plot": ["matplotlib>=1.0"],
+        },
         zip_safe=False,
 
         # metadata

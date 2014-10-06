@@ -1,0 +1,7 @@
+#
+
+[run]
+source =
+    botmpy
+omit =
+    botmpy/test/*

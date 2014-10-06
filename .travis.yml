@@ -35,7 +35,7 @@ install:
 ## SCRIPT
 
 script:
-  - nosetests --cover-inclusive --cover-package=botmpy --logging-level=INFO
+  - nosetests --with-coverage --cover-package=botmpy --logging-level=INFO
 after_success:
   - coveralls
 
