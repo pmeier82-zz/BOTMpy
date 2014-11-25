@@ -67,7 +67,7 @@ def sortrows(data):
     :returns: ndarray - data sorted by its rows.
     """
 
-    ## FIX: this method assumes the dta to be continuous! we now make sure of that explicitely
+    ## FIX: this method assumes the data to be continuous! we now make sure of that explicitely
     data = sp.ascontiguousarray(data)
     ## XIF
     return sp.sort(

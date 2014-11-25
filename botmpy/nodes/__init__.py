@@ -44,9 +44,8 @@
 
 
 """nodes using the mdp-toolkit node interface"""
-__docformat__ = 'restructuredtext'
+__docformat__ = "restructuredtext"
 
-##---PACKAGE
 
 from .alignment import *
 from .artifact_detector import *
@@ -58,8 +57,3 @@ from .prewhiten import *
 from .smoothing import *
 from .spike_detection import *
 from .spike_sorting import *
-
-##---MAIN
-
-if __name__ == '__main__':
-    pass

@@ -44,11 +44,10 @@
 
 
 """covariance estimator for timeseries data"""
-__docformat__ = 'restructuredtext'
-__all__ = ['BaseTimeSeriesCovarianceEstimator', 'TimeSeriesCovE',
-           'XcorrStore', 'build_idx_set', 'build_block_toeplitz_from_xcorrs']
+__docformat__ = "restructuredtext"
+__all__ = ["BaseTimeSeriesCovarianceEstimator", "TimeSeriesCovE",
+           "XcorrStore", "build_idx_set", "build_block_toeplitz_from_xcorrs"]
 
-##--- IMPORTS
 
 import scipy as sp
 from scipy import linalg as sp_la
@@ -59,7 +58,6 @@ from .matrix_ops import (compute_coloured_loading, compute_diagonal_loading,
                          compute_matrix_cond)
 from .util import INDEX_DTYPE
 
-##--- CLASSES
 
 class BaseTimeSeriesCovarianceEstimator(object):
     """covariance estimator base class"""
