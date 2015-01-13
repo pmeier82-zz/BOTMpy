@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Copyright (c) 2012 Berlin Institute of Technology
 # All rights reserved.
 #
 # Developed by:	Philipp Meier <pmeier82@gmail.com>
-#               Neural Information Processing Group (NI)
-#               School for Electrical Engineering and Computer Science
-#               Berlin Institute of Technology
-#               MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
-#               http://www.ni.tu-berlin.de/
+# Neural Information Processing Group (NI)
+# School for Electrical Engineering and Computer Science
+# Berlin Institute of Technology
+# MAR 5-6, Marchstr. 23, 10587 Berlin, Germany
+# http://www.ni.tu-berlin.de/
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to
@@ -19,14 +19,14 @@
 # furnished to do so, subject to the following conditions:
 #
 # * Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimers.
+# this list of conditions and the following disclaimers.
 # * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimers in the documentation
-#   and/or other materials provided with the distribution.
+# this list of conditions and the following disclaimers in the documentation
+# and/or other materials provided with the distribution.
 # * Neither the names of Neural Information Processing Group (NI), Berlin
-#   Institute of Technology, nor the names of its contributors may be used to
-#   endorse or promote products derived from this Software without specific
-#   prior written permission.
+# Institute of Technology, nor the names of its contributors may be used to
+# endorse or promote products derived from this Software without specific
+# prior written permission.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -35,11 +35,11 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # WITH THE SOFTWARE.
-#_____________________________________________________________________________
+# _____________________________________________________________________________
 #
 # Acknowledgements:
-#   Philipp Meier <pmeier82@gmail.com>
-#_____________________________________________________________________________
+# Philipp Meier <pmeier82@gmail.com>
+# _____________________________________________________________________________
 #
 
 """implementation of spike sorting with matched filters
@@ -61,27 +61,27 @@ __all__ = ['FilterBankSortingNode', 'AdaptiveBayesOptimalTemplateMatchingNode',
 import collections
 import copy
 import logging
-import sys
-
 import scipy as sp
 from scipy import linalg as sp_la
-
+from scipy import signal as sp_sg
 from sklearn.mixture import log_multivariate_normal_density
 from sklearn.utils.extmath import logsumexp
 
 from .base_nodes import PCANode
 from .cluster import HomoscedasticClusteringNode
 from .filter_bank import FilterBankError, FilterBankNode
-from .linear_filter import MatchedFilterNode
 from .prewhiten import PrewhiteningNode
 from .spike_detection import SDMteoNode, ThresholdDetectorNode
 from ..common import (
-    overlaps, epochs_from_spiketrain, epochs_from_spiketrain_set,
+    overlaps, epochs_from_spiketrain_set,
     shifted_matrix_sub, mcvec_to_conc, epochs_from_binvec, merge_epochs,
-    matrix_argmax, dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
+    dict_list_to_ndarray, get_cut, GdfFile, MxRingBuffer,
     mcvec_from_conc, get_aligned_spikes, vec2ten, get_tau_align_min,
     get_tau_align_max, get_tau_align_energy, mad_scaling, mad_scale_op_mx,
-    mad_scale_op_vec, xi_vs_f)
+    mad_scale_op_vec)
+
+
+
 
 ##---CONSTANTS
 
@@ -89,6 +89,7 @@ MTEO_DET = SDMteoNode
 MTEO_KWARGS = {'kvalues': [3, 9, 15, 21],
                'threshold_factor': 0.98,
                'min_dist': 32}
+RESAMPLE = 3.0
 
 ##---CLASSES
 
@@ -180,7 +181,7 @@ class FilterBankSortingNode(FilterBankNode):
 
     def _execute(self, x):
         # No channel masking for now
-        #self._data = x[:, self._chan_set]
+        # self._data = x[:, self._chan_set]
         self._data = x
         dlen = self._data.shape[0]
         self.rval.clear()
@@ -519,7 +520,9 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         if self._ovlp_taus is not None:
             nf += nf * (nf - 1) * 0.5 * len(self._ovlp_taus)
         self._disc = sp.empty((ns, nf), dtype=self.dtype)
-        self._disc[:] = sp.nan
+        # self._disc[:] = sp.nan
+        # NaN's are problematic with resampling
+        self._disc[:] = 0.0
         for i in xrange(self.nf):
             self._disc[:, i] = (self._fout[:, i] + self._lpr_s -
                                 .5 * self.get_xcorrs_at(i))
@@ -558,7 +561,21 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                                 self.get_xcorrs_at(f0, f1, tau))
                         oc_idx += 1
 
-    import copy
+    @staticmethod
+    def check_resample_factor(value):
+        if sp.ceil(value) <= 0.0:
+            return 1.0
+        return sp.ceil(value)
+
+    def _pre_sort(self):
+        # resample
+        rsf = self.check_resample_factor(RESAMPLE)
+        self._disc = sp_sg.resample(self._disc, self._disc.shape[0] * rsf, axis=0)
+        self._fout = sp_sg.resample(self._fout, self._fout.shape[0] * rsf, axis=0)
+        self._xcorrs = sp_sg.resample(self._xcorrs, self._xcorrs.shape[2] * rsf, axis=2)
+        self._tf *= int(rsf)
+        self._chunk_offset *= int(rsf)
+
     def _sort_chunk(self):
         """sort this chunk on the calculated discriminant functions
 
@@ -598,19 +615,17 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
         n_ep = spk_ep.shape[0]
 
         for i in xrange(n_ep):
-            ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1]+1, :]
+            ep_fout = self._fout[spk_ep[i, 0]:spk_ep[i, 1] + 1, :]
             ep_fout_norm = sp_la.norm(ep_fout)
-            ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1]+1, :].copy()
+            ep_disc = self._disc[spk_ep[i, 0]:spk_ep[i, 1] + 1, :].copy()
             self._sort_sic(
                 i, spk_ep, n_ep, ep_fout, ep_fout_norm, ep_disc,
                 self._ovlp_taus)
 
-        #del ep_fout, ep_disc, sub
-
     def _sort_sic(self, i, spk_ep, n_ep, ep_fout, ep_fout_norm, ep_disc,
-                 ovlp_taus):
-        """ Perform sorting on given discriminants
-        """
+                  ovlp_taus):
+        """Perform sorting on given discriminants"""
+
         niter = 0
         while sp.nanmax(ep_disc) > self._lpr_n:
             # warn on spike overflow
@@ -618,12 +633,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             if niter > self.nf:
                 logging.warn(
                     'more spikes than filters found! '
-                    'epoch: [%d:%d] %d' % (
-                        spk_ep[i][0] + self._chunk_offset,
-                        spk_ep[i][1] + self._chunk_offset,
+                    'epoch: [%d:%d]{%d} %d' % (
+                        spk_ep[i][0],
+                        spk_ep[i][1],
+                        self._chunk_offset,
                         niter))
-                #if niter > 2 * self.nf:
-                #    break
 
             # find epoch details
             ep_t = sp.nanargmax(sp.nanmax(ep_disc, axis=1))
@@ -639,10 +653,12 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                 # Corner case?
                 if my_oc_idx[2] == max(ovlp_taus) or \
-                        my_oc_idx[2] == min(ovlp_taus):
+                                my_oc_idx[2] == min(ovlp_taus):
                     self._sort_sic(
                         i, spk_ep, n_ep, ep_fout[:, :self.nf],
                         ep_fout_norm, ep_disc[:, :self.nf], None)
+                    # WTF recursions?!
+                    # TODO: solve with a masked index set!
                     return
 
                 templ_idx.append((self.get_idx_for(my_oc_idx[0]), 0))
@@ -662,11 +678,11 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
             # apply subtrahend
             if not self.use_sic_guard or \
-                    ep_fout_norm > sp_la.norm(ep_fout + sub):
+                            ep_fout_norm > sp_la.norm(ep_fout + sub):
                 ## DEBUG
 
                 if self.verbose.get_has_plot(1):
-                    from spikeplot import xvf_tensor, plt, COLOURS
+                    from spikeplot import plt, COLOURS
 
                     x_range = sp.arange(ep_disc.shape[0])
                     f = plt.figure()
@@ -697,21 +713,21 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                     bias, extend = self._pr_s_b
                     if ep_c < self.nf:
                         ep_disc[
-                            max(ep_t - extend, 0):
-                            min(ep_t + extend, ep_disc.shape[0]),
-                            ep_c] -= bias
+                        max(ep_t - extend, 0):
+                        min(ep_t + extend, ep_disc.shape[0]),
+                        ep_c] -= bias
                     else:
                         my_oc_idx = self._oc_idx[ep_c]
                         fid0 = self.get_idx_for(my_oc_idx[0])
                         ep_disc[
-                            max(ep_t - extend, 0):
-                            min(ep_t + extend, ep_disc.shape[0]),
-                            fid0] -= bias
+                        max(ep_t - extend, 0):
+                        min(ep_t + extend, ep_disc.shape[0]),
+                        fid0] -= bias
                         fid1 = self.get_idx_for(my_oc_idx[1])
-                        ep_disc[max(ep_t + my_oc_idx[2] - extend, 0):
-                                min(ep_t + my_oc_idx[2] + extend,
-                                ep_disc.shape[0]), fid1] -= bias
-
+                        ep_disc[
+                        max(ep_t + my_oc_idx[2] - extend, 0):
+                        min(ep_t + my_oc_idx[2] + extend, ep_disc.shape[0]),
+                        fid1] -= bias
                 ns = ep_disc.shape[0]
                 self._build_overlap(ns, ep_disc, ovlp_taus)
 
@@ -719,7 +735,7 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
 
                 if self.verbose.get_has_plot(1):
                     ax1.plot(x_range, ep_disc, ls=':', lw=2,
-                        label='post_sub')
+                             label='post_sub')
 
                 ## BUGED
 
@@ -741,6 +757,26 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
                         self._chunk_offset)
             else:
                 break
+
+    def _post_sort(self):
+        """care for downsampling correction and chunk offsets"""
+
+        rsf = self.check_resample_factor(RESAMPLE)
+        self._disc = sp_sg.resample(self._disc, self._disc.shape[0] / rsf, axis=0)
+        self._fout = sp_sg.resample(self._fout, self._fout.shape[0] / rsf, axis=0)
+        self._xcorrs = sp_sg.resample(self._xcorrs, self._xcorrs.shape[2] / rsf, axis=2)
+        self._tf /= int(rsf)
+        self._chunk_offset /= int(rsf)
+
+    def _combine_results(self):
+        rsf = self.check_resample_factor(RESAMPLE)
+        self.rval = dict_list_to_ndarray(self.rval)
+        correct = int(self._tf / 2)
+        for k in self.rval:
+            self.rval[k].sort()
+            self.rval[k] /= int(rsf)
+            self.rval[k] -= correct
+        print self.rval
 
     ## BOTM implementation
 
@@ -1021,9 +1057,9 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
         self._minimum_rate = kwargs.pop('minimum_rate', 0.1)
 
         # check det_cls
-        #if not issubclass(det_cls, ThresholdDetectorNode):
-        #    raise TypeError(
-        #        '\'det_cls\' of type ThresholdDetectorNode is required!')
+        # if not issubclass(det_cls, ThresholdDetectorNode):
+        # raise TypeError(
+        # '\'det_cls\' of type ThresholdDetectorNode is required!')
         if learn_noise is not None:
             if learn_noise not in ['det', 'sort']:
                 learn_noise = None
@@ -1104,7 +1140,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 ep = data_ep[0] - padding, disc_ep[1] + padding
                 mcdata(
                     data=self._chunk[ep[0]:ep[1]],
-                    #other=self._disc[at[0]:at[1]], events=evts,
+                    # other=self._disc[at[0]:at[1]], events=evts,
                     other=self._disc[ep[0]:ep[1]],
                     x_offset=ep[0],
                     events={0: [ev], 1: [data_ep[0] + self._tf]},
@@ -1114,7 +1150,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     show=True)
             except ImportError:
                 pass
-                #self.se_cnt += 1
+                # self.se_cnt += 1
 
         start = max(0, disc_ep[0] - padding)
         stop = min(self._disc.shape[0], disc_ep[1] + padding)
@@ -1227,7 +1263,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                     nspks = 0
                 self.bank[u].rate.observation(nspks, nsmpl)
                 if self.bank[u].rate.filled and \
-                        self.bank[u].rate.estimate() < self._minimum_rate:
+                                self.bank[u].rate.estimate() < self._minimum_rate:
                     self.deactivate(u)
                     logging.warn('deactivating filter %s, rate' % str(u))
         self._check_internals()
@@ -1372,7 +1408,7 @@ class AdaptiveBayesOptimalTemplateMatchingNode(
                 for i in sp.unique(lbls):
                     spks_i = spks[lbls == i]
 
-                    #for inner in xrange(i):
+                    # for inner in xrange(i):
                     for inner in sp.unique(lbls):
                         if i >= inner:
                             continue
