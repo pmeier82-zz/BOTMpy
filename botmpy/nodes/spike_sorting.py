@@ -83,6 +83,7 @@ from ..common import (
 
 
 
+
 ##---CONSTANTS
 
 MTEO_DET = SDMteoNode
@@ -776,7 +777,6 @@ class BayesOptimalTemplateMatchingNode(FilterBankSortingNode):
             self.rval[k].sort()
             self.rval[k] /= int(rsf)
             self.rval[k] -= correct
-        print self.rval
 
     ## BOTM implementation
 
